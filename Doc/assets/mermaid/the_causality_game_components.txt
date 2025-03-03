@@ -1,0 +1,23 @@
+flowchart TB
+ subgraph MDP["MDP: Markov Decision Process"]
+        B["Actions A: Interventions"]
+        C["Transition Function T: Updates State and Actions"]
+        D["State S: Experiments"]
+  end
+ subgraph SCM["SCM: Structural Causal Model"]
+        E["Defines State Transition"]
+  end
+ subgraph Metrics["Metrics"]
+        G["Result Metrics: Accuracy, SHD, etc."]
+        F["Behavior Metrics: Efficiency, Convergence"]
+  end
+ subgraph Player["Player"]
+        A["Agent"]
+  end
+    A -- Chooses --> B
+    A -- Observes --> D
+    B -- Triggers --> C
+    C -- Updates --> D
+    D -- Evaluates --> G & F
+    E -.-> B & C & D & G
+    style MDP fill:#FFFFFF

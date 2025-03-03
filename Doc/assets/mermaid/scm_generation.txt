@@ -1,0 +1,18 @@
+---
+config:
+  layout: dagre
+  theme: neutral
+---
+flowchart TD
+    A["Extended SCM"] -- Defines Causal Model --> B["DAG Construction"]
+    A -- Specifies Equations & Noise --> C["Structural Equations"]
+    A -- Generates Data --> D["Experiment Execution & Evaluation"]
+    B --> B1["Variable Definition"]
+    B1 --> B2["Topological Ordering"]
+    B2 --> B3["Constraint Enforcement"]
+    C --> C1["Parent Dependencies"]
+    C1 --> C2["Functional Mappings"]
+    C2 --> C3["Stochastic Noise"]
+    D --> D1["Experiment Execution"]
+    D1 --> D2["Performance Evaluation"]
+

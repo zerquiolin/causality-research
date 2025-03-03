@@ -1,0 +1,904 @@
+\documentclass{uai2024} % for initial submission
+%\documentclass[accepted]{uai2024} % after acceptance, for a revised version; 
+% also before submission to see how the non-anonymous paper would look like 
+                        
+%% There is a class option to choose the math font
+% \documentclass[mathfont=ptmx]{uai2024} % ptmx math instead of Computer
+                                         % Modern (has noticeable issues)
+% \documentclass[mathfont=newtx]{uai2024} % newtx fonts (improves upon
+                                          % ptmx; less tested, no support)
+% NOTE: Only keep *one* line above as appropriate, as it will be replaced
+%       automatically for papers to be published. Do not make any other
+%       change above this note for an accepted version.
+
+%% Choose your variant of English; be consistent
+\usepackage[american]{babel}
+% \usepackage[british]{babel}
+
+% Package to include and draw figures
+\usepackage{tikz} % for drawing
+\usetikzlibrary{arrows.meta} % for arrow style
+
+%% Some suggested packages, as needed:
+\usepackage{natbib} % has a nice set of citation styles and commands
+    \bibliographystyle{plainnat}
+    \renewcommand{\bibsection}{\subsubsection*{References}}
+\usepackage{mathtools} % amsmath with fixes and additions
+% \usepackage{siunitx} % for proper typesetting of numbers and units
+\usepackage{booktabs} % commands to create good-looking tables
+\usepackage{tikz} % nice language for creating drawings and diagrams
+\usepackage{amssymb}  % Also provides \mathbb along with additional symbols
+
+% Pseudocode
+\usepackage[ruled,vlined, linesnumbered]{algorithm2e}
+
+%% Provided macros
+% \smaller: Because the class footnote size is essentially LaTeX's \small,
+%           redefining \footnotesize, we provide the original \footnotesize
+%           using this macro.
+%           (Use only sparingly, e.g., in drawings, as it is quite small.)
+
+%% Self-defined macros
+\newcommand{\swap}[3][-]{#3#1#2} % just an example
+
+\usepackage{todonotes}
+\newcommand{\fm}[1]{
+    \todo[inline,color=blue!40]{FM: #1}
+}
+
+\newcommand{\sa}[1]{
+    \todo[inline,color=cyan]{SA: #1}
+}
+
+% my mathsymbol command
+\usepackage{xspace}
+\newcommand{\mathsymbol}[2]{\newcommand{#1}{\ensuremath{\mathit{#2}}\xspace}}
+\newcommand{\textmacro}[2]{\newcommand{#1}{#2\xspace}}
+
+% Game
+\textmacro{\game}{\textbf{The Causality Game}}
+\mathsymbol{\varname}{X}
+\mathsymbol{\scm}{M}
+\mathsymbol{\goal}{g}
+\mathsymbol{\performance}{p}
+% Game Metrics
+\mathsymbol{\penalties}{\mathcal{P}}
+
+% MDP Components
+\mathsymbol{\treatments}{\mathcal{T}}
+\mathsymbol{\experiments}{\mathcal{E}}
+\mathsymbol{\statespace}{\mathcal{S}}
+\mathsymbol{\actionspace}{\mathcal{A}}
+\mathsymbol{\transition}{\tau}
+\mathsymbol{\outputspace}{\mathcal{O}}
+\mathsymbol{\initstate}{s_0}
+\mathsymbol{\runs}{\mathcal{R}}
+\mathsymbol{\terminalstate}{s_T}
+\mathsymbol{\reward}{r}
+
+% MDP: Sets
+\mathsymbol{\dataset}{\mathcal{D}} % dataset
+\mathsymbol{\varset}{\mathcal{X}} % all nodes
+% \mathsymbol{\interset}{\mathcal{I}} % all interventions
+\mathsymbol{\edgesset}{\mathcal{E}} % all edges
+% MDP: Variables
+%\newcommand{\intervenablev}{\mathcal{X}_{\text{intervenable}}} % intervenable nodes
+%\newcommand{\observablev}{\mathcal{X}_{\text{observable}}} % observable nodes
+%\newcommand{\interav}{\mathcal{I}_{\text{available}}} % interventions available
+% DAG: Variables
+\newcommand{\DAG}{\mathcal{G}} % DAG
+\newcommand{\psource}{p_{\text{source}}} % probability of source nodes
+\newcommand{\pedges}{p_{\text{edges}}} % probability of adding edges
+\newcommand{\pleaf}{p_{\text{leafs}}} % probability of leaf nodes
+\newcommand{\dmax}{d_{\text{max}}} % maximum number of parents
+\newcommand{\latentx}{\varset_H} % latent variables
+\mathsymbol{\measuredx}{\varset_M} % measurable variables
+\mathsymbol{\controllablex}{\varset_C}
+\newcommand{\interobservablex}{O_I} % intervenable observable variables
+\newcommand{\exintervenablex}{I} % exclusively intervenable variables
+\newcommand{\pl}{p_L} % proportion of latent variables
+\newcommand{\pt}{p_T} % proportion of treatable variables
+\newcommand{\pc}{p_C} % proportion of categorizable variables
+
+\usepackage{soul}
+
+
+\title{The Causality Game}
+
+% The standard author block has changed for UAI 2024 to provide
+% more space for long author lists and allow for complex affiliations
+%
+% All author information is authomatically removed by the class for the
+% anonymous submission version of your paper, so you can already add your
+% information below.
+%
+% Add authors
+% \author[1]{\href{mailto:<jj@example.edu>?Subject=Your UAI 2024 paper}{Jane~J.~von~O'L\'opez}{}}
+% \author[1]{Harry~Q.~Bovik}
+% \author[1,2]{Further~Coauthor}
+% \author[3]{Further~Coauthor}
+% \author[1]{Further~Coauthor}
+% \author[3]{Further~Coauthor}
+% \author[3,1]{Further~Coauthor}
+% % Add affiliations after the authors
+% \affil[1]{%
+%     Computer Science Dept.\\
+%     Cranberry University\\
+%     Pittsburgh, Pennsylvania, USA
+% }
+% \affil[2]{%
+%     Second Affiliation\\
+%     Address\\
+%     …
+% }
+% \affil[3]{%
+%     Another Affiliation\\
+%     Address\\
+%     …
+%   }
+% Add authors
+\author[1]{\href{mailto:<sergio.amortegui@example.com>?Subject=Your UAI 2024 paper}{Sergio~Amortegui}{}}
+\author[1]{\href{mailto:<felix.mohr@example.com>?Subject=Your UAI 2024 paper}{Felix~Mohr}{}}
+
+% Add affiliations after the authors
+\affil[1]{%
+    Faculty of Engineering\\
+    Universidad de La Sabana\\
+    Chía, Colombia
+}
+  
+\begin{document}
+\maketitle
+
+
+
+
+
+
+
+\begin{abstract}
+    Causal inference has become a fundamental component of machine learning, enabling models to transcend mere prediction by uncovering causal relationships that provide valuable insights across domains such as medicine, engineering, economics, and communication. 
+    Despite substantial progress in the field, current benchmarks remain insufficient for comprehensively evaluating an agent’s capacity for causal discovery. 
+    % Their main limitation is that they only focus on passive agents with minimal or no interactivity, limiting the assessment of their ability to discover causal relationships. 
+    Their main limitation is that they only focus on passive agents with minimal or no interactivity, limiting their ability to assess iterative, intervention-based causal reasoning.
+    To address these limitations, we introduce \game, a benchmarking tool that exposes players to an interactive environment with an added degree of freedom, allowing them to undertake interventions to uncover causal relationships. 
+    The Causality Game provides nuanced insights into model performance by tracking key metrics such as structural complexity, convergence rate, and inference time. 
+    % These metrics enable improved model development and facilitate comparative analysis of causal inference agents in diverse, real-world contexts.
+    By advancing benchmarking standards, \game fosters the development of robust causal inference agents capable of navigating complex real-world environments.
+\end{abstract}
+
+
+
+
+
+
+
+\section{Introduction}
+    Causal inference has emerged as a foundational element in modern machine learning, enabling models to transition from correlation-based paradigms to identifying causal relationships that yield actionable insights. 
+    This capability is indispensable across domains such as medicine, engineering, economics, and communication, where understanding causal mechanisms is critical for explaining phenomena, guiding decision-making, and optimizing complex systems.
+
+    Despite significant advances in tools and frameworks for causal inference, a notable gap persists: most benchmarks fail to evaluate the iterative, intervention-driven processes required for real-world causal discovery and reasoning. 
+    Existing benchmarks, including several widely used frameworks \cite{CauseBox2021, ACCBench2024, CIPCaDBench2022}, predominantly focus on static evaluation settings, often disregarding the dynamic and exploratory aspects of causal inference, thereby limiting their ability to assess practical iterative and interactive causal reasoning processes. 
+    Besides this problem, some are limited to predefined observational setups and do not allow for extending their scope to active interventions, and so the evaluation metrics fail to capture the nuances of real-world iterative and intervention-driven causal discovery processes. 
+    Similarly, others aim to streamline causal inference by integrating multiple discovery algorithms and standardizing outputs, yet they lack provisions for active interventions and hypothesis-driven exploration \cite{ACCBench2024, Framework2021}. 
+    In contrast, a few benchmarks partially address these challenges by enabling controlled experiments with synthetic data, though these solutions remain limited in their ability to fully emulate real-world iterative and intervention-based causal discovery processes \cite{runge2019causality, IBM2022}.
+
+    To address these limitations, we propose \game, an interactive benchmarking platform designed to evaluate causal inference agents in environments requiring active interventions. 
+    Unlike existing benchmarks, \game immerses agents in an interactive environment where they perform interventions, refine causal hypotheses, and validate their findings against known ground truths.
+    Using synthetic data exclusively, the platform ensures full control over experimental conditions, enabling reproducible and systematic evaluations of diverse simulated causal structures. 
+    The framework assesses key factors such as structural complexity, convergence rates, and intervention efficiency, allowing a comprehensive evaluation of agent capabilities in real-world-inspired settings.
+
+    Through its interactive design, \game addresses the limitations of existing benchmarks \cite{CausalDiscoveryFramework2024, RealCause2021, BayesianCausalDiscovery2023, CausalBench2024, EvaluationFramework2022, CauseBox2021, PersonalizedExperimentation2022}.
+    It provides a transparent, scalable, and reproducible platform for advancing causal inference research and fostering the development of robust causal inference agents capable of navigating complex environments.
+
+
+
+
+
+
+
+\section{The Causality Game}
+    \game is a single player turn-based game in which the agent tries to learn causal relationships among some finite number of variables.
+    A \emph{match} in this game starts by the agent receiving some initial knowledge in the form of observations about these variables.
+    The agent can then iteratively gather new observations of the variables, possibly controlling the value of some of them and  leaving the values of the others to the laws of the environment.
+    Once the agent believes to have captured the causal connections among the variables, he plays a special action, in which he formulates his verdict on the causal connections.
+
+    We model the game mechanics through five components.
+    First, the basis of every match is an \emph{extended Structural Causal Model (SCM)} \scm \citep{pearl}, which contains the existing variables and their true connections, which are of course disclosed from the agent since this is what he needs to discover.
+    Second, the SCM induces a game \emph{environment}, which consists of the set \statespace of game states, actions \actionspace, and a probabilistic transition function \transition.
+    The agent is always fully aware of the current game state; in particular, the agent is initially informed about the \emph{initial state}, which is the third component.
+    Fourth, a \emph{stopping criterion} decides for each state-action sequence of the environment whether the match is over, either because the agent has delivered a solution or because a limit of actions has been reached.
+    Finally, the a \emph{performance function} maps this sequence to a pair of (i) behavior score and (ii) result score.
+    Note that we do \emph{not} model the game as a classical Markov Decision Process (MDP), because the performance (even the behavior performance) might not be additive over the actions; of course, an equivalent MDP representation mathematically exists.
+
+    % We now describe each of these components in detail.
+
+    \subsection{Extended Structural Causal Model}
+        The Structural Causal Model (SCM) \scm is the foundational component of \textbf{The Causality Game}, encapsulating the causal structure, relationships, and stochastic behaviors that govern the simulated environment.
+        In a nutshell, an SCM is a triplet $\scm := \langle \varset, \{f_i\}, \{\eta_i\}\rangle$,
+        where $ \varset = \{\varname_1, \varname_2, \ldots, \varname_n\} $ is a finite set of variable names, 
+        $\{f_i\}$ is a set of equations defining for each variable $\varname_i$ how it can be computed from other variables in \varset and noise, and $\{\eta_i\}$ is a set of noise distribution descriptions, one per $\varname_i$.
+        
+        Each variable $\varname_i \in \varset$ has a \emph{domain} and may be associated with the properties of being \emph{measured} and/or \emph{controllable}.
+        The domain, denoted as $domain(\varname_i)$, is simply the set of values the variable may take.
+        We say that $\varname_i$ is \emph{discrete} if $domain(\varname_i)$ is finite or at least countable and \emph{continuous} otherwise.
+        A variable $\varname_i$ is measured iff there is a column for this variable in the gathered datasets, and the set of these variables is captured in $\measuredx \subseteq \varset$; these variables are also sometimes called \emph{observable}, which is however slightly misleading in our context.
+        A variable $\varname_i$ is controllable iff the agent may control the value of this variable for subjects in the simulated world; the set of these variables is captured in $\controllablex \subseteq \varset$.
+        
+        Note that all four possible membership combinations with respect to \measuredx and \controllablex are possible for any variable $\varname_i$.
+        If $\varname_i \notin \measuredx, \varname_i \notin \controllablex$, it is a \emph{latent} variable that can neither be observed nor controlled by the agent, e.g., the configuration of certain genes in the absence of monitoring technology.
+        If $\varname_i \in \measuredx, \varname_i \notin \controllablex$, it is a regular variable that can be observed but not directly controlled, e.g., concentration of certain markers in the blood.
+        An measured and controllable variable $\varname_i \in \measuredx, \varname_i \in \controllablex$ could be whether a person is a smoker.
+        Finally, a variable $\varname_i \notin \measuredx, \varname_i \in \controllablex$ is the perhaps most unintuitive case where we can control a variable but not observe it.
+        This is the case for variables that have no natural occurrence without intervention, i.e., would have a single standard value that would occur whenever the variable is not intervened and hence not be subject of data collection, e.g., a variable that encodes treatment with a certain drug.
+
+        \begin{figure}[ht]
+            \centering
+            \includegraphics[width=0.7\columnwidth]{assets/game_components.png}
+            \caption{
+                % Diagram of \game components: the \textbf{State ($\statespace$)} captures treatments (\treatments), \textbf{Actions ($\actionspace$)} represent available experiments (\experiments) and responses, and the \textbf{Transition Function ($\transition$)} updates both the State ($\statespace$) and Actions ($\actionspace$) based on the agent's choices. 
+                % Additionally the Player, the Extended Structural Causal Model ($\scm$) and the Performance Measure ($\performance$) are also shown.
+                Game Components Diagram: The State ($\statespace$) captures treatments (\treatments), Actions ($\actionspace$) represent experiments (\experiments) and responses, and the Transition Function ($\transition$) updates both based on the agent’s choices. The diagram also includes the Player, the Extended Structural Causal Model ($\scm$), and the Performance Measure ($\performance$).
+            } 
+            \label{fig:game_components}
+        \end{figure}
+
+
+
+    \subsection{The Environment of a Match}
+        The environment in \game serves as an interactive platform where causal discovery agents engage with a simulated world designed for experimentation. 
+        It provides agents the capability to execute interventions and analyze the resulting datasets, facilitating the discovery of underlying causal structures. 
+        While the environment leverages the extended SCM for implementing the dynamics of state transitions, it does not directly expose the SCM to the agent.
+        This distinction emphasizes that the environment’s primary role is to enable agents to perform structured interventions and observe their outcomes while preventing direct access to the true causality.
+
+
+        The environment is then a tuple $\langle \statespace, \actionspace, \transition \rangle$ with the following syntax and semantics.
+        The \emph{state space}, $\statespace$, comprises all possible states $s: \treatments \rightarrow \dataset$, each of them being a mapping between treatments and datasets with observations associated with these treatments. 
+        The \emph{action space}, $\actionspace = \experiments \cup \{\text{stop with answer } a ~|~ a \in \outputspace\}$, encompasses all admissible interventions, where each action is either the execution of an experiment or stopping the game with a final answer.
+        The state transition function $\transition$ encapsulates the dynamic evolution of the environment. 
+        It maps a state-action pair $(s, a)$ to a subsequent state $s'$ depending on the nature of the action $a$.
+        If $a$ is a regular experiment $\{(t_1, n_1),..,(t_k,n_k)\}$, then \transition samples a new dataset $D_i'$ of size $n_i$ for each treatment $t_i$, and we obtain $s'$ by first setting $s' := s$ and then sequentially updating $s' := (s' \setminus \{(t_i, D_i)\}) \cup \{(t_i, D_i \cup D_i')\}$ for all treatments $t_i$ in the experiment $a$, and where $D_i$ is the (maybe empty) dataset associated with treatment $t_i$ in the previous state $s$.
+        If $a$ is a stopping action, then \transition transits to a distinguished final state $s^*$ that is equal to $s$ except that a final answer has been stored (here omitted from the formalization of \statespace to keep notation uncluttered), and no more actions are possible from $s^*$.
+        
+
+
+    \subsection{Initial State ($\initstate$)}
+        The initial state $s_0$ may be any state from \statespace.
+        Typically, it will contain only data for the empty treatment $\bot$ or even be entirely empty.
+
+
+
+    \subsection{Stopping Condition $\phi$}
+        Let \runs be the set of all possible alternating state-action sequences in the environment.
+        The \emph{stopping condition} is a predicate $\phi$ that evaluates positively on a subset of \runs.
+    
+        There are two conditions that cause $\phi$ to evaluate positively on a run $r \in \runs$:
+
+        \begin{enumerate}
+            \item \textbf{Completion of Objectives:} Executing the stop action with an answer $a$.
+            \item \textbf{Resource Limits:} A maximum number of actions or rounds as configured in the environment.
+        \end{enumerate}
+
+
+
+    \subsection{Performance Measure}
+        The agent performance measure \performance is based on both the behavior \emph{during} the game (e.g., which and how many actions are necessary to achieve the goal), and the \emph{delivered solution} $o \in \outputspace$ (e.g., how similar is the identified causal model to SCM \scm).
+        Formally, we define $\performance: \runs \rightarrow \mathbb{R}^2$, where the first component is based on the whole trajectory of the agent and the second is based only on the answer given in the last action (if any).
+
+
+
+    \subsection{Match Simulation and Scoring}
+        The simulation process begins by using a Structural Causal Model (SCM) to define the environment and evaluate a player’s strategy. 
+        The system’s transition dynamics are derived from the SCM, and the simulation starts in an initial state $\initstate$. 
+        The player iteratively selects actions, leading to state transitions until a stopping condition is met. 
+        Throughout, the trajectory of states and actions is recorded and later assessed using performance metrics that evaluate both behavior and solution quality.
+
+    The following Pseudocode presents the code implementation of this process.
+
+        \begin{algorithm}
+            \SetAlgoLined
+            \KwIn{
+                SCM $scm$ defining $\langle X, f_i, \eta \rangle$, \\
+                Initial state $s_0$, \\
+                Stopping condition $\phi(r)$, \\
+                Performance measure $p(r)$, \\
+                Player strategy $\pi(s)$
+            }
+            \KwOut{
+                Run metrics $r = (\text{behavior}, \text{delivered})$
+            }
+            
+            \SetKwFunction{GetEnvironment}{GetEnvironment}
+            \SetKwFunction{GetAction}{GetAction}
+            \SetKwFunction{UpdateState}{UpdateState}
+            \SetKwFunction{ComputePerformance}{ComputePerformance}
+
+            \tcp{Create the environment from SCM}
+            $\langle \statespace, \actionspace, \transition \rangle \gets$ \GetEnvironment{$scm$} \\
+            $s \gets s_0$ \tcp*{Initialize State} 
+            $r \gets [s_0]$ \tcp*{Initialize Run}
+            
+            \While{\textbf{not} $\phi(r)$}{
+                $a \gets \pi(s)$ \tcp*{Player's action}
+                $s \gets \tau(s, a)$ \tcp*{Transition's State}
+                $r.extend([a, s])$; \tcp*{Extend Run}
+            }
+            
+            \Return{$p(r)$} \tcp*{Return Run Metrics}
+            
+            \caption{Run Match Simulation and Scoring with Post-Action Performance Calculation}
+        \end{algorithm}
+
+
+
+
+
+
+
+\section{Standard Components}
+    To effectively being able to play \game with any player \texttt{pi}, one needs concrete realizations of \texttt{scm}, \texttt{s0}, \texttt{phi}, and the performance \texttt{p}.
+    While the game (and our implementation) are open for any custom realizations of these components, we provide standard implementations to ease the usage.
+
+        \begin{figure}[ht]
+            \centering
+            \includegraphics[width=0.7\columnwidth]{assets/scm_generation.png} % Replace with actual file path
+            \caption{Diagram illustrating the Extended SCM process, capturing DAG construction, structural equations, and experiment execution.}
+            \label{fig:scm_generation}
+        \end{figure}
+
+
+
+    \subsection{Standard SCM}
+        The SCM serves as the foundation for generating experiments with interventional data and acts as the ground truth for evaluating agent performance. 
+        The SCM is constructed systematically based on two primary components: 
+        (1) the Directed Acyclic Graph (DAG) that defines the causal structure, and 
+        (2) the equations and noise distributions that specify the causal relationships and stochastic behaviors of the variables.
+        Both components are governed by hyperparameters that influence the nature of the SCM to be generated.
+        We now discuss both components in detail.
+
+        \begin{figure}[ht]
+            \centering
+            \includegraphics[width=0.7\columnwidth]{assets/dag_example.png} % Replace with actual file path
+            \caption{An example of a Directed Acyclic Graph (DAG) used in \game. Root nodes ($\mathcal{R}$) are shown in green, intermediate nodes ($\mathcal{I}$) are shown in white, and leaf nodes ($\mathcal{L}$) are shown in red. The edges represent causal relationships between variables.}
+            \label{fig:dag_example}
+        \end{figure}
+
+
+
+        \subsubsection{Directed Acyclic Graph (DAG) Construction}
+            We present a structured approach for DAG generation that ensures compliance with user-defined constraints while maintaining flexibility for custom implementations. 
+            The process consists of four key steps: (1) Variable Initialization, (2) Backbone DAG Construction, (3) Edge Refinement and Path Control, and (4) Validation and Finalization. 
+            Given a set of variables $ \varset = \{\varname_1, \varname_2, \dots, \varname_n\} $ arranged in a topological order, the goal is to construct a DAG $ \mathcal{G} = (\varset, \mathcal{E}) $, where $ \mathcal{E} \subseteq \varset \times \varset $ represents causal dependencies \citep{pearl}. 
+            
+            % The first step partitions the variables into \emph{root nodes} $ \mathcal{R} $ (nodes with no incoming edges), \emph{leaf nodes} $ \mathcal{L} $ (nodes with no outgoing edges), and \emph{intermediate nodes} $ \mathcal{I} $, with user-defined quantities. 
+            % % The backbone DAG is then constructed using a breadth-first search (BFS) algorithm, which prioritizes short-range connections to create a minimal spanning structure, ensuring that each intermediate node has a path from at least one root node to at least one leaf node. 
+            % The backbone DAG is then constructed using a breadth-first search (BFS) algorithm, which ensures that each intermediate node is reachable from at least one root and has a path to at least one leaf, maintaining acyclicity. 
+            % To refine the structure, additional edges are introduced based on a controlled probability distribution that determines edge presence while enforcing constraints on edge density, degree limits, and path lengths. 
+            % % Edges are assigned only from \emph{lower-indexed nodes} to \emph{higher-indexed nodes} to preserve topological order. 
+            % The probability of an edge between two nodes is influenced by their relative topological distance, favoring connections that enhance structural coherence without excessive shortcutting. 
+            % % A depth-first search (DFS) algorithm selectively extends paths to ensure that the minimum path length requirement is met, prioritizing nodes with limited incoming edges. 
+            % Path length constraints are enforced by inserting intermediate nodes where necessary and ensuring paths adhere to the defined range.
+            % Conversely, to prevent excessively long paths, the longest paths are analyzed, and redundant intermediate nodes are removed or shortcut edges are introduced where appropriate, ensuring structural coherence. 
+            % Finally, the DAG undergoes a validation process to confirm acyclicity, adherence to all constraints, and overall structural consistency, concluding with the generated graph shown in Fig.~\ref{fig:dag_example}.
+
+            The first step partitions the variables into \emph{root nodes} $ \mathcal{R} $ (nodes with no incoming edges), \emph{leaf nodes} $ \mathcal{L} $ (nodes with no outgoing edges), and \emph{intermediate nodes} $ \mathcal{I} $, with user-defined quantities. 
+            The backbone DAG is constructed using a breadth-first search (BFS) algorithm, ensuring each intermediate node is reachable from at least one root and connects to at least one leaf while preserving acyclicity. 
+            To refine the structure, additional edges are introduced based on a controlled probability distribution that determines edge presence while enforcing constraints on edge density, degree limits, and path lengths. 
+            Path length constraints are enforced by strategically inserting intermediate nodes, ensuring compliance with the specified range. 
+            Conversely, to prevent excessively long paths, the longest paths are analyzed, and redundant intermediate nodes are removed or shortcut edges are selectively introduced to maintain topological integrity. 
+            Finally, the DAG undergoes a validation process to confirm acyclicity, adherence to all constraints, and overall structural consistency, concluding with the generated graph shown in Fig.~\ref{fig:dag_example}.
+            The complete DAG Generation Algorithm is detailed in appendix \ref{appendix:dag_generation_algorithm}.
+            %A basic implementation of the DAG generation algorithm is:
+            \begin{algorithm}
+                \DontPrintSemicolon
+                \KwIn{Configuration parameters $\theta$}
+                \KwOut{Directed Acyclic Graph (DAG)}
+            
+                \tcp{Step 1: Partition Nodes}
+                $\mathcal{R}, \mathcal{I}, \mathcal{L} \leftarrow$ \texttt{DefineNodes}($\theta$) 
+                % \tcp{Identify root, intermediate, and leaf nodes}
+            
+                \tcp{Step 2: Construct Backbone}
+                $G \leftarrow \texttt{ConnectNodes}(\mathcal{R}, \mathcal{I}, \mathcal{L})$ 
+                % \tcp{Ensure reachability while maintaining acyclicity}
+            
+                \tcp{Step 3: Add Edges Based on Constraints}
+                $G \leftarrow \texttt{FillEdges}(G, \theta)$
+                %  \tcp{Introduce edges based on probability, path lengths, and degree constraints}
+            
+                \Return $G$
+                \caption{DAG Generation Algorithm}
+            \end{algorithm}
+            
+
+
+        \subsubsection{Variable Properties}  
+            Each variable $ \varname_i $ is characterized by its role and interactions within the graph.  
+            It can be \emph{measured} ($ \varname_i \in \measuredx $) or \emph{latent} ($ \varname_i \notin \measuredx $), and either \emph{controllable} ($ \varname_i \in \controllablex $) or \emph{non-controllable} ($ \varname_i \notin \controllablex $), resulting in four possible categories.  
+            The proportions of latent and measured variables are governed by $ \pl $, while treatability (controllability) is determined by $ \pt $.  
+            
+            Each variable is classified as either \emph{discrete} or \emph{continuous} based on a probabilistic model governed by $ \pc $, ensuring a structured distribution of variable types.  
+            Continuous variables are sampled from a predefined bounded range for numerical stability.  
+            For discrete variables, \emph{cardinality} $ |\text{dom}(\varname_i)| $ defines the number of possible values, assigned via a categorical distribution that favors commonly observed domain sizes (e.g., binary or low-cardinality categories).  
+
+
+
+    \subsection{Structural Causal Equation Generation}
+        The parent set of a variable $ \varname_i $ is denoted as $ \text{Pa}(\varname_i) = \{ \varname_j \mid (\varname_j \to \varname_i) \in \mathcal{E} \} $, representing the causal dependencies defined by the DAG structure. 
+        Each variable is assigned a structural equation of the form:
+        \begin{equation*}
+            \varname_i = f_i(\text{Pa}(\varname_i)) + \eta_i
+        \end{equation*}
+        where $ f_i $ is a deterministic function constrained by user-defined rules, and $ \eta_i \sim \mathbb{P}_{\eta_i} $ is an exogenous noise term drawn from a user-specified distribution. 
+        Structural equations are generated once and stored, ensuring reproducibility and computational efficiency in subsequent data generation processes. 
+        Further details on the equation generation process are provided in Appendix~\ref{appendix:structural_equations_algorithm}.
+
+
+
+        \subsubsection{Structural Equations}
+            Under the assumption that both parent and children variables are numerical, the structural equation $ f_i $ is constructed following a rigorous process.
+            To ensure systematic function construction while maintaining interpretability, the equation generation process follows a \textbf{context-free grammar (CFG)}. 
+            The functional form of the structural equation $ f_i $ accounts for causal dependencies by incorporating parent variables $ \text{Pa}(\varname_i) $ as inputs. 
+            The equation is iteratively constructed by selecting mathematical operations and functions from a predefined set of possibilities, ensuring it adheres to user-defined constraints. 
+            These constraints regulate function complexity by imposing restrictions on \emph{linearity} (allowing or disallowing non-linear terms), \emph{exponentiation} (limiting variable or scalar exponents), and \emph{permitted mathematical operations} (e.g., product, logarithmic, exponential, trigonometric). Additionally, they define the \emph{maximum function complexity}, such as the highest polynomial degree or total number of terms.
+            Based on these constraints, the function $ f_i $ is generated using a symbolic mathematical framework such as \texttt{SymPy}. 
+            After generating the structural function \( f_i \), an exogenous noise term \( \eta_i \) is incorporated to account for stochasticity and unobserved influences. 
+            The noise term  $ \eta_i $ is drawn from a user-defined probability distribution $ \mathbb{P}_{\eta_i} $, capturing unobserved influences and ensuring that the generated values exhibit natural variability.
+
+        
+            \paragraph{Parent Constraints}
+                The previously described CFG-based function generation assumes that both parent and child variables are numerical. 
+                However, in real-world scenarios, a mix of numerical and categorical variables is common. 
+                Therefore, it is essential to account for how input variable constraints influence the generated equations.
+                If a parent variable is numerical, its raw values contribute directly to the structural equation. 
+                If a parent variable is categorical, a transformation step is required before function generation. 
+                In this case, categorical variables undergo one-hot encoding, introducing binary variables $ B_{jm} $ corresponding to each category. 
+                Since binary variables require numerical representation, a transformation function $ g_j $ is generated for each $ B_{jm} $ using context-free grammar while adhering to user-defined constraints. 
+                To ensure consistency in future computations, a dataset of 1000 values is sampled from $ g_j $, and an empirical cumulative density function (CDF) is constructed. 
+                The CDF maps categorical values into a probability space within [0,1], enabling consistent and reproducible transformations in subsequent computations.
+                The transformed categorical values are then used in the function generation process for $ f_i $.
+
+
+            \paragraph{Children Constraints}
+                When the target variable $ \varname_i $ is categorical, an additional post-processing step is required to determine its value. 
+                Each category is assigned a one-time random numerical representation, ensuring that the output of the structural equation can be mapped to discrete categorical values. 
+                The categorical value is selected by choosing the category whose assigned numerical value is \emph{closest} to the computed function output. 
+                This mapping remains fixed to maintain consistency across all generated samples.
+
+
+            \paragraph{Final Formulation}
+                The final structural equation for a numerical variable is:
+                \begin{equation*}
+                    \varname_i = \max \left( \min \left( f_i(\text{Pa}(\varname_i)) + \eta_i, \varname_i^{\text{max}} \right), \varname_i^{\text{min}} \right).
+                \end{equation*}
+                For categorical variables, the inverse mapping function $ g_i^{-1} $ is applied:
+                \begin{equation*}
+                    \varname_i = g_i^{-1} \left( f_i(\text{Pa}(\varname_i)) + \eta_i \right).
+                \end{equation*}
+                This formulation ensures that numerical and categorical variables remain within their valid domains while adhering to predefined causal relationships. 
+
+
+        
+        \subsubsection{Data Generation}
+            Once structural equations, categorical transformations, and mappings are stored, data generation proceeds in a topological order to ensure that dependencies are respected. 
+            The process accounts for both observational and interventional data. 
+            In observational data generation, variable values are sampled according to the precomputed functions and noise distributions. 
+            In interventional data generation, certain variables are externally fixed to evaluate causal effects. 
+            For each new sample, the stored function $ f_i $ is retrieved along with any necessary CDF transformations for categorical parents. 
+            The equation \( f_i(\text{Pa}(\varname_i)) + \eta_i \) is then evaluated, followed by categorical post-processing where applicable.
+
+
+
+    \subsection{Standard Initial States}
+        The initial state can either be empty or include a specific number of random observations without intervention. 
+        The complexity of the SCM—defined by factors such as node count, latent variables, measurable variables, and network connectivity determines the initial state configuration. 
+        High complexity models (e.g., with many latent variables, dense relationships, or sparse networks) result in 1–3 treated variables and 100–500 sample points. 
+        Simpler models default to an empty state.
+
+
+
+    \subsection{Standard Stopping Criteria}
+        The stopping criteria determine when the agent ends the game by either (1) completing objectives through the stop action with an answer or (2) reaching resource limits, such as a maximum number of actions or rounds configured in the environment. 
+        Resource usage and the finality of actions are analyzed to ensure a systematic conclusion of the game.
+
+
+
+    \subsection{Performance Measure Generator}
+        Both the Resources and Completion of objetives scores are measured by individually analyzing the actions taken to measure the performance in terms of number of steps and weight of each action .... and the run as a whole.
+        The variables $\dots$.
+
+
+
+    \subsection{Standard Goals and Metrics}
+        Pre-defined sets of metrics for outputs (which then imply goals) and behavior
+                
+        \begin{itemize}
+            \item \textbf{Reconstruct the SCM:} The agent must infer the underlying structural causal model.
+            \item \textbf{Reconstruct the DAG:} The agent must infer the underlying causal structure encoded by the DAG $\DAG$.
+            \item \textbf{Identify Direct Causes:} The agent must identify the underlying inducers for a specific variable.
+            \item \textbf{Quantify Causal Strength:} The agent must estimate the causal strength of relationships between specific variables.
+        \end{itemize}
+
+        Note the complexity range of the goals, from simple identification tasks to more complex causal strength estimation. 
+        In addition, an agent is restricted to play the game for no more than one goal type. 
+
+        \sa{PENDING: References for each goal.}
+
+        \begin{figure}[h]
+            \centering
+            % DAG Diagram without circles around "True DAG" and "Inferred DAG"
+            \begin{tikzpicture}[node distance=1.5cm and 2cm, >={Stealth[round]}, every node/.style={circle, draw, minimum size=0.8cm}]
+                % True DAG
+                \node[draw, thick] (T1) at (0,2) {A};
+                \node[draw, thick] (T2) at (2,2) {B};
+                \node[draw, thick] (T3) at (1,0) {C};
+                
+                \draw[->, thick] (T1) -- (T2);
+                \draw[->, thick] (T1) -- (T3);
+                
+                \node[draw=none] at (1,-1) {True DAG}; % Remove the circle around this text
+                
+                % Inferred DAG
+                \node[draw, thick] (I1) at (5,2) {A};
+                \node[draw, thick] (I2) at (7,2) {B};
+                \node[draw, thick] (I3) at (6,0) {C};
+                
+                \draw[->, thick] (I1) -- (I2);
+                \draw[->, thick, red] (I2) -- (I3); % Reversal Error
+                \draw[->, thick, blue, dashed] (I1) -- (I3); % Missing Edge
+                
+                \node[draw=none] at (6,-1) {Inferred DAG}; % Remove the circle around this text
+                
+                % Legend
+                \node[rectangle, draw, align=center] at (3.5,-2){
+                    \textbf{\small Legend:}\\
+                    \textcolor{red}{\small(1) Reversed Edge}, \ 
+                    \textcolor{blue}{\small(2) Missing Edge}
+                };
+            \end{tikzpicture}
+            \caption{
+                Comparison between the True DAG and Inferred DAG. 
+                The true structure includes two edges originating from node A. 
+                The inferred DAG introduces a reversed edge (red) and a missing edge (blue, dashed). 
+            }
+            \label{fig:true-inferred-dag}
+        \end{figure}
+
+
+
+        \subsubsection{Result Metrics}
+            The following metrics are designed to assess the \emph{final answer} given by the agent.
+            
+            \paragraph{Uncover the SCM:}
+                The \emph{Structural Hamming Distance (SHD)} evaluates discrepancies in the inferred DAG structure, while \emph{F1 Score} combines precision and recall for edge detection. 
+                The \emph{Mean Squared Error (MSE)} quantifies deviations in the estimated functional relationships, and the \emph{Pearson Correlation Coefficient (PCC)} measures the alignment between the inferred and true causal strengths. 
+                For counterfactual validation, the \emph{Average Treatment Effect (ATE)} assesses the accuracy of causal effect estimation.
+
+            \paragraph{Reconstruct the DAG:}
+                The \emph{Structural Hamming Distance (SHD)} quantifies discrepancies in edges between the inferred and the true DAG.
+                The \emph{F1 Score} combines precision and recall for edge detection, while \emph{Edge Orientation Accuracy} evaluates the correctness of the causal direction.
+            
+            \paragraph{Identify Direct Causes:}
+                \emph{Precision} measures the proportion of correctly identified direct causes, and \emph{Recall} captures how many true direct causes are found. 
+                The \emph{F1 Score} balances these metrics, and \emph{Direct Causes Overlap} evaluates the similarity between the inferred and true direct causes.
+            
+            \paragraph{Quantify Causal Strength:}
+                The \emph{Mean Absolute Error (MAE)} calculates deviations between inferred and true strengths. 
+                \emph{Pearson Correlation Coefficient (PCC)} measures linear alignment, and \emph{Coverage Probability} checks if true values fall within confidence intervals.
+
+            For instance, in Fig.~\ref{fig:true-inferred-dag}, the inferred DAG has discrepancies with the true DAG, such as a reversed edge (red) and a missing edge (blue, dashed).
+            Which in the case of the goal \emph{DAG reconstruction} would lead to a high \emph{SHD} with low \emph{Edge Orientation Accuracy} and low \emph{F1} score.
+
+            Beyond structural metrics, some measures, like \emph{ATE}, rely on assessing the causal effects encoded by the graph, which requires counterfactual reasoning to accurately evaluate these effects.
+
+            \paragraph{Counterfactuals:}
+                Counterfactual reasoning is fundamental to evaluating causal inference in \game. 
+                Counterfactuals enable the benchmark to internally compute hypothetical outcomes of interventions, providing a robust foundation for result metrics. 
+                A counterfactual under an intervention $\text{do}(\varname_i = v)$ is mathematically defined as:
+                    \begin{equation*}
+                        P(\varname_j \mid \text{do}(\varname_i = v)) = P(\varname_j \mid \text{Pa}(\varname_j) \setminus \varname_i = v),
+                    \end{equation*}
+                where $\varname_i$ is the intervened variable, $v$ is its fixed value, and $\varname_j$ represents the affected variable. 
+                This captures how manipulating $\varname_i$ influences downstream outcomes through the causal structure.
+
+                While agents do not compute counterfactuals directly, the benchmark uses counterfactual reasoning to evaluate agent performance. 
+
+                For example, the Average Treatment Effect (ATE), a widely used causal effect measure, is calculated as:
+                    \begin{equation*}
+                        \text{ATE} = \mathbb{E}[Y \mid \text{do}(X = 1)] - \mathbb{E}[Y \mid \text{do}(X = 0)],
+                    \end{equation*}
+                where $X$ represents the treatment and $Y$ the outcome. 
+                This quantifies the causal impact of an intervention on $ Y $ and serves as a reference for evaluating agent predictions.
+
+                By leveraging counterfactuals internally, the benchmark rigorously assesses an agent's ability to infer causality using observational and interventional data. 
+
+
+
+        \subsubsection{Behavior Metrics}
+            The following metrics provide a detailed assessment of the agent’s \emph{behavior} and \emph{actions} throughout the game. 
+            Once the game concludes, the agent's performance is evaluated based on the number of \emph{experiments}, \emph{treatments}, and \emph{rounds} executed. 
+            Each action incurs a penalty, ensuring that efficient decision-making is rewarded.
+
+            \paragraph{Penalty Measures}
+                The penalties for experiments, treatments, and rounds are defined as weighted costs:
+                \begin{equation*}
+                    \penalties_{\experiments} = e \cdot n_\experiments, \quad
+                    \penalties_{\treatments} = t \cdot n_\treatments, \quad
+                    \penalties_{\runs} = r \cdot n_\runs.
+                \end{equation*}
+                where $ n_\experiments $, $ n_\treatments $, and $ n_\runs $ represent the total number of \emph{experiments}, \emph{treatments}, and \emph{rounds}, respectively, and $ e, t, r $ are their associated cost coefficients.
+
+
+            \paragraph{Total Behaviour Measure:}
+                The total behavior measure is the weighted average of the penalties incurred by the agent during the game:
+                    \begin{equation*}
+                        \penalties_{\text{total}} = \alpha \cdot \penalties_{\experiments} + \beta \cdot \penalties_{\treatments} + \gamma \cdot \penalties_{\runs}.
+                    \end{equation*}
+                where $\alpha$, $\beta$, and $\gamma$ are the weights assigned to each penalty, ensuring a balanced evaluation of the agent's behavior.
+
+                
+            \paragraph{Monotonicity Property}
+                This function is \emph{monotonic} over the set of all possible game histories, meaning that increasing the number of experiments, treatments, or rounds strictly increases the penalty. 
+                Formally, if $\runs$ and $\runs'$ are two game histories such that:
+                \begin{equation*}
+                    n_\experiments \geq n_\experiments, \quad
+                    n_\treatments \geq n_\treatments, \quad
+                    n_\runs' \geq n_\runs,
+                \end{equation*}
+                then:
+                \begin{equation*}
+                    \penalties_{\text{total}}(\runs') \geq \penalties_{\text{total}}(\runs).
+                \end{equation*}
+                This guarantees that the behavior measure respects efficiency, discouraging unnecessary actions while rewarding optimal strategies.
+
+
+        \subsubsection{Combined Final Metric}
+            To comprehensively evaluate an agent, a global measure integrates the \emph{result metrics} (task performance) and \emph{behavior metrics} (efficiency and costs). This ensures a balanced assessment of both solution quality and execution efficiency.
+            
+            \paragraph{Result Metrics Aggregate}  
+                The result metrics are normalized to $[0,1]$ and combined into a single score:
+                \begin{equation*}
+                    \mathcal{M}_{\text{result}} = w_1 \cdot \text{SHD}_{\text{norm}} + w_2 \cdot \text{F1} + w_3 \cdot \text{MSE}_{\text{norm}} + w_4 \cdot \text{PCC},
+                \end{equation*}
+                where $ w_1, w_2, w_3, w_4 $ control the relative importance of each component.
+            
+            \paragraph{Behavior Metrics Aggregate}  
+                The behavior score accounts for the penalties incurred from agent actions:
+                \begin{equation*}
+                    \mathcal{M}_{\text{behavior}} = \alpha \cdot \penalties_{\experiments} + \beta \cdot \penalties_{\treatments} + \gamma \cdot \penalties_{\runs},
+                \end{equation*}
+                where $\penalties_{\experiments}$, $\penalties_{\treatments}$, and $\penalties_{\runs}$ represent penalties for the number of experiments, treatments, and rounds, respectively, where $ \alpha, \beta, \gamma $ adjust for different cost contributions.
+            
+            \paragraph{Global Measure}  
+                The final evaluation metric combines both aspects:
+                \begin{equation*}
+                    \mathcal{M}_{\text{global}} = \lambda \cdot \mathcal{M}_{\text{result}} - (1 - \lambda) \cdot \mathcal{M}_{\text{behavior}},
+                \end{equation*}
+                where $ \lambda \in [0,1] $ controls the trade-off between result quality and efficiency. The global measure ranges from 0 (poor performance) to 1 (optimal performance), ensuring interpretability.
+
+
+
+
+
+
+
+\section{Results}
+  Results
+
+
+
+
+
+
+
+\section{Discussion}
+  Discussion
+
+
+
+
+
+
+
+\section{Conclusion}
+  Conclusion
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{contributions} % will be removed in pdf for initial submission 
+					  % (without ‘accepted’ option in \documentclass)
+                      % so you can already fill it to test with the
+                      % ‘accepted’ class option
+    Briefly list author contributions. 
+    This is a nice way of making clear who did what and to give proper credit.
+    This section is optional.
+
+    H.~Q.~Bovik conceived the idea and wrote the paper.
+    Coauthor One created the code.
+    Coauthor Two created the figures.
+\end{contributions}
+
+\begin{acknowledgements} % will be removed in pdf for initial submission,
+						 % (without ‘accepted’ option in \documentclass)
+                         % so you can already fill it to test with the
+                         % ‘accepted’ class option
+    Briefly acknowledge people and organizations here.
+
+    \emph{All} acknowledgements go in this section.
+\end{acknowledgements}
+
+\newpage
+
+% References
+\bibliography{bibliography}
+
+\appendix
+
+\section{DAG Generation Algorithm}
+    \label{appendix:dag_generation_algorithm}
+    \begin{algorithm}
+        \caption{Optimized Directed Acyclic Graph (DAG) Generation}
+        \KwIn{Number of nodes $N$, number of roots $R$, number of leaves $L$, edge density $D$, max in-degree $M_{\text{in}}$, max out-degree $M_{\text{out}}$, min/max path lengths $P_{\text{min}}, P_{\text{max}}$}
+        \KwOut{A valid DAG $ \mathcal{G} = (\varset, \mathcal{E}) $}
+        
+        \BlankLine
+        \textbf{Step 1: Initialize Nodes and Partitions} \\
+        Partition $ \varset $ into:
+        \begin{itemize}
+            \item Root nodes $ \mathcal{R} $ (no incoming edges)
+            \item Leaf nodes $ \mathcal{L} $ (no outgoing edges)
+            \item Intermediate nodes $ \mathcal{I} = \varset \setminus (\mathcal{R} \cup \mathcal{L}) $
+        \end{itemize}
+        
+        \BlankLine
+        \textbf{Step 2: Construct Backbone DAG (BFS-based)} \\
+        Initialize $ \mathcal{G} = (\varset, \emptyset) $ \;
+        \ForEach{node $ v \in \varset $}{
+            Add $ v $ to $ \mathcal{G} $
+        }
+        \ForEach{root node $ r \in \mathcal{R} $}{
+            Perform BFS from $ r $ to establish at least one path from $ r $ to $ l \in \mathcal{L} $ \;
+            Ensure each intermediate $ i \in \mathcal{I} $ has at least one incoming and one outgoing edge
+        }
+        
+        \BlankLine
+        \textbf{Step 3: Edge Refinement and Constraints} \\
+        Compute valid edge pairs: \;
+        \ForEach{pair $ (i, j) $ where $ i < j $}{
+            \If{$ i \notin \mathcal{L} $ and $ j \notin \mathcal{R} $ and $ (i, j) \notin (\mathcal{R} \times \mathcal{R}) $}{
+                Add edge $ (i, j) $ with probability $ P(i,j) \leq D $, where $ P(i,j) \sim U(0,1) $.
+            }
+        }
+        
+        \BlankLine
+        \textbf{Step 4: Path Length Adjustment (Precomputed Shortest Paths)} \\
+        Compute all paths for all node pairs in $ \mathcal{G} $\;
+        \ForEach{pair $ (r, l) $ where $ r \in \mathcal{R}, l \in \mathcal{L} $}{
+            \If{path length $ P(r, l) < P_{\text{min}} $}{
+                Insert an intermediate node to extend the path
+            }
+            \If{path length $ P(r, l) > P_{\text{max}} $}{
+                Introduce a shortcut edge to shorten the path
+            }
+        }
+        
+        \BlankLine
+        \textbf{Step 5: Validation and Finalization} \\
+        \If{$\mathcal{G}$ contains cycles}{
+            Remove edges iteratively until acyclicity is restored
+        }
+
+        \Return{$\mathcal{G}$}
+    \end{algorithm}
+
+\section{Structural Equations Algorithm for SCM's}
+    \label{appendix:structural_equations_algorithm}
+    \begin{algorithm}
+        \DontPrintSemicolon
+        \SetKwInput{Input}{Input}
+        \SetKwInput{Output}{Output}
+        \SetKwFunction{GenerateFunction}{GenerateFunction}
+        \SetKwFunction{ComputeCDF}{ComputeCDF}
+        \SetKwFunction{OneHotEncode}{OneHotEncode}
+        \SetKwFunction{SelectCategory}{SelectCategory}
+        \SetKwFunction{StoreMapping}{StoreMapping}
+        
+        \Input{
+            DAG $ \mathcal{D} = (\mathcal{X}, \mathcal{E}) $;\\
+            Variable types $ \mathcal{T} = \{T_i\} $ (numerical or categorical);\\
+            User constraints on function generation;\\
+            Predefined variable domains.
+        }
+        \Output{
+            Stored structural equations $ \mathcal{F} = \{ f_i \} $,\\
+            CDFs for categorical transformations $ \mathcal{G} = \{ g_j \} $,\\
+            Stored categorical mappings $ \mathcal{M} $.
+        }
+        
+        \BlankLine
+        \textbf{One-Time Structural Equation and Transformation Generation:} \\
+        
+        \ForEach{variable $ \varname_i \in \mathcal{X} $ in topological order}{
+            \If{$ \varname_i $ is a root node}{
+                $ f_i \gets $ Exogenous distribution $ \mathbb{P}_{\varname_i} $ \;
+                Store $ f_i $ in $ \mathcal{F} $ \;
+             %  \Continue
+                \textbf{continue}\; 
+            }
+            
+            Identify parent set $ \text{Pa}(\varname_i) $ from $ \mathcal{D} $ \;
+            
+            \BlankLine
+            \textbf{Handle Parent Variables:} \\
+            \ForEach{$ \varname_j \in \text{Pa}(\varname_i) $}{
+                \If{$ \varname_j $ is categorical}{
+                    One-hot encode $ \varname_j $ into binary variables $ \{ B_{j1}, B_{j2}, ..., B_{jk} \} $ \;
+                    \ForEach{binary variable $ B_{jm} $}{
+                        Generate function $ g_{jm} \gets \GenerateFunction(\text{user constraints}) $ \;
+                        Compute CDF $ \mathcal{G}[B_{jm}] \gets \ComputeCDF(g_{jm}) $ \;
+                        Store $ g_{jm} $ and $ \mathcal{G}[B_{jm}] $ \;
+                    }
+                }
+            }
+            
+            \BlankLine
+            \textbf{Generate Structural Equation:} \\
+            Define input variables:
+            $ V_i \gets $ numerical parents $ + $ transformed categorical parents \;
+            Generate function $ f_i \gets \GenerateFunction(V_i, \text{user constraints}) $ \;
+            Store $ f_i $ in $ \mathcal{F} $ \;
+            
+            \BlankLine
+            \textbf{Store Categorical Output Mapping (if needed):} \\
+            \If{$ \varname_i $ is categorical}{
+                Assign random numerical values to each category \;
+                Store category mapping in $ \mathcal{M}[\varname_i] $ \;
+            }
+        }
+
+        \Return{$ \mathcal{F} $, $ \mathcal{G} $, $ \mathcal{M} $}
+        
+        \BlankLine
+        \textbf{Data Generation Using Stored Equations:} \\
+        
+        \ForEach{variable $ \varname_i \in \mathcal{X} $}{
+            Retrieve stored function $ f_i $ \;
+            Retrieve stored CDFs for categorical parents, if applicable \;
+            
+            \If{$ \varname_i $ is numerical}{
+                Compute $ \varname_i \gets f_i(\text{Pa}(\varname_i)) + \eta_i $ \;
+            }
+            \ElseIf{$ \varname_i $ is categorical}{
+                Compute output value $ z \gets f_i(\text{Pa}(\varname_i)) + \eta_i $ \;
+                Assign category $ \varname_i \gets \SelectCategory(z, \mathcal{M}[\varname_i]) $ \;
+            }
+        }
+        
+        \caption{Structural Causal Equation Generation}
+    \end{algorithm}
+
+
+
+\end{document}
+
