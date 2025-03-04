@@ -436,54 +436,48 @@
 
 
         \subsubsection{Structural Equations}
-            Under the assumption that both parent and children variables are numerical, the structural equation $ f_i $ is constructed following a rigorous process.
-            To ensure systematic function construction while maintaining interpretability, the equation generation process follows a \textbf{context-free grammar (CFG)}. 
-            The functional form of the structural equation $ f_i $ accounts for causal dependencies by incorporating parent variables $ \text{Pa}(\varname_i) $ as inputs. 
-            The equation is iteratively constructed by selecting mathematical operations and functions from a predefined set of possibilities, ensuring it adheres to user-defined constraints. 
+            Under the assumption that both parent and child variables are numerical, the structural equation $f_i$ is constructed through a rigorous, iterative process based on a \textbf{context-free grammar (CFG)}. 
+            The function $f_i$ is designed to capture causal dependencies by incorporating parent variables $\text{Pa}(\varname_i)$ as inputs. 
+            The equation is iteratively built by selecting mathematical operations and functions from a predefined set, while strictly adhering to user-defined constraints. 
             These constraints regulate function complexity by imposing restrictions on \emph{linearity} (allowing or disallowing non-linear terms), \emph{exponentiation} (limiting variable or scalar exponents), and \emph{permitted mathematical operations} (e.g., product, logarithmic, exponential, trigonometric). Additionally, they define the \emph{maximum function complexity}, such as the highest polynomial degree or total number of terms.
-            Based on these constraints, the function $ f_i $ is generated using a symbolic mathematical framework such as \texttt{SymPy}. 
-            After generating the structural function \( f_i \), an exogenous noise term \( \eta_i \) is incorporated to account for stochasticity and unobserved influences. 
-            The noise term  $ \eta_i $ is drawn from a user-defined probability distribution $ \mathbb{P}_{\eta_i} $, capturing unobserved influences and ensuring that the generated values exhibit natural variability.
+            Based on these rules, the function $f_i$ is generated using a symbolic framework (e.g., \texttt{SymPy}), and all coefficients are precomputed as numeric values. 
+            After $f_i$ is obtained, an exogenous noise term $\eta_i$, drawn from a user-defined probability distribution $\mathbb{P}_{\eta_i}$, is added to account for stochasticity and latent influences. 
 
         
-            \paragraph{Parent Constraints}
-                The previously described CFG-based function generation assumes that both parent and child variables are numerical. 
-                However, in real-world scenarios, a mix of numerical and categorical variables is common. 
-                Therefore, it is essential to account for how input variable constraints influence the generated equations.
-                If a parent variable is numerical, its raw values contribute directly to the structural equation. 
-                If a parent variable is categorical, a transformation step is required before function generation. 
-                In this case, categorical variables undergo one-hot encoding, introducing binary variables $ B_{jm} $ corresponding to each category. 
-                Since binary variables require numerical representation, a transformation function $ g_j $ is generated for each $ B_{jm} $ using context-free grammar while adhering to user-defined constraints. 
-                To ensure consistency in future computations, a dataset of 1000 values is sampled from $ g_j $, and an empirical cumulative density function (CDF) is constructed. 
-                The CDF maps categorical values into a probability space within [0,1], enabling consistent and reproducible transformations in subsequent computations.
-                The transformed categorical values are then used in the function generation process for $ f_i $.
+            \paragraph{Categorical Parents}
+                The previously described CFG-based function generation assumes that all parent variables are numerical. 
+                In many real-world scenarios, however, a mix of numerical and categorical variables is common. 
+                For numerical parent variables, their raw values are directly used as inputs to the structural equation. 
+                For categorical parent variables, a fixed mapping is established at node initialization that assigns each category a unique numerical value. 
+                When generating a sample, the current categorical value of the parent variable is simply mapped to its corresponding numerical value using this pre-established mapping. 
+                This numeric value is then used as the input for constructing the function \( f_i \). 
+
+            
+            \paragraph{Categorical Children}
+                For nodes representing categorical output variables, an additional post-processing step is performed to determine the final categorical value. 
+                At node initialization, for each possible category, a distinct CFG-generated function is created using the node’s input variables. 
+                Each function is executed 1000 times to generate a dataset of numerical samples, from which an empirical cumulative density function (CDF) is computed and stored. 
+                During sample generation, each category-specific function is evaluated with the current parent values, and its output is passed through the corresponding stored CDF. 
+                The resulting probabilities indicate how well each function’s output matches its historical distribution. 
+                The final categorical output is then selected as the category whose associated function yields the highest probability according to its CDF. 
 
 
-            \paragraph{Children Constraints}
-                When the target variable $ \varname_i $ is categorical, an additional post-processing step is required to determine its value. 
-                Each category is assigned a one-time random numerical representation, ensuring that the output of the structural equation can be mapped to discrete categorical values. 
-                The categorical value is selected by choosing the category whose assigned numerical value is \emph{closest} to the computed function output. 
-                This mapping remains fixed to maintain consistency across all generated samples.
-
-
-            \paragraph{Final Formulation}
-                The final structural equation for a numerical variable is:
+            \paragraph{Final Formulation}  
+                The final structural equation for a numerical variable is expressed as
                 \begin{equation*}
-                    \varname_i = \max \left( \min \left( f_i(\text{Pa}(\varname_i)) + \eta_i, \varname_i^{\text{max}} \right), \varname_i^{\text{min}} \right).
+                    \varname_i = \max \left( \min \left( f_i(\text{Pa}(\varname_i)) + \eta_i, \varname_i^{\text{max}} \right), \varname_i^{\text{min}} \right),
                 \end{equation*}
-                For categorical variables, the inverse mapping function $ g_i^{-1} $ is applied:
+                where $\varname_i^{\text{min}}$ and $\varname_i^{\text{max}}$ denote the variable’s domain limits. For categorical variables, an inverse mapping function $g_i^{-1}$ is applied to the computed value:
                 \begin{equation*}
-                    \varname_i = g_i^{-1} \left( f_i(\text{Pa}(\varname_i)) + \eta_i \right).
+                    \varname_i = g_i^{-1}\bigl(f_i(\text{Pa}(\varname_i)) + \eta_i\bigr).
                 \end{equation*}
-                This formulation ensures that numerical and categorical variables remain within their valid domains while adhering to predefined causal relationships. 
-
-
+                This ensures that all variables, whether numerical or categorical, remain within their valid domains while preserving the specified causal relationships.
         
         \subsubsection{Data Generation}
             Once structural equations, categorical transformations, and mappings are stored, data generation proceeds in a topological order to ensure that dependencies are respected. 
-            The process accounts for both observational and interventional data. 
+            This process supports both observational and interventional regimes. 
             In observational data generation, variable values are sampled according to the precomputed functions and noise distributions. 
-            In interventional data generation, certain variables are externally fixed to evaluate causal effects. 
+            In interventional data generation, the user can specify fixed values for selected variables; these interventions override the standard computations for the affected nodes, while the rest of the network is evaluated as usual. 
             For each new sample, the stored function $ f_i $ is retrieved along with any necessary CDF transformations for categorical parents. 
             The equation \( f_i(\text{Pa}(\varname_i)) + \eta_i \) is then evaluated, followed by categorical post-processing where applicable.
 
