@@ -92,32 +92,36 @@ class SCMGenerator:
             cdf_samples = {}
             if self.variable_types[node_name] == "categorical":
                 categories = self.variable_domains[node_name]
-                # For each category, compute a CDF mapping.
+                # For each category, compute a CDF mapping deterministically.
                 for category in categories:
                     function = self._generate_function(input_vars)
                     function = sp.re(function)
-                    samples = []
-                    for _ in range(1000):
-                        subs_dict = {
-                            var: np.random.uniform(-1, 1) for var in input_vars
-                        }
-                        eval_value = function.subs(subs_dict).evalf()
-                        try:
-                            samples.append(float(eval_value))
-                        except Exception:
-                            samples.append(np.random.uniform(-1, 1))
+                    # Use a fixed grid instead of random samples.
+                    if input_vars:
+                        grid = np.linspace(-1, 1, 1000)
+                        samples = []
+                        # Vary the first input variable over the grid and fix the rest at 0.
+                        for x in grid:
+                            subs_dict = {var: 0 for var in input_vars[1:]}
+                            subs_dict[input_vars[0]] = x
+                            eval_value = function.subs(subs_dict).evalf()
+                            try:
+                                samples.append(float(eval_value))
+                            except Exception:
+                                samples.append(0)
+                    else:
+                        # No input variables: evaluate the function at a fixed value.
+                        eval_value = function.subs({}).evalf()
+                        samples = [float(eval_value)] * 1000
                     sorted_samples = np.sort(samples)
-
-                    cdf_samples[category] = (
-                        sorted_samples  # Store for later use in serialization.
-                    )
-
+                    cdf_samples[category] = sorted_samples  # Save for serialization.
                     cdf_mappings[category] = (
                         lambda x, s=sorted_samples: np.searchsorted(s, x, side="right")
                         / len(s)
                     )
                 # For categorical nodes, also create numeric mappings.
                 for category in categories:
+                    # (You can keep this random if desired or use a fixed mapping.)
                     category_mappings[category] = np.random.uniform(-1, 1)
             node = SCMNode(
                 node_name,

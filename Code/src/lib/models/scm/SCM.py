@@ -30,10 +30,9 @@ class SCMNode:
         self.samples = samples
 
     def generate_value(self, parent_values):
-        """Generates a value for this node given parent values."""
         if self.var_type == "numerical":
+            # (Numerical case remains the same.)
             subs_dict = {}
-            # For each symbol in the equation, try to substitute using the parent's numeric mapping if available.
             for var in self.equation.free_symbols:
                 var_str = str(var)
                 if var_str + "_num" in parent_values:
@@ -43,41 +42,46 @@ class SCMNode:
                         var_str, np.random.uniform(-1, 1)
                     )
             eval_equation = self.equation.subs(subs_dict).evalf()
-            # If still symbolic, warn
             if isinstance(eval_equation, sp.Basic) and not eval_equation.is_number:
                 print(f"Warning: Unresolved symbols in {self.name} ->", eval_equation)
-            # Force a float, extracting real part if needed
-            if eval_equation.is_real:
-                result = float(eval_equation)
-            else:
-                result = float(eval_equation.as_real_imag()[0])
-            # Bound the result to the domain (if a tuple is provided)
+            result = (
+                float(eval_equation.as_real_imag()[0])
+                if not eval_equation.is_real
+                else float(eval_equation)
+            )
             if isinstance(self.domain, tuple):
                 min_val, max_val = self.domain
                 result = max(min_val, min(max_val, result))
             return result
         else:
-            # For categorical nodes, use the precomputed CDF mappings to pick a category.
+            # For categorical nodes, use a fixed value (e.g., 0) to evaluate each CDF mapping.
             category_probs = {
-                cat: self.cdf_mappings[cat](np.random.uniform(-1, 1))
-                for cat in self.cdf_mappings
+                cat: self.cdf_mappings[cat](0) for cat in self.cdf_mappings
             }
-            print(category_probs)
             chosen_category = max(category_probs, key=lambda cat: category_probs[cat])
-            # Also store the numeric mapping (to be used by children)
             self.input_numeric = self.category_mappings[chosen_category]
             return chosen_category
 
     def to_dict(self):
-        """Serialize the node to a dict."""
+        """Serialize the node to a dict. Convert numpy arrays to lists for JSON."""
+        serializable_samples = {}
+        for cat, sample in self.samples.items():
+            # If sample is a NumPy array, convert it to a list.
+            if isinstance(sample, np.ndarray):
+                serializable_samples[cat] = sample.tolist()
+            else:
+                serializable_samples[cat] = sample
+
         return {
             "name": self.name,
-            "equation": sp.srepr(self.equation),  # Save string representation.
+            "equation": sp.srepr(
+                self.equation
+            ),  # string representation for the sympy expression
             "domain": self.domain,
             "var_type": self.var_type,
             "category_mappings": self.category_mappings,
             "input_numeric": self.input_numeric,
-            "samples": self.samples,
+            "samples": serializable_samples,  # now JSON-serializable
         }
 
     @classmethod
@@ -94,8 +98,6 @@ class SCMNode:
         node.input_numeric = data.get("input_numeric")
         node.cdf_mappings = {}
         for category, samples in data.get("samples", {}).items():
-            print(category)
-            print(samples)
             s = np.array(samples)
             node.cdf_mappings[category] = lambda x, s=s: np.searchsorted(
                 s, x, side="right"
