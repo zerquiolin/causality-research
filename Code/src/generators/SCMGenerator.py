@@ -89,6 +89,7 @@ class SCMGenerator:
                         eq = sp.Max(sp.Min(eq, max_val), min_val)
             cdf_mappings = {}
             category_mappings = {}
+            cdf_samples = {}
             if self.variable_types[node_name] == "categorical":
                 categories = self.variable_domains[node_name]
                 # For each category, compute a CDF mapping.
@@ -106,6 +107,11 @@ class SCMGenerator:
                         except Exception:
                             samples.append(np.random.uniform(-1, 1))
                     sorted_samples = np.sort(samples)
+
+                    cdf_samples[category] = (
+                        sorted_samples  # Store for later use in serialization.
+                    )
+
                     cdf_mappings[category] = (
                         lambda x, s=sorted_samples: np.searchsorted(s, x, side="right")
                         / len(s)
@@ -120,6 +126,7 @@ class SCMGenerator:
                 self.variable_types[node_name],
                 cdf_mappings,
                 category_mappings,
+                cdf_samples,
             )
             nodes.append(node)
         return SCM(nodes)

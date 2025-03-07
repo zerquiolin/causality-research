@@ -2,7 +2,7 @@ from src.generators.DagGenerator import DAGGenerator
 from src.lib.models.scm.DAG import DAG
 from src.generators.SCMGenerator import SCMGenerator
 
-import random
+import numpy as np
 import logging
 import sympy as sp
 from scipy.stats import norm, uniform
@@ -33,7 +33,7 @@ def main():
     # Define user constraints for SCM generation.
     # Define variable types
     variable_types = {
-        node: "numerical" if random.random() < 0.8 else "categorical"
+        node: "numerical" if np.random.random() < 0.8 else "categorical"
         for node in dag.nodes
     }
 
@@ -43,13 +43,13 @@ def main():
         if vtype == "numerical":
             # For numerical nodes, assign a random interval.
             # Here, we choose lower bound between -10 and -1, and upper bound between 1 and 10.
-            lower = random.randint(-10, -1)
-            upper = random.randint(1, 10)
+            lower = np.random.randint(-10, -1)
+            upper = np.random.randint(1, 10)
             variable_domains[node] = (lower, upper)
         else:
             # For categorical nodes, assign a random list of categories.
             # For example, generate between 2 and 4 categories using letters.
-            num_categories = random.randint(2, 4)
+            num_categories = np.random.randint(2, 4)
             # This will generate categories like ['A', 'B', 'C'].
             categories = [chr(65 + i) for i in range(num_categories)]
             variable_domains[node] = categories

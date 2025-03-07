@@ -12,6 +12,7 @@ class SCMNode:
         var_type,
         cdf_mappings=None,
         category_mappings=None,
+        samples={},
     ):
         """
         Represents a single node in the Structural Causal Model (SCM).
@@ -26,6 +27,7 @@ class SCMNode:
         self.category_mappings = category_mappings or {}
         # For categorical nodes, store a numeric mapping to be used by children.
         self.input_numeric = None
+        self.samples = samples
 
     def generate_value(self, parent_values):
         """Generates a value for this node given parent values."""
@@ -60,10 +62,45 @@ class SCMNode:
                 cat: self.cdf_mappings[cat](np.random.uniform(-1, 1))
                 for cat in self.cdf_mappings
             }
+            print(category_probs)
             chosen_category = max(category_probs, key=lambda cat: category_probs[cat])
             # Also store the numeric mapping (to be used by children)
             self.input_numeric = self.category_mappings[chosen_category]
             return chosen_category
+
+    def to_dict(self):
+        """Serialize the node to a dict."""
+        return {
+            "name": self.name,
+            "equation": sp.srepr(self.equation),  # Save string representation.
+            "domain": self.domain,
+            "var_type": self.var_type,
+            "category_mappings": self.category_mappings,
+            "input_numeric": self.input_numeric,
+            "samples": self.samples,
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        """Deserialize from dict (re-generates the sympy equation from its string)."""
+        equation = sp.sympify(data["equation"])
+        node = cls(
+            name=data["name"],
+            equation=equation,
+            domain=data["domain"],
+            var_type=data["var_type"],
+            category_mappings=data.get("category_mappings", {}),
+        )
+        node.input_numeric = data.get("input_numeric")
+        node.cdf_mappings = {}
+        for category, samples in data.get("samples", {}).items():
+            print(category)
+            print(samples)
+            s = np.array(samples)
+            node.cdf_mappings[category] = lambda x, s=s: np.searchsorted(
+                s, x, side="right"
+            ) / len(s)
+        return node
 
 
 class SCM:
@@ -100,3 +137,15 @@ class SCM:
             random.seed(seed)
             np.random.seed(seed)
         return [self._generate_sample(interventions) for _ in range(num_samples)]
+
+    def to_dict(self):
+        """Serialize the SCM as a dict."""
+        nodes_data = {name: node.to_dict() for name, node in self.nodes.items()}
+        return {"nodes": nodes_data}
+
+    @classmethod
+    def from_dict(cls, data):
+        nodes = [SCMNode.from_dict(nd) for nd in data["nodes"].values()]
+        # Optionally, sort nodes (if names are of the form 'X1', 'X2', …).
+        nodes.sort(key=lambda n: int(n.name[1:]))
+        return cls(nodes)
