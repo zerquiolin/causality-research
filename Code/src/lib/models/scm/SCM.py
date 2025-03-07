@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import sympy as sp
 
@@ -72,7 +73,7 @@ class SCM:
         """
         self.nodes = {node.name: node for node in nodes}
 
-    def generate_sample(self, interventions={}):
+    def _generate_sample(self, interventions={}):
         """Generates a single sample by evaluating each node in topological order."""
         sample = {}
         # Evaluate nodes in the given (topological) order.
@@ -88,6 +89,14 @@ class SCM:
                     sample[node_name + "_num"] = node.input_numeric
         return sample
 
-    def generate_samples(self, interventions={}, num_samples=1):
-        """Generates multiple samples."""
-        return [self.generate_sample(interventions) for _ in range(num_samples)]
+    def generate_samples(self, interventions={}, num_samples=1, seed=None):
+        """
+        Generates multiple samples.
+
+        If a seed is provided, the random generators (Python's and NumPy's) are seeded,
+        ensuring reproducibility.
+        """
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+        return [self._generate_sample(interventions) for _ in range(num_samples)]

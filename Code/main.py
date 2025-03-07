@@ -79,11 +79,13 @@ def main():
     scm = scm_generator.generate()
 
     print("\nObservational Samples:")
-    for sample in scm.generate_samples(num_samples=5):
+    for sample in scm.generate_samples(num_samples=5, seed=seed):
         print(sample)
 
     print("\nInterventional Samples (X1 = 2):")
-    for sample in scm.generate_samples(interventions={"X1": 2}, num_samples=5):
+    for sample in scm.generate_samples(
+        interventions={"X1": 2}, num_samples=5, seed=seed
+    ):
         print(sample)
 
 
