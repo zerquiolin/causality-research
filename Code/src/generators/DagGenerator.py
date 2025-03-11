@@ -3,6 +3,8 @@ import numpy as np
 import networkx as nx
 from typing import Set, Tuple
 from src.lib.models.abstract.BaseDagGenerator import BaseDAGGenerator
+from src.lib.models.scm.DAG import DAG
+
 import logging
 
 
@@ -49,7 +51,7 @@ class DAGGenerator(BaseDAGGenerator):
         # Set random state
         self.random_state = random_state
 
-    def generate(self) -> nx.DiGraph:
+    def generate(self) -> DAG:
         # Build the backbone DAG.
         self._build_backbone()
         # Refine edges based on edge density and degree constraints.
@@ -58,7 +60,9 @@ class DAGGenerator(BaseDAGGenerator):
         self._adjust_path_lengths()
         # Validate the generated DAG.
         self._validate()
-        return self.graph
+        # Create Customn DAG
+        dag = DAG(self.graph)
+        return dag
 
     def _get_node_types(self) -> Tuple[Set[str], Set[str], Set[str]]:
         """
