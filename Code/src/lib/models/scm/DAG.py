@@ -65,7 +65,6 @@ class DAG:
         - layout: "spring" for force-directed or "dot" for hierarchical.
         - spacing_factor: Controls vertical spacing (for "dot" layout).
         """
-        self.graph
         # Detect node roles
         roots, leaves, intermediates = self.get_node_types()
 

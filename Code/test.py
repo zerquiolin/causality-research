@@ -2,6 +2,7 @@ import sympy as sp
 import numpy as np
 from src.game.GameInstance import GameInstance, GameInstanceCreator
 from scipy.stats import norm, uniform
+import datetime
 
 # ===================== Example Usage =====================
 if __name__ == "__main__":
@@ -57,22 +58,26 @@ if __name__ == "__main__":
     creator = GameInstanceCreator(dag_params, scm_params)
     game_instance = creator.create_instance()
 
-    test_random_state = np.random.RandomState(123)
+    gen_random_state = np.random.RandomState(123)
+    load_random_state = np.random.RandomState(123)
 
     # Generate samples from the SCM.
     samples = game_instance.scm.generate_samples(
-        num_samples=3, random_state=test_random_state
+        num_samples=3, random_state=gen_random_state
     )
     print("Samples:", samples)
 
+    file_path = f"./instances/game_instance-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+
     # Save the instance.
-    game_instance.save("game_instance.json")
+    game_instance.save(file_path)
 
     # Later, load the instance.
-    loaded_instance = GameInstance.load("game_instance.json")
+    loaded_instance = GameInstance.load(file_path)
+
     print(
         "Loaded Samples:",
         loaded_instance.scm.generate_samples(
-            num_samples=3, random_state=test_random_state
+            num_samples=3, random_state=load_random_state
         ),
     )

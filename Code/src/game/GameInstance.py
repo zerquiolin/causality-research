@@ -1,3 +1,4 @@
+import os
 import json
 import numpy as np
 from networkx.readwrite import json_graph
@@ -47,14 +48,30 @@ class GameInstance:
         scm = SCM.from_dict(dag, data["scm"], random_state)
         return cls(scm, random_state)
 
+    # def save(self, filename):
+    #     """Save the game instance to a JSON file."""
+    #     with open(filename, "w") as f:
+    #         json.dump(self.to_dict(), f)
     def save(self, filename):
-        """Save the game instance to a JSON file."""
+        """Ensure the directory exists and save the game instance as a JSON file."""
+        # Extract the directory from the file path
+        directory = os.path.dirname(filename)
+
+        # Ensure the directory exists
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+
+        # Write the JSON file
         with open(filename, "w") as f:
             json.dump(self.to_dict(), f)
 
     @classmethod
     def load(cls, filename):
         """Load a game instance from a JSON file."""
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+        # Write the JSON file
         with open(filename, "r") as f:
             data = json.load(f)
         return cls.from_dict(data)
@@ -82,8 +99,7 @@ class GameInstanceCreator:
 
         # DAG generation.
         dag_gen = DAGGenerator(**self.dag_generator_params, random_state=random_state)
-        dag_graph = dag_gen.generate()
-        dag = DAG(dag_graph)
+        dag = dag_gen.generate()
 
         # SCM generation.
         scm_gen = SCMGenerator(

@@ -114,7 +114,7 @@ class SCMNode:
         """Extract step points from a given CDF lambda function by sampling."""
         x_values = np.linspace(0, 1, 100)  # Sample 100 points in [0,1]
         cdf_values = np.array([cdf_lambda(x) for x in x_values])
-        return cdf_values.tolist()  # ✅ Serialize as a list
+        return cdf_values.tolist()
 
     @staticmethod
     def _create_cdf_lambda(step_points):

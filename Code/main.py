@@ -13,6 +13,7 @@ logging.basicConfig(level=logging.INFO)
 def main():
     # Set a seed for reproducibility.
     seed = 42
+    random_state = np.random.RandomState(seed)
 
     # Instantiate an advanced DAG generator with complex parameters.
     dag_gen = DAGGenerator(
@@ -24,9 +25,9 @@ def main():
         max_out_degree=3,
         min_path_length=2,
         max_path_length=5,
+        random_state=random_state,
     )
-    dag_graph = dag_gen.generate()
-    dag = DAG(dag_graph)
+    dag = dag_gen.generate()
 
     dag.plot()
 
@@ -68,23 +69,24 @@ def main():
     }
 
     scm_generator = SCMGenerator(
-        dag.graph,
+        dag,
         variable_types,
         variable_domains,
         user_constraints,
         allowed_operations,
         allowed_functions,
         noise_distributions,
+        random_state=random_state,
     )
     scm = scm_generator.generate()
 
     print("\nObservational Samples:")
-    for sample in scm.generate_samples(num_samples=5, seed=seed):
+    for sample in scm.generate_samples(num_samples=5, random_state=random_state):
         print(sample)
 
     print("\nInterventional Samples (X1 = 2):")
     for sample in scm.generate_samples(
-        interventions={"X1": 2}, num_samples=5, seed=seed
+        interventions={"X1": 2}, num_samples=5, random_state=random_state
     ):
         print(sample)
 
