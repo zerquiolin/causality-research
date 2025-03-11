@@ -8,15 +8,16 @@ from src.lib.models.scm.SCM import SCM
 
 
 class GameInstance:
-    def __init__(self, dag: DAG, scm: SCM):
+    def __init__(self, dag: DAG, scm: SCM, random_state=911):
         self.dag = dag
         self.scm = scm
+        self.random_state = random_state
 
     def to_dict(self):
         # Use the 'edges' kwarg to address the FutureWarning.
         dag_data = json_graph.node_link_data(self.dag.graph, edges="edges")
         scm_data = self.scm.to_dict()
-        return {"dag": dag_data, "scm": scm_data}
+        return {"dag": dag_data, "scm": scm_data, "random_state": self.random_state}
 
     @classmethod
     def from_dict(cls, data):
@@ -44,9 +45,12 @@ class GameInstanceCreator:
     and then generating an SCM using the SCMGenerator.
     """
 
-    def __init__(self, dag_generator_params: dict, scm_generator_params: dict):
+    def __init__(
+        self, dag_generator_params: dict, scm_generator_params: dict, random_state=911
+    ):
         self.dag_generator_params = dag_generator_params
         self.scm_generator_params = scm_generator_params
+        self.random_state = random_state
 
     def create_instance(self) -> GameInstance:
         dag_gen = DAGGenerator(**self.dag_generator_params)
@@ -56,4 +60,4 @@ class GameInstanceCreator:
         scm_gen = SCMGenerator(graph=dag_graph, **self.scm_generator_params)
         scm = scm_gen.generate()
 
-        return GameInstance(dag, scm)
+        return GameInstance(dag, scm, random_state=self.random_state)

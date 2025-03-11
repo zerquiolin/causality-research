@@ -29,7 +29,7 @@ class SCMNode:
         self.input_numeric = None
         self.samples = samples
 
-    def generate_value(self, parent_values):
+    def generate_value(self, parent_values, random_state=np.random):
         if self.var_type == "numerical":
             # (Numerical case remains the same.)
             subs_dict = {}
@@ -39,7 +39,11 @@ class SCMNode:
                     subs_dict[var] = parent_values[var_str + "_num"]
                 else:
                     subs_dict[var] = parent_values.get(
-                        var_str, np.random.uniform(-1, 1)
+                        var_str,
+                        random_state.uniform(
+                            -1,
+                            1,
+                        ),
                     )
             eval_equation = self.equation.subs(subs_dict).evalf()
             if isinstance(eval_equation, sp.Basic) and not eval_equation.is_number:
@@ -112,7 +116,7 @@ class SCM:
         """
         self.nodes = {node.name: node for node in nodes}
 
-    def _generate_sample(self, interventions={}):
+    def _generate_sample(self, interventions={}, random_state=np.random):
         """Generates a single sample by evaluating each node in topological order."""
         sample = {}
         # Evaluate nodes in the given (topological) order.
@@ -122,23 +126,25 @@ class SCM:
                 if node.var_type == "categorical":
                     sample[node_name + "_num"] = node.input_numeric
             else:
-                value = node.generate_value(sample)
+                value = node.generate_value(sample, random_state=random_state)
                 sample[node_name] = value
                 if node.var_type == "categorical":
                     sample[node_name + "_num"] = node.input_numeric
         return sample
 
-    def generate_samples(self, interventions={}, num_samples=1, seed=None):
+    def generate_samples(self, interventions={}, num_samples=1, random_state=None):
         """
         Generates multiple samples.
 
         If a seed is provided, the random generators (Python's and NumPy's) are seeded,
         ensuring reproducibility.
         """
-        if seed is not None:
-            random.seed(seed)
-            np.random.seed(seed)
-        return [self._generate_sample(interventions) for _ in range(num_samples)]
+        rd = np.random.RandomState(random_state) if random_state else np.random
+
+        return [
+            self._generate_sample(interventions, random_state=rd)
+            for _ in range(num_samples)
+        ]
 
     def to_dict(self):
         """Serialize the SCM as a dict."""

@@ -17,6 +17,7 @@ class SCMGenerator:
         allowed_operations,
         allowed_functions,
         noise_distributions,
+        random_state=np.random,
     ):
         """
         Generates an SCM from a given networkx graph and constraints.
@@ -28,6 +29,7 @@ class SCMGenerator:
         self.allowed_operations = allowed_operations
         self.allowed_functions = allowed_functions
         self.noise_distributions = noise_distributions
+        self.random_state = random_state
 
     def _generate_function(self, input_vars):
         """Creates a mathematical function from input variables."""
@@ -39,18 +41,18 @@ class SCMGenerator:
         )
         terms = 0
         for var in input_vars:
-            coeff = np.random.uniform(-5, 5)
+            coeff = self.random_state.uniform(-5, 5)
             term = coeff * var
             if allow_non_linear and terms < max_terms:
-                func = np.random.choice(self.allowed_functions)
+                func = self.random_state.choice(self.allowed_functions)
                 func_expr = func(var)
                 if allow_variable_exponents and input_vars:
-                    exponent_var = np.random.choice(input_vars)
+                    exponent_var = self.random_state.choice(input_vars)
                     func_expr = func_expr**exponent_var
                 else:
-                    exponent = np.random.uniform(0.5, 2)
+                    exponent = self.random_state.uniform(0.5, 2)
                     func_expr = func_expr**exponent
-                term += np.random.uniform(-5, 5) * func_expr
+                term += self.random_state.uniform(-5, 5) * func_expr
                 terms += 1
             function += term
             terms += 1
@@ -60,7 +62,9 @@ class SCMGenerator:
 
     def _sample_noise(self):
         """Samples a noise value from a user-defined distribution."""
-        noise_dist_name = np.random.choice(list(self.noise_distributions.keys()))
+        noise_dist_name = self.random_state.choice(
+            list(self.noise_distributions.keys())
+        )
         noise_dist = self.noise_distributions[noise_dist_name]
         return noise_dist.rvs()
 
@@ -122,7 +126,7 @@ class SCMGenerator:
                 # For categorical nodes, also create numeric mappings.
                 for category in categories:
                     # (You can keep this random if desired or use a fixed mapping.)
-                    category_mappings[category] = np.random.uniform(-1, 1)
+                    category_mappings[category] = self.random_state.uniform(-1, 1)
             node = SCMNode(
                 node_name,
                 eq,
