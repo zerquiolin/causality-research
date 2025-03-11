@@ -1,4 +1,3 @@
-import random
 import numpy as np
 import networkx as nx
 from typing import Set, Tuple
@@ -100,7 +99,7 @@ class DAGGenerator(BaseDAGGenerator):
                 if self.topological_order.index(t) > idx_root
             ]
             if possible_targets:
-                target = random.choice(possible_targets)
+                target = self.random_state.choice(possible_targets)
                 self.graph.add_edge(root, target)
 
         # Step 3: Ensure each intermediate has at least one outgoing edge.
@@ -113,7 +112,7 @@ class DAGGenerator(BaseDAGGenerator):
                 if self.topological_order.index(t) > idx_inter
             ]
             if possible_targets:
-                target = random.choice(possible_targets)
+                target = self.random_state.choice(possible_targets)
                 self.graph.add_edge(inter, target)
 
         # Step 4: Ensure each leaf has at least one incoming edge.
@@ -126,7 +125,7 @@ class DAGGenerator(BaseDAGGenerator):
                 if self.topological_order.index(p) < idx_leaf
             ]
             if possible_parents:
-                parent = random.choice(possible_parents)
+                parent = self.random_state.choice(possible_parents)
                 self.graph.add_edge(parent, leaf)
 
         # Step 5: Ensure all intermediate nodes have at least one incoming edge.
@@ -139,7 +138,7 @@ class DAGGenerator(BaseDAGGenerator):
                 if self.topological_order.index(p) < idx_inter
             ]
             if possible_parents and self.graph.in_degree(inter) == 0:
-                parent = random.choice(possible_parents)
+                parent = self.random_state.choice(possible_parents)
                 self.graph.add_edge(parent, inter)
 
     def _refine_edges(self):
@@ -156,10 +155,10 @@ class DAGGenerator(BaseDAGGenerator):
                 node_j = self.topological_order[j]
                 if node_i not in leaves and node_j not in roots:
                     possible_edges.append((node_i, node_j))
-        random.shuffle(possible_edges)
+        self.random_state.shuffle(possible_edges)
         for i, j in possible_edges:
             if (
-                random.random() < self.edge_density
+                self.random_state.random() < self.edge_density
                 and self.graph.in_degree(j) < self.max_in_degree
                 and self.graph.out_degree(i) < self.max_out_degree
                 and not (i in roots and j in roots)
@@ -201,7 +200,7 @@ class DAGGenerator(BaseDAGGenerator):
                         available_nodes = list(intermediates - set(path_nodes))
                         if not available_nodes:
                             break
-                        mid_node = random.choice(available_nodes)
+                        mid_node = self.random_state.choice(available_nodes)
                         self.graph.remove_edge(root, first_node)
                         self.graph.add_edge(root, mid_node)
                         self.graph.add_edge(mid_node, first_node)
@@ -215,7 +214,7 @@ class DAGGenerator(BaseDAGGenerator):
                         path_nodes = longest_path_nodes[1:-1]  # Exclude root and leaf.
                         if not path_nodes:
                             break
-                        remove_node = random.choice(path_nodes)
+                        remove_node = self.random_state.choice(path_nodes)
                         predecessors = list(self.graph.predecessors(remove_node))
                         successors = list(self.graph.successors(remove_node))
                         for pred in predecessors:
