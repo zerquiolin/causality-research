@@ -1,6 +1,7 @@
-import random
 import numpy as np
 import sympy as sp
+
+from src.lib.models.scm.DAG import DAG
 
 
 class SCMNode:
@@ -13,6 +14,7 @@ class SCMNode:
         cdf_mappings=None,
         category_mappings=None,
         samples={},
+        random_state=np.random,
     ):
         """
         Represents a single node in the Structural Causal Model (SCM).
@@ -27,7 +29,6 @@ class SCMNode:
         self.category_mappings = category_mappings or {}
         # For categorical nodes, store a numeric mapping to be used by children.
         self.input_numeric = None
-        self.samples = samples
 
     def generate_value(self, parent_values, random_state=np.random):
         if self.var_type == "numerical":
@@ -69,12 +70,6 @@ class SCMNode:
     def to_dict(self):
         """Serialize the node to a dict. Convert numpy arrays to lists for JSON."""
         serializable_samples = {}
-        for cat, sample in self.samples.items():
-            # If sample is a NumPy array, convert it to a list.
-            if isinstance(sample, np.ndarray):
-                serializable_samples[cat] = sample.tolist()
-            else:
-                serializable_samples[cat] = sample
 
         return {
             "name": self.name,
@@ -85,7 +80,10 @@ class SCMNode:
             "var_type": self.var_type,
             "category_mappings": self.category_mappings,
             "input_numeric": self.input_numeric,
-            "samples": serializable_samples,  # now JSON-serializable
+            "cdf_step_points": {
+                cat: self._extract_step_points(self.cdf_mappings[cat])
+                for cat in self.cdf_mappings
+            },
         }
 
     @classmethod
@@ -100,24 +98,44 @@ class SCMNode:
             category_mappings=data.get("category_mappings", {}),
         )
         node.input_numeric = data.get("input_numeric")
-        node.cdf_mappings = {}
-        for category, samples in data.get("samples", {}).items():
-            s = np.array(samples)
-            node.cdf_mappings[category] = lambda x, s=s: np.searchsorted(
-                s, x, side="right"
-            ) / len(s)
+
+        node.cdf_mappings = {
+            category: SCMNode._create_cdf_lambda(np.array(step_points))
+            for category, step_points in data.get("cdf_step_points", {}).items()
+        }
         return node
+
+    def set_cdf_function(self, category, cdf_lambda):
+        """Set a lambda function for the category and store it in cdf_mappings."""
+        self.cdf_mappings[category] = cdf_lambda  # ✅ Store lambda function
+
+    @staticmethod
+    def _extract_step_points(cdf_lambda):
+        """Extract step points from a given CDF lambda function by sampling."""
+        x_values = np.linspace(0, 1, 100)  # Sample 100 points in [0,1]
+        cdf_values = np.array([cdf_lambda(x) for x in x_values])
+        return cdf_values.tolist()  # ✅ Serialize as a list
+
+    @staticmethod
+    def _create_cdf_lambda(step_points):
+        """Reconstruct a lambda function from step points."""
+        return lambda x: np.searchsorted(step_points, x, side="right") / len(
+            step_points
+        )
 
 
 class SCM:
-    def __init__(self, nodes):
+    def __init__(self, dag: DAG, nodes, random_state=np.random):
         """
         Structural Causal Model that takes a list of nodes in topological order.
         """
+        self.dag = dag
         self.nodes = {node.name: node for node in nodes}
+        self.random_state = random_state
 
-    def _generate_sample(self, interventions={}, random_state=np.random):
+    def _generate_sample(self, interventions={}, random_state=None):
         """Generates a single sample by evaluating each node in topological order."""
+        rd = random_state or self.random_state
         sample = {}
         # Evaluate nodes in the given (topological) order.
         for node_name, node in self.nodes.items():
@@ -126,7 +144,7 @@ class SCM:
                 if node.var_type == "categorical":
                     sample[node_name + "_num"] = node.input_numeric
             else:
-                value = node.generate_value(sample, random_state=random_state)
+                value = node.generate_value(sample, random_state=rd)
                 sample[node_name] = value
                 if node.var_type == "categorical":
                     sample[node_name + "_num"] = node.input_numeric
@@ -139,7 +157,7 @@ class SCM:
         If a seed is provided, the random generators (Python's and NumPy's) are seeded,
         ensuring reproducibility.
         """
-        rd = np.random.RandomState(random_state) if random_state else np.random
+        rd = random_state or self.random_state
 
         return [
             self._generate_sample(interventions, random_state=rd)
@@ -152,8 +170,9 @@ class SCM:
         return {"nodes": nodes_data}
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, dag: DAG, data, random_state):
         nodes = [SCMNode.from_dict(nd) for nd in data["nodes"].values()]
         # Optionally, sort nodes (if names are of the form 'X1', 'X2', …).
         nodes.sort(key=lambda n: int(n.name[1:]))
-        return cls(nodes)
+
+        return cls(dag, nodes, random_state)

@@ -57,8 +57,12 @@ if __name__ == "__main__":
     creator = GameInstanceCreator(dag_params, scm_params)
     game_instance = creator.create_instance()
 
+    test_random_state = np.random.RandomState(123)
+
     # Generate samples from the SCM.
-    samples = game_instance.scm.generate_samples(num_samples=3, seed=42)
+    samples = game_instance.scm.generate_samples(
+        num_samples=3, random_state=test_random_state
+    )
     print("Samples:", samples)
 
     # Save the instance.
@@ -67,5 +71,8 @@ if __name__ == "__main__":
     # Later, load the instance.
     loaded_instance = GameInstance.load("game_instance.json")
     print(
-        "Loaded Samples:", loaded_instance.scm.generate_samples(num_samples=3, seed=42)
+        "Loaded Samples:",
+        loaded_instance.scm.generate_samples(
+            num_samples=3, random_state=test_random_state
+        ),
     )

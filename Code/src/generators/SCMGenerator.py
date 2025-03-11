@@ -6,23 +6,25 @@ from src.lib.models.scm.SCM import SCM, SCMNode
 import numpy as np
 import sympy as sp
 
+from src.lib.models.scm.DAG import DAG
+
 
 class SCMGenerator:
     def __init__(
         self,
-        graph,
+        dag: DAG,
         variable_types,
         variable_domains,
         user_constraints,
         allowed_operations,
         allowed_functions,
         noise_distributions,
-        random_state=np.random,
+        random_state: np.random,
     ):
         """
         Generates an SCM from a given networkx graph and constraints.
         """
-        self.graph = graph
+        self.dag = dag
         self.variable_types = variable_types
         self.variable_domains = variable_domains
         self.user_constraints = user_constraints
@@ -70,10 +72,10 @@ class SCMGenerator:
 
     def generate(self):
         """Generates an SCM object from the given DAG."""
-        topological_order = list(nx.topological_sort(self.graph))
+        topological_order = list(nx.topological_sort(self.dag.graph))
         nodes = []
         for node_name in topological_order:
-            parents = list(self.graph.predecessors(node_name))
+            parents = list(self.dag.graph.predecessors(node_name))
             input_vars = [sp.Symbol(var) for var in parents]
             # For categorical nodes, we do not use a numerical equation.
             if self.variable_types[node_name] == "categorical":
@@ -93,7 +95,6 @@ class SCMGenerator:
                         eq = sp.Max(sp.Min(eq, max_val), min_val)
             cdf_mappings = {}
             category_mappings = {}
-            cdf_samples = {}
             if self.variable_types[node_name] == "categorical":
                 categories = self.variable_domains[node_name]
                 # For each category, compute a CDF mapping deterministically.
@@ -118,7 +119,6 @@ class SCMGenerator:
                         eval_value = function.subs({}).evalf()
                         samples = [float(eval_value)] * 1000
                     sorted_samples = np.sort(samples)
-                    cdf_samples[category] = sorted_samples  # Save for serialization.
                     cdf_mappings[category] = (
                         lambda x, s=sorted_samples: np.searchsorted(s, x, side="right")
                         / len(s)
@@ -134,7 +134,6 @@ class SCMGenerator:
                 self.variable_types[node_name],
                 cdf_mappings,
                 category_mappings,
-                cdf_samples,
             )
             nodes.append(node)
-        return SCM(nodes)
+        return SCM(self.dag, nodes, self.random_state)

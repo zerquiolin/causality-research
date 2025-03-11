@@ -1,4 +1,5 @@
 import random
+import numpy as np
 import networkx as nx
 from typing import Set, Tuple
 from src.lib.models.abstract.BaseDagGenerator import BaseDAGGenerator
@@ -16,6 +17,7 @@ class DAGGenerator(BaseDAGGenerator):
         max_out_degree: int,
         min_path_length: int,
         max_path_length: int,
+        random_state: np.random,
     ):
         # Assertions
         assert num_nodes > 0, "Number of nodes must be positive."
@@ -43,6 +45,9 @@ class DAGGenerator(BaseDAGGenerator):
         # Create topological order with variable names "X1", "X2", ..., "Xn"
         self.topological_order = ["X" + str(i + 1) for i in range(num_nodes)]
         self.graph = nx.DiGraph()
+
+        # Set random state
+        self.random_state = random_state
 
     def generate(self) -> nx.DiGraph:
         # Build the backbone DAG.
