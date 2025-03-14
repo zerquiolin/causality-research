@@ -13,7 +13,6 @@ class SCMNode:
         var_type,
         cdf_mappings=None,
         category_mappings=None,
-        samples={},
         random_state=np.random,
     ):
         """
