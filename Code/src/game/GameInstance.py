@@ -16,7 +16,6 @@ class GameInstance:
 
     def to_dict(self):
         # Use the 'edges' kwarg to address the FutureWarning.
-        dag_data = json_graph.node_link_data(self.scm.dag.graph, edges="edges")
         scm_data = self.scm.to_dict()
         # Convert the state to a JSON-friendly format
         state_dict = {
@@ -28,7 +27,7 @@ class GameInstance:
             "has_gauss": self.random_state.get_state()[3],
             "cached_gaussian": self.random_state.get_state()[4],
         }
-        return {"dag": dag_data, "scm": scm_data, "random_state": state_dict}
+        return {"scm": scm_data, "random_state": state_dict}
 
     @classmethod
     def from_dict(cls, data):
@@ -43,9 +42,7 @@ class GameInstance:
         )
         random_state = np.random.RandomState()
         random_state.set_state(random_state_config)
-        dag_graph = json_graph.node_link_graph(data["dag"], edges="edges")
-        dag = DAG(dag_graph)
-        scm = SCM.from_dict(dag, data["scm"], random_state)
+        scm = SCM.from_dict(data["scm"], random_state)
         return cls(scm, random_state)
 
     # def save(self, filename):

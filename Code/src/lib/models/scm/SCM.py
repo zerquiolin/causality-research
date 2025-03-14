@@ -88,7 +88,23 @@ class SCMNode:
     @classmethod
     def from_dict(cls, data):
         """Deserialize from dict (re-generates the sympy equation from its string)."""
-        equation = sp.sympify(data["equation"])
+        safe_dict = {
+            "Symbol": sp.Symbol,
+            "Integer": sp.Integer,
+            "Float": sp.Float,
+            "Add": sp.Add,
+            "Mul": sp.Mul,
+            "Pow": sp.Pow,
+            "Max": sp.Max,
+            "Min": sp.Min,
+            "re": sp.re,
+            "np": np,
+        }
+
+        equation = eval(data["equation"], safe_dict)
+
+        # equation = sp.sympify(data["equation"])
+
         node = cls(
             name=data["name"],
             equation=equation,
@@ -166,12 +182,15 @@ class SCM:
     def to_dict(self):
         """Serialize the SCM as a dict."""
         nodes_data = {name: node.to_dict() for name, node in self.nodes.items()}
-        return {"nodes": nodes_data}
+        return {"nodes": nodes_data, "dag": self.dag.to_dict()}
 
     @classmethod
-    def from_dict(cls, dag: DAG, data, random_state):
+    def from_dict(cls, data, random_state):
         nodes = [SCMNode.from_dict(nd) for nd in data["nodes"].values()]
         # Optionally, sort nodes (if names are of the form 'X1', 'X2', …).
         nodes.sort(key=lambda n: int(n.name[1:]))
+
+        # Deserialize the DAG
+        dag = DAG.from_dict(data["dag"])
 
         return cls(dag, nodes, random_state)
