@@ -1,3 +1,4 @@
+import json
 import pytest
 from src.generators.SCMGenerator import SCMGenerator
 from src.lib.models.scm.SCM import SCM
@@ -16,7 +17,7 @@ test_dag_a = DAGGenerator(
     max_out_degree=3,
     min_path_length=1,
     max_path_length=4,
-    random_state=np.random.default_rng(42),
+    random_state=np.random.RandomState(123),
 ).generate()
 test_dag_b = DAGGenerator(
     num_nodes=8,
@@ -27,7 +28,7 @@ test_dag_b = DAGGenerator(
     max_out_degree=3,
     min_path_length=2,
     max_path_length=3,
-    random_state=np.random.default_rng(911),
+    random_state=np.random.RandomState(911),
 ).generate()
 
 
@@ -52,7 +53,7 @@ def test_scm_generator(dag, num_nodes):
             "gaussian": norm(loc=0, scale=0.1),
             "uniform": uniform(loc=-0.1, scale=0.2),
         },
-        random_state=np.random.default_rng(42),
+        random_state=np.random.RandomState(42),
     )
 
     scm = scm_generator.generate()
@@ -89,7 +90,7 @@ def test_scm_reproducibility(dag, num_nodes, seed):
             "gaussian": norm(loc=0, scale=0.1),
             "uniform": uniform(loc=-0.1, scale=0.2),
         },
-        random_state=np.random.default_rng(seed),
+        random_state=np.random.RandomState(seed),
     )
     scm_a = scm_generator_a.generate()
 
@@ -104,7 +105,7 @@ def test_scm_reproducibility(dag, num_nodes, seed):
             "gaussian": norm(loc=0, scale=0.1),
             "uniform": uniform(loc=-0.1, scale=0.2),
         },
-        random_state=np.random.default_rng(seed),
+        random_state=np.random.RandomState(seed),
     )
     scm_b = scm_generator_b.generate()
 
@@ -141,7 +142,7 @@ def test_scm_variability(dag, num_nodes, seed1, seed2):
             "gaussian": norm(loc=0, scale=0.1),
             "uniform": uniform(loc=-0.1, scale=0.2),
         },
-        random_state=np.random.default_rng(seed1),
+        random_state=np.random.RandomState(seed1),
     )
     scm_a = scm_generator_a.generate()
 
@@ -156,7 +157,7 @@ def test_scm_variability(dag, num_nodes, seed1, seed2):
             "gaussian": norm(loc=0, scale=0.1),
             "uniform": uniform(loc=-0.1, scale=0.2),
         },
-        random_state=np.random.default_rng(seed2),
+        random_state=np.random.RandomState(seed2),
     )
     scm_b = scm_generator_b.generate()
 
@@ -193,14 +194,60 @@ def test_scm_serialization(dag, num_nodes, seed):
             "gaussian": norm(loc=0, scale=0.1),
             "uniform": uniform(loc=-0.1, scale=0.2),
         },
-        random_state=np.random.default_rng(seed),
+        random_state=np.random.RandomState(seed),
     )
     scm = scm_generator.generate()
 
     # Serialize the SCM
     scm_data = scm.to_dict()
     # Deserialize the SCM
-    scm_deserialized = SCM.from_dict(scm_data, np.random.default_rng(seed))
+    scm_deserialized = SCM.from_dict(scm_data)
+
+    serializable = False
+
+    try:
+        json.dumps(scm_data)
+        serializable = True
+    except:
+        pass
+
+    assert serializable, "SCM should be serializable."
+
+
+@pytest.mark.parametrize(
+    "dag, num_nodes, seed",
+    [
+        (test_dag_a, len(test_dag_a.nodes), 123),
+        (test_dag_b, len(test_dag_b.nodes), 911),
+    ],
+)
+def test_scm_deserialization(dag, num_nodes, seed):
+    """
+    Test if SCMGenerator is reproducible with the same seed.
+    """
+
+    variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
+    variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
+
+    scm_generator = SCMGenerator(
+        dag=dag,
+        variable_types=variable_types,
+        variable_domains=variable_domains,
+        user_constraints={"max_terms": 2},
+        allowed_operations=["+", "*"],
+        allowed_functions=[lambda x: x**2],
+        noise_distributions={
+            "gaussian": norm(loc=0, scale=0.1),
+            "uniform": uniform(loc=-0.1, scale=0.2),
+        },
+        random_state=np.random.RandomState(seed),
+    )
+    scm = scm_generator.generate()
+
+    # Serialize the SCM
+    scm_data = scm.to_dict()
+    # Deserialize the SCM
+    scm_deserialized = SCM.from_dict(scm_data)
 
     # Check if the SCMs are not equal
     nodes_a = [
@@ -212,6 +259,22 @@ def test_scm_serialization(dag, num_nodes, seed):
     ]
 
     assert nodes_a == nodes_b, "SCMs should be equal after serialization."
+
+    # Check if the random states are equal
+    state_a = scm.get_random_state().get_state()
+    state_b = scm_deserialized.get_random_state().get_state()
+
+    for a, b in zip(state_a, state_b):
+        if isinstance(a, np.ndarray):
+            assert (a == b).all(), "Random states should be equal after serialization."
+        else:
+            assert a == b, "Random states should be equal after serialization."
+
+    # Generate samples
+    samples_a = scm.generate_samples(num_samples=10)
+    samples_b = scm_deserialized.generate_samples(num_samples=10)
+
+    assert samples_a == samples_b, "Samples should be equal after serialization."
 
 
 @pytest.mark.parametrize(
@@ -240,27 +303,29 @@ def test_scm_samples_reproducibility(dag, num_nodes, num_samples, seed):
             "gaussian": norm(loc=0, scale=0.1),
             "uniform": uniform(loc=-0.1, scale=0.2),
         },
-        random_state=np.random.default_rng(seed),
+        random_state=np.random.RandomState(seed),
     )
     scm = scm_generator.generate()
-
-    # Serialize the SCM
-    scm_data = scm.to_dict()
-    # Deserialize the SCM
-    scm_deserialized = SCM.from_dict(scm_data, np.random.default_rng(seed))
+    scm_generator = SCMGenerator(
+        dag=dag,
+        variable_types=variable_types,
+        variable_domains=variable_domains,
+        user_constraints={"max_terms": 2},
+        allowed_operations=["+", "*"],
+        allowed_functions=[lambda x: x**2],
+        noise_distributions={
+            "gaussian": norm(loc=0, scale=0.1),
+            "uniform": uniform(loc=-0.1, scale=0.2),
+        },
+        random_state=np.random.RandomState(seed),
+    )
+    scm_b = scm_generator.generate()
 
     # Generate samples
     samples_a = scm.generate_samples(num_samples=num_samples)
-    samples_b = scm_deserialized.generate_samples(num_samples=num_samples)
+    samples_b = scm_b.generate_samples(num_samples=num_samples)
 
-    print(f"Keys A: {list(samples_a[0].keys())}")
-    print(f"Keys B: {list(samples_b[0].keys())}")
-    print(f"Values A: {list(samples_a[0].values())}")
-    print(f"Values B: {list(samples_b[0].values())}")
-
-    assert sorted(samples_a) == sorted(
-        samples_b
-    ), "Samples should be equal with the same seed."
+    assert samples_a == samples_b, "Samples should be equal with the same seed."
 
 
 # - scm sobre los grafos generados anteriormente y comparar si los samples son iguales.

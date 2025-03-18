@@ -299,6 +299,7 @@ class SCMGenerator:
                 self.variable_types[node_name],
                 cdf_mappings,
                 category_mappings,
+                random_state=self.random_state,
             )
             nodes.append(node)
 

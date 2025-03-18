@@ -45,10 +45,6 @@ class GameInstance:
         scm = SCM.from_dict(data["scm"], random_state)
         return cls(scm, random_state)
 
-    # def save(self, filename):
-    #     """Save the game instance to a JSON file."""
-    #     with open(filename, "w") as f:
-    #         json.dump(self.to_dict(), f)
     def save(self, filename):
         """Ensure the directory exists and save the game instance as a JSON file."""
         # Extract the directory from the file path

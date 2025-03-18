@@ -29,7 +29,7 @@ class SCMNode:
         # For categorical nodes, store a numeric mapping to be used by children.
         self.input_numeric = None
 
-    def generate_value(self, parent_values, random_state=np.random):
+    def generate_value(self, parent_values, random_state: np.random.Generator):
         if self.var_type == "numerical":
             # (Numerical case remains the same.)
             subs_dict = {}
@@ -140,13 +140,16 @@ class SCMNode:
 
 
 class SCM:
-    def __init__(self, dag: DAG, nodes, random_state=np.random):
+    def __init__(self, dag: DAG, nodes, random_state: np.random.Generator):
         """
         Structural Causal Model that takes a list of nodes in topological order.
         """
         self.dag = dag
         self.nodes = {node.name: node for node in nodes}
         self.random_state = random_state
+
+    def get_random_state(self) -> np.random.RandomState:
+        return self.random_state
 
     def _generate_sample(self, interventions={}, random_state=None):
         """Generates a single sample by evaluating each node in topological order."""
@@ -182,15 +185,42 @@ class SCM:
     def to_dict(self):
         """Serialize the SCM as a dict."""
         nodes_data = {name: node.to_dict() for name, node in self.nodes.items()}
-        return {"nodes": nodes_data, "dag": self.dag.to_dict()}
+        # Convert the state to a JSON-friendly format
+        state_dict = {
+            "state": self.random_state.get_state()[0],  # 'MT19937'
+            "keys": self.random_state.get_state()[
+                1
+            ].tolist(),  # Convert NumPy array to list
+            "pos": self.random_state.get_state()[2],
+            "has_gauss": self.random_state.get_state()[3],
+            "cached_gaussian": self.random_state.get_state()[4],
+        }
+        return {
+            "nodes": nodes_data,
+            "dag": self.dag.to_dict(),
+            "random_state": state_dict,
+        }
 
     @classmethod
-    def from_dict(cls, data, random_state):
+    def from_dict(cls, data):
         nodes = [SCMNode.from_dict(nd) for nd in data["nodes"].values()]
         # Optionally, sort nodes (if names are of the form 'X1', 'X2', …).
         nodes.sort(key=lambda n: int(n.name[1:]))
 
         # Deserialize the DAG
         dag = DAG.from_dict(data["dag"])
+
+        # Deserialize the random state
+        random_state_config = (
+            str(data["random_state"]["state"]),  # Ensure it's a string ('MT19937')
+            np.array(
+                data["random_state"]["keys"], dtype=np.uint32
+            ),  # Ensure NumPy array
+            int(data["random_state"]["pos"]),  # Ensure integer
+            int(data["random_state"]["has_gauss"]),  # Ensure integer (0 or 1)
+            float(data["random_state"]["cached_gaussian"]),  # Ensure float
+        )
+        random_state = np.random.RandomState()
+        random_state.set_state(random_state_config)
 
         return cls(dag, nodes, random_state)
