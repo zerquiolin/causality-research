@@ -42,7 +42,7 @@ class GameInstance:
         )
         random_state = np.random.RandomState()
         random_state.set_state(random_state_config)
-        scm = SCM.from_dict(data["scm"], random_state)
+        scm = SCM.from_dict(data["scm"])
         return cls(scm, random_state)
 
     def save(self, filename):

@@ -166,6 +166,7 @@ class SCMGenerator:
         """
         Generates an SCM from a given networkx graph and constraints.
         """
+
         self.dag = dag
         self.variable_types = variable_types
         self.variable_domains = variable_domains

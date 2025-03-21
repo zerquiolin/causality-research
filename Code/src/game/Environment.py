@@ -2,10 +2,13 @@ import os
 import datetime
 import pandas as pd
 import numpy as np
+import zlib
 
 
 class Environment:
-    def __init__(self, game_instance, agent, max_rounds=10, random_state=np.random):
+    def __init__(
+        self, game_instance, agent, random_state: np.random.Generator, max_rounds=10
+    ):
         """
         Initialize the game environment.
 
@@ -13,14 +16,15 @@ class Environment:
         :param agent: The agent (player) controlling interventions.
         :param max_rounds: Maximum rounds before forced termination.
         """
+        self.random_state = random_state
         self.game_instance = game_instance
         self.agent = agent
         self.max_rounds = max_rounds
         self.current_round = 0
         self.state = self.initialize_state()
         self.history = []  # Stores (round, state, action, action_object)
-        self.random_state = random_state
         self.node_properties = self.initialize_node_properties()
+        self.random_states = {}
 
     def initialize_state(self):
         """
@@ -39,7 +43,9 @@ class Environment:
         - Measurable (observable)
         """
         properties = {}
-        for node, scm_node in self.game_instance.scm.nodes.items():
+        for node, scm_node in sorted(
+            self.game_instance.scm.nodes.items(), key=lambda x: x[0]
+        ):
             properties[node] = {
                 "treatable": self.random_state.choice([True, False]),
                 "measurable": self.random_state.choice([True, False]),
@@ -104,10 +110,17 @@ class Environment:
         :param treatments: List of (treatment_dict, num_samples)
         """
         for treatment, num_samples in treatments:
+            # Hashable treatment
+            hashable_treatment = tuple(sorted(treatment.items()))
+            if hashable_treatment not in self.random_states:
+                self.random_states[hashable_treatment] = np.random.RandomState(
+                    zlib.crc32(str(hashable_treatment).encode())
+                )
+
             samples = self.game_instance.scm.generate_samples(
                 interventions=treatment,
                 num_samples=num_samples,
-                random_state=self.game_instance.random_state,
+                random_state=self.random_states[hashable_treatment],
             )
             for node, value in treatment.items():
                 if node not in self.state["datasets"]:
@@ -115,8 +128,6 @@ class Environment:
 
                 # Store dataset under the specific treatment value
                 self.state["datasets"][node][value] = samples
-
-            print(f"Experiment applied: {treatment} with {num_samples} samples.")
 
     def run_game(self):
         """

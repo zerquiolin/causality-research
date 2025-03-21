@@ -77,14 +77,18 @@ def main():
     # Create the Environment using the GameInstance and Agent
     env = Environment(game_instance, agent, max_rounds=10, random_state=random_state)
 
-    # Run the game simulation
-    final_state = env.run_game()
+    # print(f"env: {env}, game_instance: {game_instance}, agent: {agent}, scm: {scm}")
 
-    # Retrieve and display the state-action history
-    game_history_df = env.get_game_history()
+    print(game_instance.scm.nodes)
 
-    print("\n📊 Game History DataFrame:")
-    print(game_history_df)
+    # # Run the game simulation
+    # final_state = env.run_game()
+
+    # # Retrieve and display the state-action history
+    # game_history_df = env.get_game_history()
+
+    # print("\n📊 Game History DataFrame:")
+    # print(game_history_df)
 
 
 if __name__ == "__main__":

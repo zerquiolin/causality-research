@@ -45,6 +45,11 @@ class SCMNode:
                             1,
                         ),
                     )
+            variables_list = list(self.equation.free_symbols)
+            for var in variables_list:
+                if var not in subs_dict:
+                    print(f"Warning: Unresolved symbols in {self.name} ->", var)
+
             eval_equation = self.equation.subs(subs_dict).evalf()
             if isinstance(eval_equation, sp.Basic) and not eval_equation.is_number:
                 print(f"Warning: Unresolved symbols in {self.name} ->", eval_equation)
