@@ -2,6 +2,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
+from networkx.readwrite import json_graph
 
 
 class DAG:
@@ -50,6 +51,16 @@ class DAG:
             structured_nodes[node] = self.get_parents(node)
 
         return structured_nodes
+
+    def to_dict(self):
+        """Return the DAG as a dictionary."""
+        return json_graph.node_link_data(self.graph, edges="edges")
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create a DAG from a dictionary."""
+        dag_graph = json_graph.node_link_graph(data, edges="edges")
+        return cls(dag_graph)
 
     def plot(
         self,
