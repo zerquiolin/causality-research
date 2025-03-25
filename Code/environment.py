@@ -1,4 +1,3 @@
-# File: causality_game/main.py
 from src.generators.DagGenerator import DAGGenerator
 from src.generators.SCMGenerator import SCMGenerator
 from src.game.GameInstance import GameInstance

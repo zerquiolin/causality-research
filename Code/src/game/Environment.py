@@ -181,7 +181,7 @@ class Environment:
             self.current_round += 1
 
         print("Game ended.")
-        return self.get_state()
+        return self.get_state(), self.history
 
     def get_game_history(self):
         """
