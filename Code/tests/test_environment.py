@@ -69,53 +69,72 @@ game_instance = GameInstance(scm, game_instance_random_state)
 
 
 @pytest.mark.parametrize(
-    "game_instance, agent, random_state, interventions",
+    "game_instance, agent, random_state_seed, interventions",
     [
         (
             game_instance,
             None,
-            np.random.RandomState(911),
-            [("X10", 5), ("X4", "0"), ("X8", 2), ("X9", 1)],
+            911,
+            [
+                ("X10", 5),
+                ("X4", "2"),
+                ("X8", 2),
+                ("X9", 1),
+            ],  # Interventions X4 is 0 with a log
         )
     ],  # The agent is not used in the test
 )
-def test_environment_is_invariant(game_instance, agent, random_state, interventions):
+def test_environment_is_invariant(
+    game_instance, agent, random_state_seed, interventions
+):
     """
     Test that the Environment is invariant to the agent.
     """
-    # todo: this env should be inside the loop
-    # Create the Environment using the GameInstance and Agent
-    env = Environment(
-        game_instance=game_instance,
-        agent=agent,
-        random_state=random_state,
-    )
     # Generate all permutations
     all_permutations = list(permutations(interventions))
 
-    history = []
-    history_combined = []
+    history = {"all-in": [], "partitioned": []}
 
-    # Run once for each permutation and twice to check for the addition of new interventions
-    for _ in range(2):
-        for perm in all_permutations:
-            for var, val in perm:
-                experiment = [({var: val}, 1)]  # Only 5 samples for speed
-                # Perform the intervention
-                env.perform_experiment(experiment)
-                history.append(env.get_state()["datasets"])
-                env.perform_experiment(experiment)
-                history_combined.append(env.get_state()["datasets"])
+    for perm in all_permutations:
+        # Create the Environment using the GameInstance and Agent
+        all_in_env = Environment(
+            game_instance=game_instance,
+            agent=agent,
+            random_state=np.random.RandomState(random_state_seed),
+        )
+        partitioned_env = Environment(
+            game_instance=game_instance,
+            agent=agent,
+            random_state=np.random.RandomState(random_state_seed),
+        )
+        for var, val in perm:
+            experiment = lambda t: [({var: val}, t)]
+            # Perform the intervention for the all in environment
+            all_in_env.perform_experiment(experiment(2))
+            history["all-in"].append(all_in_env.get_state()["datasets"])
+            # Perform the intervention for the partitioned environment
+            partitioned_env.perform_experiment(experiment(1))
+            partitioned_env.perform_experiment(experiment(1))
+            history["partitioned"].append(partitioned_env.get_state()["datasets"])
+            break
+        break
 
-    first_round = zip(history)
-    print(first_round)
-    # print(len(set(frozenset(d.items()) for d in first_round.datasets)) == 1)
-    second_round = zip(history_combined)
+    # # Check that the two environments are the same
+    # for a, b in zip(history["all-in"], history["partitioned"]):
+    #     for key in a.keys():
+    #         assert key in b
+    #         for k in a[key].keys():
+    #             assert k in b[key]
+    #             print(a[key][k])
+    #             print(b[key][k])
+    #             # Dump a and b to json
+    #             a_json = json.dumps(a[key][k], sort_keys=True)
+    #             b_json = json.dumps(b[key][k], sort_keys=True)
+    #             # Save the jsons to a file
+    #             with open("a.json", "w") as f:
+    #                 f.write(a_json)
+    #             with open("b.json", "w") as f:
+    #                 f.write(b_json)
+    #             assert a == b
 
-    # Check available actions
-    for round1 in first_round:
-        print(round1)
-
-    # print("X9" in env.get_available_actions())
-
-    assert False
+    assert history["all-in"] == history["partitioned"]

@@ -198,17 +198,25 @@ class SCMGenerator:
             ):  # Reserve one term if possible.
                 # Select a non-linear function from allowed_functions.
                 func = self.random_state.choice(self.allowed_functions)
-                func_expr = func(var)
-                if allow_variable_exponents and input_vars:
-                    exponent_var = self.random_state.choice(input_vars)
-                    # Here, exponent_var remains symbolic. If you want a numeric exponent, sample a number instead.
-                    func_expr = func_expr**exponent_var
+                # Check if the function could potentially induce complex values.
+                if func == sp.log or func == sp.sqrt:
+                    # Avoid negative values in the log or square root.
+                    func_expr = func(sp.Abs(var))
                 else:
-                    exponent = self.random_state.uniform(0.5, 2)
-                    func_expr = func_expr**exponent
-                # Add a non-linear term with its own coefficient.
-                non_linear_coeff = self.random_state.uniform(-5, 5)
-                term += non_linear_coeff * func_expr
+                    func_expr = func(var)
+
+                if self.random_state.random() > 0.7:
+                    if allow_variable_exponents and input_vars:
+                        exponent_var = self.random_state.choice(input_vars)
+                        # Here, exponent_var remains symbolic. If you want a numeric exponent, sample a number instead.
+                        # Account for the case where the exponent is negative.
+                        func_expr = func_expr ** sp.Abs(exponent_var)
+                    else:
+                        exponent = self.random_state.uniform(0.5, 2)
+                        func_expr = func_expr**exponent
+                    # Add a non-linear term with its own coefficient.
+                    non_linear_coeff = self.random_state.uniform(-5, 5)
+                    term += non_linear_coeff * func_expr
 
             function += term
             term_count += 1

@@ -117,6 +117,10 @@ class Environment:
                     zlib.crc32(str(hashable_treatment).encode())
                 )
 
+            print(
+                f"Performing experiment: {treatment} with {num_samples} samples. and random state {self.random_states[hashable_treatment]}"
+            )
+
             samples = self.game_instance.scm.generate_samples(
                 interventions=treatment,
                 num_samples=num_samples,
@@ -126,8 +130,15 @@ class Environment:
                 if node not in self.state["datasets"]:
                     self.state["datasets"][node] = {}
 
+                if value not in self.state["datasets"][node]:
+                    self.state["datasets"][node][value] = []
+
+                print(f"Adding {num_samples} samples to {node}={value}")
+                print(self.state["datasets"][node][value])
+                print(samples)
+
                 # Store dataset under the specific treatment value
-                self.state["datasets"][node][value] = samples
+                self.state["datasets"][node][value] += samples
 
     def run_game(self):
         """
