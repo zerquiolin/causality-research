@@ -5,9 +5,17 @@ import numpy as np
 import zlib
 
 
+from src.game.GameInstance import GameInstance
+from src.lib.models.abstract.BaseAgent import BaseAgent
+
+
 class Environment:
     def __init__(
-        self, game_instance, agent, random_state: np.random.Generator, max_rounds=10
+        self,
+        game_instance: GameInstance,
+        agent: BaseAgent,
+        random_state: np.random.Generator,
+        max_rounds=10,
     ):
         """
         Initialize the game environment.
@@ -133,10 +141,6 @@ class Environment:
                 if value not in self.state["datasets"][node]:
                     self.state["datasets"][node][value] = []
 
-                print(f"Adding {num_samples} samples to {node}={value}")
-                print(self.state["datasets"][node][value])
-                print(samples)
-
                 # Store dataset under the specific treatment value
                 self.state["datasets"][node][value] += samples
 
@@ -147,8 +151,14 @@ class Environment:
         - The maximum number of rounds is reached.
         """
         while self.current_round < self.max_rounds:
+            # todo: Filter the state to only include the nodes that could be measured.
             state = self.get_state()
-            action, action_object = self.agent.choose_action(state)
+            samples = state["datasets"]
+            actions = state["available_actions"]
+            num_rounds = state["round"]
+            action, action_object = self.agent.choose_action(
+                samples=samples, actions=actions, num_rounds=num_rounds
+            )
             print(
                 f"Round {self.current_round}: Agent chose action '{action}' with object: {action_object}"
             )

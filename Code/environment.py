@@ -4,6 +4,7 @@ from src.generators.SCMGenerator import SCMGenerator
 from src.game.GameInstance import GameInstance
 from src.game.Environment import Environment
 from src.agents.RandomAgent import RandomAgent
+from src.agents.GreedyAgent import GreedyAgent
 import numpy as np
 import sympy as sp
 import pandas as pd
@@ -72,23 +73,27 @@ def main():
     game_instance = GameInstance(scm, random_state)
 
     # Create a RandomAgent
-    agent = RandomAgent()
+    random_agent = RandomAgent()
+    greedy_agent = GreedyAgent()
 
     # Create the Environment using the GameInstance and Agent
-    env = Environment(game_instance, agent, max_rounds=10, random_state=random_state)
+    # env = Environment(game_instance, random_agent, max_rounds=10, random_state=random_state)
+    env = Environment(
+        game_instance, greedy_agent, max_rounds=10, random_state=random_state
+    )
 
     # print(f"env: {env}, game_instance: {game_instance}, agent: {agent}, scm: {scm}")
 
     print(game_instance.scm.nodes)
 
-    # # Run the game simulation
-    # final_state = env.run_game()
+    # Run the game simulation
+    final_state = env.run_game()
 
-    # # Retrieve and display the state-action history
-    # game_history_df = env.get_game_history()
+    # Retrieve and display the state-action history
+    game_history_df = env.get_game_history()
 
-    # print("\n📊 Game History DataFrame:")
-    # print(game_history_df)
+    print("\n📊 Game History DataFrame:")
+    print(game_history_df)
 
 
 if __name__ == "__main__":
