@@ -107,34 +107,17 @@ def test_environment_is_invariant(
             agent=agent,
             random_state=np.random.RandomState(random_state_seed),
         )
+        experiment = lambda t: [({var: val}, t)]
         for var, val in perm:
-            experiment = lambda t: [({var: val}, t)]
             # Perform the intervention for the all in environment
             all_in_env.perform_experiment(experiment(2))
             history["all-in"].append(all_in_env.get_state()["datasets"])
+        for var, val in perm:
             # Perform the intervention for the partitioned environment
             partitioned_env.perform_experiment(experiment(1))
+        for var, val in perm:
+            # Perform the intervention for the partitioned environment
             partitioned_env.perform_experiment(experiment(1))
             history["partitioned"].append(partitioned_env.get_state()["datasets"])
-            break
-        break
-
-    # # Check that the two environments are the same
-    # for a, b in zip(history["all-in"], history["partitioned"]):
-    #     for key in a.keys():
-    #         assert key in b
-    #         for k in a[key].keys():
-    #             assert k in b[key]
-    #             print(a[key][k])
-    #             print(b[key][k])
-    #             # Dump a and b to json
-    #             a_json = json.dumps(a[key][k], sort_keys=True)
-    #             b_json = json.dumps(b[key][k], sort_keys=True)
-    #             # Save the jsons to a file
-    #             with open("a.json", "w") as f:
-    #                 f.write(a_json)
-    #             with open("b.json", "w") as f:
-    #                 f.write(b_json)
-    #             assert a == b
 
     assert history["all-in"] == history["partitioned"]

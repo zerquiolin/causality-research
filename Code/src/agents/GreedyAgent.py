@@ -1,4 +1,9 @@
-import random
+import numpy as np
+import pandas as pd
+import networkx as nx
+from pgmpy.estimators import PC
+from pgmpy.models import BayesianModel
+
 from src.lib.models.abstract.BaseAgent import BaseAgent
 
 
@@ -10,38 +15,134 @@ class GreedyAgent(BaseAgent):
         if self._is_first_round:
             self._is_first_round = False
         else:
+            self._analyze_dataset(samples)
             return "stop_with_answer", None
 
         # Define the treatment list
         treatments = []
         # Iterate over all possible actions
         for node in actions.keys():
-            print(f"node: {node}")
             # Skip the stop_with_answer action
             if node == "stop_with_answer":
                 continue
             # Get the domain of the action
             domain = actions[node]
-            print(f"domain: {domain}")
             # Check if the domain is categorical
-            if isinstance(domain[0], str):
-                # If the domain is categorical, choose a random value
-                treatments.append(
-                    ({node: random.choice(domain)}, random.randint(10, 50))
-                )
+            if isinstance(domain, list):
+                for value in domain:
+                    # Add all possible values to the treatment list
+                    treatments.append(({node: value}, 10000))
             else:
-                # If the domain is numerical, choose a random value between the lower and upper bounds
-                treatments.append(
-                    (
-                        {node: random.uniform(domain[0], domain[1])},
-                        random.randint(10, 50),
-                    )
-                )
+                for i in np.linspace(domain[0], domain[1], 10):
+                    # Add 10 values to the treatment list
+                    treatments.append(({node: i}, 10000))
 
-        return "play", treatments
+        return "experiment", treatments
+
+    def _merge_graphs_with_conflict_resolution(self, graphs):
+        merged_graph = nx.DiGraph()
+        directed_edges = set()
+        undirected_edges = set()
+
+        for g in graphs:
+            for u, v in g.edges():
+                if (v, u) in directed_edges:
+                    # Conflict detected — remove both directed edges and store as undirected
+                    directed_edges.discard((v, u))
+                    undirected_edges.add(frozenset((u, v)))
+                elif frozenset((u, v)) not in undirected_edges:
+                    directed_edges.add((u, v))
+
+        # Add directed edges
+        for u, v in directed_edges:
+            merged_graph.add_edge(u, v, direction="directed")
+
+        # Add undirected edges (use both directions, but tag them)
+        for edge in undirected_edges:
+            u, v = tuple(edge)
+            merged_graph.add_edge(u, v, direction="undirected")
+            merged_graph.add_edge(v, u, direction="undirected")
+
+        return merged_graph
+
+    def _analyze_dataset(self, samples):
+        """
+        Analyze the dataset and decide whether to stop or continue.
+        """
+        # Structure of samples:
+        # {
+        #     "X1": {0: [{X1: 0, X2: 1, ..., Xn: 1  }]},
+        #     "X2": {0: [{X1: 0, X2: 1, ..., Xn: 1  }]},
+        #     ...
+        #     "Xn": {0: [{X1: 0, X2: 1, ..., Xn: 1  }]},
+        # }
+
+        def gen_dag(samples):
+            print("Generating DAG")
+            # Create columns for the DataFrame
+            columns = sorted(
+                [str(key) for key in samples[0].keys()],
+                key=lambda x: int(x.replace("X", "")),
+            )
+            # Create a DataFrame
+            df = pd.DataFrame(data=samples, columns=columns)
+            print(df)
+
+            # Run the PC algorithm
+            pc = PC(data=df)
+
+            # Estimate the DAG using the PC algorithm
+            model: BayesianModel = pc.estimate(return_type="dag")
+
+            # Extract nodes and edges
+            nodes = list(model.nodes())
+            edges = list(model.edges())
+
+            # Create networkx graph
+            graph = nx.DiGraph()
+            graph.add_nodes_from(nodes)
+            graph.add_edges_from(edges)
+
+            return graph
+
+        # Generate a list of DAGs from the samples
+        sample_dags = [
+            gen_dag(value_samples)
+            for node_samples in samples.values()
+            for value_samples in node_samples.values()
+        ]
+        # Generate a dag from all samples
+        sample_dags.append(
+            gen_dag(
+                [
+                    samples
+                    for node_samples in samples.values()
+                    for value_samples in node_samples.values()
+                    for samples in value_samples
+                ]
+            )
+        )
+
+        # Assuming each graph is a pgmpy BayesianModel or networkx.DiGraph
+        all_edges = set()
+        all_nodes = set()
+
+        for g in sample_dags:
+            print("Graph edges:", g.edges())
+            all_edges.update(g.edges())
+            all_nodes.update(g.nodes())
+
+        # Create a new merged graph
+        merged_graph = nx.DiGraph()
+        merged_graph.add_nodes_from(all_nodes)
+        merged_graph.add_edges_from(all_edges)
+
+        # Save the result to the class variable
+        self._learned_graph = merged_graph
 
     def submit_answer(self):
         """
         Returns a placeholder final answer for evaluation.
         """
-        return "Placeholder_Causal_Model"
+
+        return self._learned_graph

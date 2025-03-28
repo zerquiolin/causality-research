@@ -199,9 +199,9 @@ class SCMGenerator:
                 # Select a non-linear function from allowed_functions.
                 func = self.random_state.choice(self.allowed_functions)
                 # Check if the function could potentially induce complex values.
-                if func == sp.log or func == sp.sqrt:
+                if func == sp.log or func == sp.sqrt or func == sp.exp:
                     # Avoid negative values in the log or square root.
-                    func_expr = func(sp.Abs(var))
+                    func_expr = func(1 + sp.Abs(var))
                 else:
                     func_expr = func(var)
 

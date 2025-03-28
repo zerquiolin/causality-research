@@ -28,7 +28,7 @@ class RandomAgent(BaseAgent):
             num_samples = random.randint(10, 50)  # Random sample size
             treatments.append(({node: treatment_value}, num_samples))
 
-        return "play", treatments
+        return "experiment", treatments
 
     def submit_answer(self):
         """

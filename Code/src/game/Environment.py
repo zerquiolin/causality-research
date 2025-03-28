@@ -83,6 +83,7 @@ class Environment:
             "datasets": self.state["datasets"],
             "round": self.current_round,
             "available_actions": self.get_available_actions(),
+            "final_answer": self.state["final_answer"],
         }
 
     def apply_action(self, action, action_object=None):
@@ -95,19 +96,26 @@ class Environment:
         if action == "stop_with_answer":
             answer = self.agent.submit_answer()
             self.state["final_answer"] = answer
-            print(f"Game Over: Agent submitted answer {answer}.")
-        elif (
-            action in self.node_properties and self.node_properties[action]["treatable"]
-        ):
-            if not isinstance(action_object, list) or not all(
-                isinstance(t, tuple) for t in action_object
-            ):
-                print(
-                    "Error: Invalid experiment format. Expected [(treatment_dict, num_samples), ...]"
-                )
-                return
+        elif action == "experiment":
+            for experiment in action_object:
+                # Check if the variable(s) exists and is treatable
+                if not all(
+                    node in self.node_properties
+                    and self.node_properties[node]["treatable"]
+                    for node in experiment[0].keys()
+                ):
+                    print("Error: Invalid experiment. Node not treatable.")
+                    return
+                # Check if the treatment values are within the domain
+                if not all(
+                    value in self.node_properties[node]["domain"]
+                    for node, value in experiment[0].items()
+                ):
+                    print("Error: Invalid experiment. Value not in domain.")
+                    return
 
-            self.perform_experiment(action_object)
+                # Perform the experiment
+                self.perform_experiment([experiment])
         else:
             print(f"Invalid action: {action}")
 
@@ -151,9 +159,17 @@ class Environment:
         - The maximum number of rounds is reached.
         """
         while self.current_round < self.max_rounds:
-            # todo: Filter the state to only include the nodes that could be measured.
+            print(f"Round {self.current_round}:")
             state = self.get_state()
             samples = state["datasets"]
+            # todo: filter
+            # print(samples)
+            # print(f"Samples length: {samples.keys()}")
+            # samples = dict(
+            #     filter(lambda x: self.node_properties[x]["measurable"], samples.keys())
+            # )
+            # print(samples)
+            # print(f"Filtered Samples length: {samples.keys()}")
             actions = state["available_actions"]
             num_rounds = state["round"]
             action, action_object = self.agent.choose_action(
