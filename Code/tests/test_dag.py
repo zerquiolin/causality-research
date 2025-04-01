@@ -1,9 +1,18 @@
+# Tests
 import pytest
-import networkx as nx
-from src.generators.DagGenerator import DAGGenerator
-from src.lib.models.scm.DAG import DAG
+
+# Math
 import numpy as np
+
+# Graph
+import networkx as nx
 from networkx.algorithms import isomorphism
+
+# DAG
+from src.scm.dag import DAG
+
+# Generator
+from src.generators.dag_generator import DAGGenerator
 
 
 @pytest.mark.parametrize(

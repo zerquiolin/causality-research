@@ -6,7 +6,7 @@ import zlib
 
 
 from src.game.GameInstance import GameInstance
-from src.lib.models.abstract.BaseAgent import BaseAgent
+from src.agents.base import BaseAgent
 
 
 class Environment:

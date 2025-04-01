@@ -1,10 +1,11 @@
+import re
 import numpy as np
 import pandas as pd
 import networkx as nx
 from pgmpy.estimators import PC
 from pgmpy.models import BayesianModel
 
-from src.lib.models.abstract.BaseAgent import BaseAgent
+from .base import BaseAgent
 
 
 class GreedyAgent(BaseAgent):
@@ -89,7 +90,7 @@ class GreedyAgent(BaseAgent):
             print("Generating DAG")
             # Create columns for the DataFrame
             columns = sorted(
-                [str(key) for key in samples[0].keys()],
+                [str(key) for key in samples[0].keys() if re.fullmatch(r"X\d+", key)],
                 key=lambda x: int(x.replace("X", "")),
             )
             # Create a DataFrame

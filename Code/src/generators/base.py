@@ -1,6 +1,17 @@
-# File: causality_game/generators/base_dag_generator.py
+# Abstract
 from abc import ABC, abstractmethod
+
+# NetworkX
 import networkx as nx
+
+
+class BaseGenerator(ABC):
+    @abstractmethod
+    def generate(self):
+        """
+        Generate an object (e.g., a DAG or SCM) based on provided parameters.
+        """
+        pass
 
 
 class BaseDAGGenerator(ABC):

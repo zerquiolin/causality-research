@@ -1,12 +1,11 @@
 import networkx as nx
 from typing import Dict, Any, List, Tuple, Callable
-from src.lib.models.abstract import (
-    BaseGenerator,
-)
-from src.lib.models.scm.SCM import SCM, SCMNode
+from src.generators.base import BaseGenerator
+from src.scm.scm import SCM
+from src.scm.nodes import SCMNode
 import numpy as np
 import sympy as sp
-from src.lib.models.scm.DAG import DAG
+from src.scm.dag import DAG
 
 
 class SCMGenerator:

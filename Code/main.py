@@ -1,4 +1,4 @@
-from src.generators.DagGenerator import DAGGenerator
+from generators.dag_generator import DAGGenerator
 from src.lib.models.scm.DAG import DAG
 from src.generators.SCMGenerator import SCMGenerator
 

@@ -1,9 +1,9 @@
 import json
 import pytest
 from src.generators.SCMGenerator import SCMGenerator
-from src.lib.models.scm.SCM import SCM
-from src.lib.models.scm.DAG import DAG
-from src.generators.DagGenerator import DAGGenerator
+from src.scm.scm import SCM
+from src.scm.dag import DAG
+from src.generators.dag_generator import DAGGenerator
 from scipy.stats import norm, uniform
 import numpy as np
 

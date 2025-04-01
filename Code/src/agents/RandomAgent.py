@@ -1,5 +1,5 @@
 import random
-from src.lib.models.abstract.BaseAgent import BaseAgent
+from .base import BaseAgent
 
 
 class RandomAgent(BaseAgent):

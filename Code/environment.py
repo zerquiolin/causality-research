@@ -1,4 +1,4 @@
-from src.generators.DagGenerator import DAGGenerator
+from generators.dag_generator import DAGGenerator
 from src.generators.SCMGenerator import SCMGenerator
 from src.game.GameInstance import GameInstance
 from src.game.Environment import Environment

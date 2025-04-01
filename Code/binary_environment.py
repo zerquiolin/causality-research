@@ -1,5 +1,5 @@
-from src.lib.models.scm.DAG import DAG
-from src.generators.DagGenerator import DAGGenerator
+from src.scm.dag import DAG
+from src.generators.dag_generator import DAGGenerator
 from src.generators.SCMGenerator import SCMGenerator
 from src.game.GameInstance import GameInstance
 from src.game.Environment import Environment
