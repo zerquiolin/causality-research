@@ -45,6 +45,11 @@ class SCMNode:
                             1,
                         ),
                     )
+            variables_list = list(self.equation.free_symbols)
+            for var in variables_list:
+                if var not in subs_dict:
+                    print(f"Warning: Unresolved symbols in {self.name} ->", var)
+
             eval_equation = self.equation.subs(subs_dict).evalf()
             if isinstance(eval_equation, sp.Basic) and not eval_equation.is_number:
                 print(f"Warning: Unresolved symbols in {self.name} ->", eval_equation)
@@ -60,10 +65,12 @@ class SCMNode:
         else:
             # For categorical nodes, use a fixed value (e.g., 0) to evaluate each CDF mapping.
             category_probs = {
-                cat: self.cdf_mappings[cat](0) for cat in self.cdf_mappings
+                cat: self.cdf_mappings[cat](1) for cat in self.cdf_mappings
             }
+
             chosen_category = max(category_probs, key=lambda cat: category_probs[cat])
             self.input_numeric = self.category_mappings[chosen_category]
+            print(f"Chosen category: {chosen_category}")
             return chosen_category
 
     def to_dict(self):
@@ -159,13 +166,13 @@ class SCM:
         for node_name, node in self.nodes.items():
             if node_name in interventions:
                 sample[node_name] = interventions[node_name]
-                if node.var_type == "categorical":
-                    sample[node_name + "_num"] = node.input_numeric
+                # if node.var_type == "categorical":
+                #     sample[node_name + "_num"] = node.input_numeric
             else:
                 value = node.generate_value(sample, random_state=rd)
                 sample[node_name] = value
-                if node.var_type == "categorical":
-                    sample[node_name + "_num"] = node.input_numeric
+                # if node.var_type == "categorical":
+                #     sample[node_name + "_num"] = node.input_numeric
         return sample
 
     def generate_samples(self, interventions={}, num_samples=1, random_state=None):

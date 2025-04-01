@@ -1,3 +1,4 @@
+from src.lib.models.scm.DAG import DAG
 from src.generators.DagGenerator import DAGGenerator
 from src.generators.SCMGenerator import SCMGenerator
 from src.game.GameInstance import GameInstance
@@ -16,24 +17,23 @@ def main():
 
     # Generate a DAG
     dag_gen = DAGGenerator(
-        num_nodes=10,
-        num_roots=3,
-        num_leaves=3,
+        num_nodes=3,
+        num_roots=1,
+        num_leaves=1,
         edge_density=0.3,
-        max_in_degree=3,
-        max_out_degree=3,
-        min_path_length=2,
-        max_path_length=5,
+        max_in_degree=1,
+        max_out_degree=1,
+        min_path_length=1,
+        max_path_length=2,
         random_state=random_state,
     )
     dag_obj = dag_gen.generate()
 
+    # dag_obj.plot()
+
     # Define constraints for SCM generation
     scm_constraints = {
-        "variable_types": {
-            f"X{i}": "numerical" if np.random.rand() < 0.8 else "categorical"
-            for i in range(1, 11)
-        },
+        "variable_types": {f"X{i}": "categorical" for i in range(1, 4)},
         "variable_domains": {},
         "user_constraints": {
             "max_terms": 3,
@@ -50,23 +50,16 @@ def main():
 
     # Define variable domains
     for node, vtype in scm_constraints["variable_types"].items():
-        if vtype == "numerical":
-            # For numerical nodes, assign a random interval.
-            # Here, we choose lower bound between -10 and -1, and upper bound between 1 and 10.
-            lower = np.random.randint(-10, -1)
-            upper = np.random.randint(1, 10)
-            scm_constraints["variable_domains"][node] = (lower, upper)
-        else:
-            # For categorical nodes, assign a random list of categories.
-            # For example, generate between 2 and 4 categories using letters.
-            num_categories = np.random.randint(2, 4)
-            # This will generate categories like ['A', 'B', 'C'].
-            categories = [chr(65 + i) for i in range(num_categories)]
-            scm_constraints["variable_domains"][node] = categories
+        # scm_constraints["variable_domains"][node] = [0, 1]
+        scm_constraints["variable_domains"][node] = ["0", "1"]
 
     # Generate the SCM
     scm_gen = SCMGenerator(dag_obj, **scm_constraints, random_state=random_state)
     scm = scm_gen.generate()
+
+    for name, node in scm.nodes.items():
+        print(f"Equation for {name}")
+        print(node.equation)
 
     # Create a GameInstance with the generated SCM
     game_instance = GameInstance(scm, random_state)
@@ -76,25 +69,36 @@ def main():
     greedy_agent = GreedyAgent()
 
     # Create the Environment using the GameInstance and Agent
-    env = Environment(
-        game_instance, random_agent, max_rounds=10, random_state=random_state
-    )
     # env = Environment(
-    #     game_instance, greedy_agent, max_rounds=10, random_state=random_state
+    #     game_instance, random_agent, max_rounds=10, random_state=random_state
     # )
+    env = Environment(
+        game_instance, greedy_agent, max_rounds=10, random_state=random_state
+    )
 
     # print(f"env: {env}, game_instance: {game_instance}, agent: {agent}, scm: {scm}")
 
-    print(game_instance.scm.nodes)
-
     # Run the game simulation
-    final_state = env.run_game()
+    final_state, final_history = env.run_game()
+    print("\n🏁 Game simulation complete!")
+    # print(f"Final State: {final_state}")
+    # print(f"Final Dataset: {final_state[0]['datasets']}")
 
     # Retrieve and display the state-action history
     game_history_df = env.get_game_history()
 
     print("\n📊 Game History DataFrame:")
     print(game_history_df)
+
+    # Show the agent's learned DAG
+    print("\n🧠 Learned DAG edges:")
+    print(final_state["final_answer"])
+
+    # Create a DAG custom object
+    learned_dag = DAG(final_state["final_answer"])
+
+    dag_obj.plot()
+    learned_dag.plot()
 
 
 if __name__ == "__main__":
