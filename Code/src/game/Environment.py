@@ -1,84 +1,134 @@
-import os
-import datetime
-import pandas as pd
+# Math
 import numpy as np
-import zlib
 
+# Data
+import pandas as pd
 
+# Models
 from src.game.GameInstance import GameInstance
 from src.agents.base import BaseAgent
 
+# Typing
+from typing import Any, Dict, List, Tuple, Optional
+
+# Utils
+import os
+import zlib
+import datetime
+
 
 class Environment:
+    """
+    Represents the simulation environment for running causal discovery experiments.
+
+    This environment encapsulates the game instance, the agent controlling interventions,
+    and the state of the simulation. It manages experiment execution, state updates, and
+    game history logging.
+
+    Attributes:
+        game_instance (GameInstance): The instance containing the SCM and initial configuration.
+        agent (BaseAgent): The agent that makes intervention decisions.
+        random_state (np.random.RandomState): Random State for reproducibility.
+        max_rounds (int): Maximum number of rounds before termination.
+        current_round (int): The current round number.
+        state (Dict): Dictionary holding the current datasets and final answer.
+        history (List): List of dictionaries logging (round, state, action, action_object).
+        node_properties (Dict): Contains properties (treatable, measurable, domain) for each node.
+        random_states (Dict): Mapping of treatments to their dedicated random states.
+    """
+
     def __init__(
         self,
         game_instance: GameInstance,
         agent: BaseAgent,
-        random_state: np.random.Generator,
-        max_rounds=10,
-    ):
+        random_state: np.random.RandomState,
+        max_rounds: int = 10,
+    ) -> None:
         """
-        Initialize the game environment.
+        Initializes the Environment.
 
-        :param game_instance: The GameInstance object containing the SCM and initial state.
-        :param agent: The agent (player) controlling interventions.
-        :param max_rounds: Maximum rounds before forced termination.
+        Args:
+            game_instance (GameInstance): The game instance containing the SCM.
+            agent (BaseAgent): The agent controlling interventions.
+            random_state (np.random.RandomState): Random State for reproducibility.
+            max_rounds (int, optional): Maximum rounds before forced termination. Defaults to 10.
         """
-        self.random_state = random_state
-        self.game_instance = game_instance
-        self.agent = agent
-        self.max_rounds = max_rounds
-        self.current_round = 0
-        self.state = self.initialize_state()
-        self.history = []  # Stores (round, state, action, action_object)
-        self.node_properties = self.initialize_node_properties()
-        self.random_states = {}
+        self.random_state: np.random.Generator = random_state
+        self.game_instance: GameInstance = game_instance
+        self.agent: BaseAgent = agent
+        self.max_rounds: int = max_rounds
+        self.current_round: int = 0
+        self.state: Dict[str, Any] = self.initialize_state()
+        self.history: List[Dict[str, Any]] = (
+            []
+        )  # Stores game history: round, state, action, action_object
+        self.node_properties: Dict[str, Dict[str, Any]] = (
+            self.initialize_node_properties()
+        )
+        self.random_states: Dict[Any, np.random.RandomState] = {}
 
-    def initialize_state(self):
+    def initialize_state(self) -> Dict[str, Any]:
         """
-        Initializes the environment state.
+        Initializes the simulation state.
 
-        - The state contains datasets structured as:
-          { node: { value: dataset, value2: dataset } }
-        - Nodes with no samples are marked as `"empty"`.
+        The state includes:
+          - 'datasets': A dictionary to hold datasets per node and treatment.
+          - 'final_answer': The answer provided by the agent when stopping the game.
+
+        Returns:
+            Dict[str, Any]: The initial state.
         """
         return {"datasets": {}, "final_answer": None}
 
-    def initialize_node_properties(self):
+    def initialize_node_properties(self) -> Dict[str, Dict[str, Any]]:
         """
-        Identifies whether each node is:
-        - Treatable (intervenable)
-        - Measurable (observable)
+        Initializes properties for each node from the SCM.
+
+        Each node is randomly marked as treatable and measurable.
+        The node's domain is extracted directly from its SCM node.
+
+        Returns:
+            Dict[str, Dict[str, Any]]: A dictionary mapping node names to their properties.
         """
-        properties = {}
+        # todo: Add a parameter that allows to have non treatable and non measurable nodes
+        properties: Dict[str, Dict[str, Any]] = {}
+        # Sort nodes by name (assuming names like 'X1', 'X2', ...)
         for node, scm_node in sorted(
             self.game_instance.scm.nodes.items(), key=lambda x: x[0]
         ):
             properties[node] = {
                 "treatable": self.random_state.choice([True, False]),
                 "measurable": self.random_state.choice([True, False]),
-                "domain": scm_node.domain,  # Extract domain directly from SCMNode
+                "domain": scm_node.domain,
             }
         return properties
 
-    def get_available_actions(self):
+    def get_available_actions(self) -> Dict[str, Optional[Any]]:
         """
-        Returns a dictionary where:
-        - Keys: Treatable nodes (or "stop_with_answer").
-        - Values: Domains of the variables.
+        Determines available actions for the agent.
+
+        Available actions include:
+          - Treatable nodes mapped to their domains.
+          - Special actions: "observe" and "stop_with_answer".
+
+        Returns:
+            Dict[str, Optional[Any]]: A dictionary of action names to domain or None.
         """
         actions = {
             node: props["domain"]
             for node, props in self.node_properties.items()
             if props["treatable"]
         }
-        actions["observe"] = None  #
-        actions["stop_with_answer"] = None  # Stopping condition
+        actions["observe"] = None
+        actions["stop_with_answer"] = None
         return actions
 
-    def get_state(self):
+    def get_state(self) -> Dict[str, Any]:
         """
-        Returns the current game state.
+        Retrieves the current game state.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing datasets, current round, available actions, and final answer.
         """
         return {
             "datasets": self.state["datasets"],
@@ -87,12 +137,17 @@ class Environment:
             "final_answer": self.state["final_answer"],
         }
 
-    def apply_action(self, action, action_object=None):
+    def apply_action(self, action: str, action_object: Optional[Any] = None) -> None:
         """
-        Applies the chosen action.
+        Applies the specified action.
 
-        - If **"experiment"**, executes interventions using `action_object` (list of (treatment_dict, num_samples)).
-        - If **"stop_with_answer"**, stores agent's answer and ends the game.
+        For "stop_with_answer", the agent's answer is submitted.
+        For "experiment", the experiment(s) provided in action_object are executed.
+        Invalid actions are logged.
+
+        Args:
+            action (str): The action to apply.
+            action_object (Optional[Any], optional): Additional parameters for the action.
         """
         if action == "stop_with_answer":
             answer = self.agent.submit_answer()
@@ -100,12 +155,12 @@ class Environment:
         elif action == "experiment":
             for experiment in action_object:
                 print(experiment)
-                # If there is an observe action
+                # Handle observe action separately
                 if experiment[0] == "observe":
-                    print("entered observe")
+                    print("Entered observe experiment.")
                     self.perform_experiment([experiment])
                     continue
-                # Check if the variable(s) exists and is treatable
+                # Validate that the experiment's nodes are treatable
                 if not all(
                     node in self.node_properties
                     and self.node_properties[node]["treatable"]
@@ -113,7 +168,7 @@ class Environment:
                 ):
                     print("Error: Invalid experiment. Node not treatable.")
                     return
-                # Check if the treatment values are within the domain
+                # Validate that the treatment values are within the node's domain
                 if not all(
                     value in self.node_properties[node]["domain"]
                     for node, value in experiment[0].items()
@@ -121,30 +176,29 @@ class Environment:
                     print("Error: Invalid experiment. Value not in domain.")
                     return
 
-                # Perform the experiment
                 self.perform_experiment([experiment])
         else:
             print(f"Invalid action: {action}")
 
-    def perform_experiment(self, treatments):
+    def perform_experiment(self, treatments: List[Tuple[Any, int]]) -> None:
         """
         Executes a batch of intervention experiments.
 
-        :param treatments: List of (treatment_dict, num_samples)
+        For each treatment, generates samples using the SCM and stores them under the treatment key.
+
+        Args:
+            treatments (List[Tuple[Any, int]]): A list of (treatment, num_samples) pairs.
         """
         for treatment, num_samples in treatments:
-            print(f"Treatment {treatment}, {treatment == 'observe'}, {type(treatment)}")
+            print(f"Treatment: {treatment}, Type: {type(treatment)}")
             if treatment == "observe":
                 samples = self.game_instance.scm.generate_samples(
                     num_samples=num_samples, random_state=self.random_state
                 )
-                if "empty" not in self.state["datasets"]:
-                    self.state["datasets"]["empty"] = []
-
-                self.state["datasets"]["empty"] += samples
+                self.state["datasets"].setdefault("empty", []).extend(samples)
                 continue
 
-            # Hashable treatment
+            # Generate a hashable representation of the treatment to use a dedicated random state
             hashable_treatment = tuple(sorted(treatment.items()))
             if hashable_treatment not in self.random_states:
                 self.random_states[hashable_treatment] = np.random.RandomState(
@@ -152,44 +206,38 @@ class Environment:
                 )
 
             print(
-                f"Performing experiment: {treatment} with {num_samples} samples. and random state {self.random_states[hashable_treatment]}"
+                f"Performing experiment: {treatment} with {num_samples} samples. Random state: {self.random_states[hashable_treatment]}"
             )
-
             samples = self.game_instance.scm.generate_samples(
                 interventions=treatment,
                 num_samples=num_samples,
                 random_state=self.random_states[hashable_treatment],
             )
             for node, value in treatment.items():
-                if node not in self.state["datasets"]:
-                    self.state["datasets"][node] = {}
+                self.state["datasets"].setdefault(node, {}).setdefault(
+                    value, []
+                ).extend(
+                    samples
+                )  # todo: check if this is correct
 
-                if value not in self.state["datasets"][node]:
-                    self.state["datasets"][node][value] = []
-
-                # Store dataset under the specific treatment value
-                self.state["datasets"][node][value] += samples
-
-    def run_game(self):
+    def run_game(self) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """
-        Runs the simulation until:
-        - The agent submits an answer (`stop_with_answer`).
-        - The maximum number of rounds is reached.
+        Runs the simulation until the agent stops or the maximum number of rounds is reached.
+
+        At each round, the agent is provided with the current state and available actions,
+        chooses an action, and the action is applied.
+
+        Returns:
+            Tuple[Dict[str, Any], List[Dict[str, Any]]]: The final state and the history of state-action pairs.
         """
         while self.current_round < self.max_rounds:
             print(f"Round {self.current_round}:")
             state = self.get_state()
             samples = state["datasets"]
-            # todo: filter
-            # print(samples)
-            # print(f"Samples length: {samples.keys()}")
-            # samples = dict(
-            #     filter(lambda x: self.node_properties[x]["measurable"], samples.keys())
-            # )
-            # print(samples)
-            # print(f"Filtered Samples length: {samples.keys()}")
+            # todo: filter samples to show only measurable nodes
             actions = state["available_actions"]
             num_rounds = state["round"]
+
             action, action_object = self.agent.choose_action(
                 samples=samples, actions=actions, num_rounds=num_rounds
             )
@@ -197,7 +245,7 @@ class Environment:
                 f"Round {self.current_round}: Agent chose action '{action}' with object: {action_object}"
             )
 
-            # Store the (state, action) pair in history
+            # Log the current state and action
             self.history.append(
                 {
                     "round": self.current_round,
@@ -209,7 +257,7 @@ class Environment:
 
             if action == "stop_with_answer":
                 self.apply_action(action)
-                break  # End the game
+                break
 
             self.apply_action(action, action_object)
             self.current_round += 1
@@ -217,23 +265,17 @@ class Environment:
         print("Game ended.")
         return self.get_state(), self.history
 
-    def get_game_history(self):
+    def get_game_history(self) -> pd.DataFrame:
         """
-        Convert the stored state-action history into a Pandas DataFrame.
-        """
-        history = pd.DataFrame(self.history)
+        Converts the stored state-action history into a Pandas DataFrame and saves it as a CSV file.
 
-        # File Path
+        Returns:
+            pd.DataFrame: The DataFrame containing the game history.
+        """
+        history_df = pd.DataFrame(self.history)
         file_path = f"./output/game_history-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
-
-        # Extract the directory from the file path
         directory = os.path.dirname(file_path)
-
-        # Ensure the directory exists
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
-
-        # Write the CSV file
-        history.to_csv(file_path, index=False)
-
-        return history
+        history_df.to_csv(file_path, index=False)
+        return history_df

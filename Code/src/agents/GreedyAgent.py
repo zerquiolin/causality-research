@@ -98,10 +98,7 @@ class GreedyAgent(BaseAgent):
 
         def gen_dag(sample_list):
             # Extract only the columns that match the pattern "X1", "X2", ... etc.
-            columns = sorted(
-                [str(key) for key in sample_list[0].keys()],
-                key=lambda x: int(x.replace("X", "")),
-            )
+            columns = [str(key) for key in sample_list[0].keys()]
             df = pd.DataFrame(data=sample_list, columns=columns)
             df.to_csv("data.csv", index=False)  # for debugging
 
