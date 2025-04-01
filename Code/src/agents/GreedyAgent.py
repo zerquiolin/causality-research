@@ -25,6 +25,12 @@ class GreedyAgent(BaseAgent):
             # Skip the stop_with_answer action
             if node == "stop_with_answer":
                 continue
+
+            # Generate observation data
+            if node == "observe":
+                treatments.append(("observe", 10000))
+                continue
+
             # Get the domain of the action
             domain = actions[node]
             # Check if the domain is categorical
@@ -77,6 +83,8 @@ class GreedyAgent(BaseAgent):
         #     "Xn": {0: [{X1: 0, X2: 1, ..., Xn: 1  }]},
         # }
 
+        print(samples.keys())
+
         def gen_dag(samples):
             print("Generating DAG")
             # Create columns for the DataFrame
@@ -87,6 +95,8 @@ class GreedyAgent(BaseAgent):
             # Create a DataFrame
             df = pd.DataFrame(data=samples, columns=columns)
             print(df)
+            # Save the DataFrame to a CSV file
+            df.to_csv("data.csv", index=False)
 
             # Run the PC algorithm
             pc = PC(data=df)
@@ -105,23 +115,34 @@ class GreedyAgent(BaseAgent):
 
             return graph
 
+        print(samples.keys())
+
+        print([key for key, node_samples in samples.items() if key != "empty"])
+
         # Generate a list of DAGs from the samples
-        sample_dags = [
-            gen_dag(value_samples)
-            for node_samples in samples.values()
-            for value_samples in node_samples.values()
-        ]
-        # Generate a dag from all samples
-        sample_dags.append(
-            gen_dag(
-                [
-                    samples
-                    for node_samples in samples.values()
-                    for value_samples in node_samples.values()
-                    for samples in value_samples
-                ]
-            )
-        )
+        sample_dags = []
+        # sample_dags = [
+        #     gen_dag(value_samples)
+        #     for key, node_samples in samples.items()
+        #     for value_samples in node_samples.values()
+        #     if key != "empty"
+        # ]
+        # # Generate a dag from all samples
+        # sample_dags.append(
+        #     gen_dag(
+        #         [
+        #             samples
+        #             for key, node_samples in samples.items()
+        #             for value_samples in node_samples.values()
+        #             for samples in value_samples
+        #             if key != "empty"
+        #         ]
+        #     )
+        # )
+        # Generate a dag from observational samples
+        if samples["empty"] and len(samples["empty"]) > 0:
+            print("Generating observational DAG")
+            sample_dags.append(gen_dag(samples["empty"]))
 
         # Assuming each graph is a pgmpy BayesianModel or networkx.DiGraph
         all_edges = set()

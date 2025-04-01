@@ -33,7 +33,7 @@ def main():
 
     # Define constraints for SCM generation
     scm_constraints = {
-        "variable_types": {f"X{i}": "categorical" for i in range(1, 11)},
+        "variable_types": {f"X{i}": "categorical" for i in range(1, 4)},
         "variable_domains": {},
         "user_constraints": {
             "max_terms": 3,
@@ -50,11 +50,16 @@ def main():
 
     # Define variable domains
     for node, vtype in scm_constraints["variable_types"].items():
-        scm_constraints["variable_domains"][node] = [0, 1]
+        # scm_constraints["variable_domains"][node] = [0, 1]
+        scm_constraints["variable_domains"][node] = ["0", "1"]
 
     # Generate the SCM
     scm_gen = SCMGenerator(dag_obj, **scm_constraints, random_state=random_state)
     scm = scm_gen.generate()
+
+    for name, node in scm.nodes.items():
+        print(f"Equation for {name}")
+        print(node.equation)
 
     # Create a GameInstance with the generated SCM
     game_instance = GameInstance(scm, random_state)

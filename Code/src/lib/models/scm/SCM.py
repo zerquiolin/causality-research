@@ -65,10 +65,12 @@ class SCMNode:
         else:
             # For categorical nodes, use a fixed value (e.g., 0) to evaluate each CDF mapping.
             category_probs = {
-                cat: self.cdf_mappings[cat](0) for cat in self.cdf_mappings
+                cat: self.cdf_mappings[cat](1) for cat in self.cdf_mappings
             }
+
             chosen_category = max(category_probs, key=lambda cat: category_probs[cat])
             self.input_numeric = self.category_mappings[chosen_category]
+            print(f"Chosen category: {chosen_category}")
             return chosen_category
 
     def to_dict(self):

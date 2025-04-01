@@ -72,6 +72,7 @@ class Environment:
             for node, props in self.node_properties.items()
             if props["treatable"]
         }
+        actions["observe"] = None  #
         actions["stop_with_answer"] = None  # Stopping condition
         return actions
 
@@ -98,6 +99,12 @@ class Environment:
             self.state["final_answer"] = answer
         elif action == "experiment":
             for experiment in action_object:
+                print(experiment)
+                # If there is an observe action
+                if experiment[0] == "observe":
+                    print("entered observe")
+                    self.perform_experiment([experiment])
+                    continue
                 # Check if the variable(s) exists and is treatable
                 if not all(
                     node in self.node_properties
@@ -126,6 +133,17 @@ class Environment:
         :param treatments: List of (treatment_dict, num_samples)
         """
         for treatment, num_samples in treatments:
+            print(f"Treatment {treatment}, {treatment == 'observe'}, {type(treatment)}")
+            if treatment == "observe":
+                samples = self.game_instance.scm.generate_samples(
+                    num_samples=num_samples, random_state=self.random_state
+                )
+                if "empty" not in self.state["datasets"]:
+                    self.state["datasets"]["empty"] = []
+
+                self.state["datasets"]["empty"] += samples
+                continue
+
             # Hashable treatment
             hashable_treatment = tuple(sorted(treatment.items()))
             if hashable_treatment not in self.random_states:
