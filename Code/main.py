@@ -1,6 +1,6 @@
-from generators.dag_generator import DAGGenerator
-from src.lib.models.scm.DAG import DAG
-from src.generators.SCMGenerator import SCMGenerator
+from src.generators.dag_generator import DAGGenerator
+from src.scm.dag import DAG
+from src.generators.scm_generator import SCMGenerator
 
 import numpy as np
 import logging

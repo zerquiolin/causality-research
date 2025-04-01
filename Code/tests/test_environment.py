@@ -3,8 +3,8 @@ import json
 import pytest
 from src.game.Environment import Environment
 from src.game.GameInstance import GameInstance
-from src.generators.SCMGenerator import SCMGenerator
-from generators.dag_generator import DAGGenerator
+from src.generators.scm_generator import SCMGenerator
+from src.generators.dag_generator import DAGGenerator
 from scipy.stats import norm, uniform
 import sympy as sp
 import numpy as np

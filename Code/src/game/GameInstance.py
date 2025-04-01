@@ -5,7 +5,7 @@ from networkx.readwrite import json_graph
 
 from src.generators.dag_generator import DAGGenerator
 from src.scm.dag import DAG
-from src.generators.SCMGenerator import SCMGenerator
+from src.generators.scm_generator import SCMGenerator
 from src.scm.scm import SCM
 
 

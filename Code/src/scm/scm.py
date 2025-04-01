@@ -76,13 +76,9 @@ class SCM:
         ]:
             if node_name in interventions:
                 sample[node_name] = interventions[node_name]
-                if node.var_type == "categorical":
-                    sample[node_name + "_num"] = node.input_numeric
             else:
                 value = node.generate_value(sample, random_state=rs)
                 sample[node_name] = value
-                if node.var_type == "categorical":
-                    sample[node_name + "_num"] = node.input_numeric
 
         return sample
 
@@ -116,9 +112,11 @@ class SCM:
         Returns:
             Dict: A dictionary representing the SCM's structure and state.
         """
+        # Serialize nodes and their parameters
         nodes_data = {name: node.to_dict() for name, node in self.nodes.items()}
-        state = self.random_state.get_state()
 
+        # Serialize the random state
+        state = self.random_state.get_state()
         state_dict = {
             "state": state[0],
             "keys": state[1].tolist(),
@@ -144,13 +142,20 @@ class SCM:
         Returns:
             SCM: A new SCM instance.
         """
-        nodes = [SCMNode.from_dict(nd) for nd in data["nodes"].values()]
-        nodes.sort(
-            key=lambda n: int(n.name[1:])
-        )  # Ensure topological order if node names follow 'X1', 'X2', ...
-
+        # Reconstruct the DAG from the dictionary
         dag = DAG.from_dict(data["dag"])
 
+        # Ensure nodes are sorted in topological order
+        topological_order = list(nx.topological_sort(dag.graph))
+        nodes = []
+
+        # Create nodes in topological order
+        for node_name in topological_order:
+            node_data = data["nodes"][node_name]
+            node = SCMNode.from_dict(node_data)
+            nodes.append(node)
+
+        # Reconstruct the random state
         state_tuple = (
             str(data["random_state"]["state"]),
             np.array(data["random_state"]["keys"], dtype=np.uint32),
@@ -158,7 +163,6 @@ class SCM:
             int(data["random_state"]["has_gauss"]),
             float(data["random_state"]["cached_gaussian"]),
         )
-
         random_state = np.random.RandomState()
         random_state.set_state(state_tuple)
 

@@ -9,10 +9,10 @@ from src.scm.dag import DAG
 
 # Abstract
 from typing import Set, Tuple
-from .base import BaseDAGGenerator
+from .base import AbstractSCMGenerator
 
 
-class DAGGenerator(BaseDAGGenerator):
+class DAGGenerator(AbstractSCMGenerator):
     """
     A class to generate Directed Acyclic Graphs (DAGs) with configurable structure.
 

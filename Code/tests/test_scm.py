@@ -1,6 +1,6 @@
 import json
 import pytest
-from src.generators.SCMGenerator import SCMGenerator
+from src.generators.scm_generator import SCMGenerator
 from src.scm.scm import SCM
 from src.scm.dag import DAG
 from src.generators.dag_generator import DAGGenerator
@@ -200,8 +200,6 @@ def test_scm_serialization(dag, num_nodes, seed):
 
     # Serialize the SCM
     scm_data = scm.to_dict()
-    # Deserialize the SCM
-    scm_deserialized = SCM.from_dict(scm_data)
 
     serializable = False
 

@@ -1,23 +1,35 @@
 # Abstract
 from abc import ABC, abstractmethod
 
-# NetworkX
-import networkx as nx
+# DAG
+from src.scm.dag import DAG
+
+# SCM
+from src.scm.scm import SCM
 
 
-class BaseGenerator(ABC):
+class AbstractGenerator(ABC):
     @abstractmethod
     def generate(self):
         """
         Generate an object (e.g., a DAG or SCM) based on provided parameters.
         """
-        pass
+        raise NotImplementedError("This method should be overridden by subclasses.")
 
 
-class BaseDAGGenerator(ABC):
+class AbstractSCMGenerator(AbstractGenerator):
     @abstractmethod
-    def generate(self) -> nx.DiGraph:
+    def generate(self) -> DAG:
         """
         Generate a DAG based on provided configuration.
         """
-        pass
+        raise NotImplementedError("This method should be overridden by subclasses.")
+
+
+class AbstractSCMGenerator(AbstractGenerator):
+    @abstractmethod
+    def generate(self) -> SCM:
+        """
+        Generate a SCM based on provided configuration.
+        """
+        raise NotImplementedError("This method should be overridden by subclasses.")
