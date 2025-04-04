@@ -7,6 +7,9 @@ from pgmpy.models import BayesianModel
 
 from .base import BaseAgent
 
+# Dag Learning Script
+from src.lib.scripts.dag import learn_dag
+
 
 class GreedyAgent(BaseAgent):
     _is_first_round = True
@@ -29,7 +32,7 @@ class GreedyAgent(BaseAgent):
 
             # Generate observation data
             if node == "observe":
-                treatments.append(("observe", 1000))
+                treatments.append(("observe", 1500))
                 continue
 
             # Get the domain of the action
@@ -46,47 +49,6 @@ class GreedyAgent(BaseAgent):
 
         return "experiment", treatments
 
-    def _merge_graphs_with_conflict_resolution(self, graphs):
-        """
-        Merges multiple DAGs into a single graph while resolving conflicts.
-
-        For conflicting edges (u,v) and (v,u), this implementation chooses the
-        orientation based on the numeric value extracted from the node names,
-        ensuring that the edge is directed from the lower-numbered node to the higher-numbered one.
-
-        Args:
-            graphs (list): List of networkx.DiGraph instances.
-
-        Returns:
-            networkx.DiGraph: The merged, conflict-resolved DAG.
-        """
-        merged_graph = nx.DiGraph()
-        directed_edges = set()
-
-        def get_numeric(node):
-            # Assumes node names are like 'X1', 'X2', etc.
-            try:
-                return int(node.lstrip("X"))
-            except ValueError:
-                return float("inf")  # Fallback if the conversion fails
-
-        for g in graphs:
-            for u, v in g.edges():
-                if (v, u) in directed_edges:
-                    # Conflict detected: choose edge based on numeric order.
-                    chosen_edge = (u, v) if get_numeric(u) < get_numeric(v) else (v, u)
-                    # Remove both conflicting edges and add the chosen edge.
-                    directed_edges.discard((v, u))
-                    directed_edges.discard((u, v))
-                    directed_edges.add(chosen_edge)
-                else:
-                    directed_edges.add((u, v))
-
-        # Add resolved edges to the merged graph
-        for u, v in directed_edges:
-            merged_graph.add_edge(u, v, direction="resolved")
-        return merged_graph
-
     def _analyze_dataset(self, samples):
         """
         Analyze the dataset and update the learned DAG.
@@ -95,53 +57,27 @@ class GreedyAgent(BaseAgent):
         1. Build an initial DAG using only observational data.
         2. Refine edge orientations using interventional datasets.
         """
-
-        def gen_dag(sample_list):
-            # Extract only the columns that match the pattern "X1", "X2", ... etc.
-            columns = [str(key) for key in sample_list[0].keys()]
-            df = pd.DataFrame(data=sample_list, columns=columns)
-            df.to_csv("data.csv", index=False)  # for debugging
-
-            # Run the PC algorithm to estimate the DAG skeleton
-            pc = PC(data=df)
-            model: BayesianModel = pc.estimate(return_type="dag")
-
-            # Create a networkx DiGraph from the BayesianModel
-            nodes = list(model.nodes())
-            edges = list(model.edges())
-            graph = nx.DiGraph()
-            graph.add_nodes_from(nodes)
-            graph.add_edges_from(edges)
-            return graph
-
         # === Phase 1: Observational DAG ===
-        obs_graph = None
-        if samples.get("empty") and len(samples["empty"]) > 0:
-            obs_graph = gen_dag(samples["empty"])
-        else:
-            # If no observational data, fall back to merging interventional graphs
-            obs_graph = nx.DiGraph()
+        df_obs = pd.DataFrame(data=samples["empty"])
 
         # === Phase 2: Orientation Refinement Using Interventional Data ===
-        intervention_graphs = []
+        intervention_sets = {}
         for key, interventions in samples.items():
             if key == "empty":
                 continue
+            intervention_sets[key] = []
             for intervention_samples in interventions.values():
-                # Generate a DAG for the interventional sample
-                intervention_graphs.append(gen_dag(intervention_samples))
+                intervention_sets[key].extend(intervention_samples)
 
-        # Merge the observational DAG with the interventional DAGs.
-        # Your _merge_graphs_with_conflict_resolution method can help fix edge conflicts.
-        refined_graph = self._merge_graphs_with_conflict_resolution(
-            [obs_graph] + intervention_graphs
+        for key, intervention_samples in intervention_sets.items():
+            intervention_sets[key] = pd.DataFrame(data=intervention_samples)
+
+        learned_dag = learn_dag(
+            df_obs=df_obs, interventions=intervention_sets, alpha=0.1
         )
 
-        print("Edges in refined graph:", refined_graph.edges())
-        print("Nodes in refined graph:", refined_graph.nodes())
-
         # Save the refined graph as the learned DAG.
-        self._learned_graph = refined_graph
+        self._learned_graph = learned_dag
 
     def submit_answer(self):
         """

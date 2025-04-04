@@ -187,6 +187,27 @@ def orient_edges_with_intervention(dag, df_obs, interventions, alpha=0.05):
     return dag
 
 
+def learn_dag(df_obs, interventions, alpha=0.05):
+    """
+    Learn a causal DAG from observational and interventional data.
+
+    Parameters:
+        df_obs (pd.DataFrame): The observational dataset.
+        interventions (dict): A dictionary where keys are variable names and values are interventional datasets.
+        alpha (float): The significance level for the chi-square tests (default is 0.05).
+
+    Returns:
+        nx.DiGraph: The learned causal DAG as a directed acyclic graph.
+    """
+    # Step 1: Learn the undirected skeleton and partial orientations using the PC algorithm.
+    dag = pc_algorithm(df_obs, alpha)
+
+    # Step 2: Use interventional data to further orient the edges.
+    dag = orient_edges_with_intervention(dag, df_obs, interventions, alpha)
+
+    return dag
+
+
 def plot_dag(dag, title="Learned Causal DAG"):
     """
     Plot the given networkx DAG using matplotlib.
@@ -200,32 +221,28 @@ def plot_dag(dag, title="Learned Causal DAG"):
     plt.show()
 
 
-def main():
+# Example usage:
+if __name__ == "__main__":
+    # Assume generate_data is defined elsewhere and returns a pandas DataFrame.
     # Generate observational data
     df_obs = generate_data(1000)
 
-    # Generate interventional data
+    # Generate interventional datasets for variables A, B, and C.
     df_int_A = generate_data(500, intervention="A", intervention_value=1)
     df_int_B = generate_data(500, intervention="B", intervention_value=1)
     df_int_C = generate_data(500, intervention="C", intervention_value=0)
 
-    # Pack interventional datasets
+    print(df_obs)
+    print(df_int_A)
+    print(df_int_B)
+    print(df_int_C)
+
+    # Pack interventional datasets into a dictionary.
     interventions = {"A": df_int_A, "B": df_int_B, "C": df_int_C}
 
-    # Step 1: Learn undirected skeleton and partial orientations
-    learned_dag = pc_algorithm(df_obs, alpha=0.05)
-
-    # Step 2: Use interventional data to orient more edges
-    learned_dag = orient_edges_with_intervention(
-        learned_dag, df_obs, interventions, alpha=0.05
-    )
+    # Learn the DAG using the observational and interventional data.
+    learned_dag = learn_dag(df_obs, interventions, alpha=0.05)
 
     # Step 3: Visualize
     print("Final DAG with interventional orientations:", list(learned_dag.edges()))
     plot_dag(learned_dag)
-
-    return df_obs, df_int_A, df_int_B, df_int_C, learned_dag
-
-
-if __name__ == "__main__":
-    main()

@@ -36,9 +36,11 @@ def generate_data(n_samples=1000, intervention=None):
 
 # Generate datasets
 datasets = {
-    "observational": generate_data(5000),
-    "intervention_A": generate_data(100, intervention={"A": 1}),
-    "intervention_B": generate_data(100, intervention={"B": 0}),
+    "observational": generate_data(100),
+    "intervention_A": generate_data(100, intervention={"A": 0}),
+    "intervention_B": generate_data(
+        100, intervention={"B": 0}
+    ),  # todo: check independence between A and C
     "intervention_C": generate_data(100, intervention={"C": 1}),
 }
 
@@ -46,6 +48,8 @@ datasets = {
 # Run PC algorithm on each dataset and extract directed edges
 def extract_directed_edges(data, labels=["A", "B", "C"]):
     result = pc(data.to_numpy(), alpha=0.05, indep_test_method=chisq, labels=labels)
+    for edge in result.G.get_graph_edges():
+        print(f"Edge: {edge}")
     edges = set()
     for i, src in enumerate(labels):
         for j, dst in enumerate(labels):
@@ -61,6 +65,7 @@ for name, df in datasets.items():
     print(f"Processing {name} data...")
     edges = extract_directed_edges(df)
     edge_sets.append(edges)
+    print(f"Edges from {name} data: {edges}")
 
 # Intersect all edge sets
 common_edges = set.union(*edge_sets)

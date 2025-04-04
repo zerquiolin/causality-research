@@ -51,7 +51,7 @@ def main():
     # Define variable domains
     for node, vtype in scm_constraints["variable_types"].items():
         # scm_constraints["variable_domains"][node] = [0, 1]
-        scm_constraints["variable_domains"][node] = ["0", "1"]
+        scm_constraints["variable_domains"][node] = [0, 1]
 
     # Generate the SCM
     scm_gen = SCMGenerator(dag_obj, **scm_constraints, random_state=random_state)
