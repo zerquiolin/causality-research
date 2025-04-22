@@ -1,3 +1,4 @@
+import logging
 import re
 import numpy as np
 import pandas as pd
@@ -24,6 +25,7 @@ class GreedyAgent(BaseAgent):
 
         # Define the treatment list
         treatments = []
+        print("Actions: ", actions)
         # Iterate over all possible actions
         for node in actions.keys():
             # Skip the stop_with_answer action
@@ -57,24 +59,48 @@ class GreedyAgent(BaseAgent):
         1. Build an initial DAG using only observational data.
         2. Refine edge orientations using interventional datasets.
         """
+        # Define helper variables
+        datasets = {}
+        past_data = None
         # === Phase 1: Observational DAG ===
         df_obs = pd.DataFrame(data=samples["empty"])
+        datasets["observational"] = df_obs
 
         # === Phase 2: Orientation Refinement Using Interventional Data ===
-        intervention_sets = {}
         for key, interventions in samples.items():
             if key == "empty":
                 continue
-            intervention_sets[key] = []
+            datasets[key] = []
             for intervention_samples in interventions.values():
-                intervention_sets[key].extend(intervention_samples)
+                datasets[key].extend(intervention_samples)
 
-        for key, intervention_samples in intervention_sets.items():
-            intervention_sets[key] = pd.DataFrame(data=intervention_samples)
+            # for intervention_key, intervention_samples in interventions.items():
+            #     datasets[f"{key}_{intervention_key}"] = pd.DataFrame(
+            #         data=intervention_samples
+            #     )
 
-        learned_dag = learn_dag(
-            df_obs=df_obs, interventions=intervention_sets, alpha=0.1
+        for key, intervention_samples in datasets.items():
+            datasets[key] = pd.DataFrame(data=intervention_samples)
+
+        # for key, intervention_samples in datasets.items():
+        #     # Current key
+        #     logging.info(f"Key: {key}")
+        #     # Get new dag information
+        #     past_data = learn_dag(
+        #         df_obs=datasets[key], previous_data=past_data, alpha=0.05
+        #     )
+        #     logging.info(f"Past Data: {past_data}")
+
+        resulting_data = learn_dag(
+            df_obs=df_obs,
+            interventions=datasets,
+            previous_data=past_data,
+            alpha=0.05,
         )
+
+        # Extract the learned DAG from the last phase
+        # learned_dag = past_data["dag"]
+        learned_dag = resulting_data["dag"]
 
         # Save the refined graph as the learned DAG.
         self._learned_graph = learned_dag

@@ -1,3 +1,6 @@
+# Logging
+import logging
+
 # Math
 import numpy as np
 
@@ -97,7 +100,9 @@ class Environment:
             self.game_instance.scm.nodes.items(), key=lambda x: x[0]
         ):
             properties[node] = {
-                "treatable": self.random_state.choice([True, False]),
+                # "treatable": self.random_state.choice([True, False]),
+                # todo: return this to normal
+                "treatable": True,
                 "measurable": self.random_state.choice([True, False]),
                 "domain": scm_node.domain,
             }
@@ -154,10 +159,8 @@ class Environment:
             self.state["final_answer"] = answer
         elif action == "experiment":
             for experiment in action_object:
-                print(experiment)
                 # Handle observe action separately
                 if experiment[0] == "observe":
-                    print("Entered observe experiment.")
                     self.perform_experiment([experiment])
                     continue
                 # Validate that the experiment's nodes are treatable
@@ -166,19 +169,19 @@ class Environment:
                     and self.node_properties[node]["treatable"]
                     for node in experiment[0].keys()
                 ):
-                    print("Error: Invalid experiment. Node not treatable.")
+                    logging.error("Error: Invalid experiment. Node not treatable.")
                     return
                 # Validate that the treatment values are within the node's domain
                 if not all(
                     value in self.node_properties[node]["domain"]
                     for node, value in experiment[0].items()
                 ):
-                    print("Error: Invalid experiment. Value not in domain.")
+                    logging.error("Error: Invalid experiment. Value not in domain.")
                     return
 
                 self.perform_experiment([experiment])
         else:
-            print(f"Invalid action: {action}")
+            error(f"Invalid action: {action}")
 
     def perform_experiment(self, treatments: List[Tuple[Any, int]]) -> None:
         """
@@ -190,7 +193,6 @@ class Environment:
             treatments (List[Tuple[Any, int]]): A list of (treatment, num_samples) pairs.
         """
         for treatment, num_samples in treatments:
-            print(f"Treatment: {treatment}, Type: {type(treatment)}")
             if treatment == "observe":
                 samples = self.game_instance.scm.generate_samples(
                     num_samples=num_samples, random_state=self.random_state
@@ -205,9 +207,6 @@ class Environment:
                     zlib.crc32(str(hashable_treatment).encode())
                 )
 
-            print(
-                f"Performing experiment: {treatment} with {num_samples} samples. Random state: {self.random_states[hashable_treatment]}"
-            )
             samples = self.game_instance.scm.generate_samples(
                 interventions=treatment,
                 num_samples=num_samples,
@@ -231,7 +230,6 @@ class Environment:
             Tuple[Dict[str, Any], List[Dict[str, Any]]]: The final state and the history of state-action pairs.
         """
         while self.current_round < self.max_rounds:
-            print(f"Round {self.current_round}:")
             state = self.get_state()
             samples = state["datasets"]
             # todo: filter samples to show only measurable nodes
@@ -240,9 +238,6 @@ class Environment:
 
             action, action_object = self.agent.choose_action(
                 samples=samples, actions=actions, num_rounds=num_rounds
-            )
-            print(
-                f"Round {self.current_round}: Agent chose action '{action}' with object: {action_object}"
             )
 
             # Log the current state and action
@@ -262,7 +257,6 @@ class Environment:
             self.apply_action(action, action_object)
             self.current_round += 1
 
-        print("Game ended.")
         return self.get_state(), self.history
 
     def get_game_history(self) -> pd.DataFrame:

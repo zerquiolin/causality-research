@@ -10,6 +10,13 @@ import sympy as sp
 import pandas as pd
 from scipy.stats import norm, uniform
 
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.info, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 def main():
     seed = 911
@@ -37,8 +44,8 @@ def main():
         "variable_domains": {},
         "user_constraints": {
             "max_terms": 3,
-            "allow_non_linearity": True,
-            "allow_variable_exponents": True,
+            "allow_non_linearity": False,
+            "allow_variable_exponents": False,
         },
         "allowed_operations": ["+", "-", "*", "/"],
         "allowed_functions": [sp.sin, sp.exp, sp.log],
@@ -56,10 +63,6 @@ def main():
     # Generate the SCM
     scm_gen = SCMGenerator(dag_obj, **scm_constraints, random_state=random_state)
     scm = scm_gen.generate()
-
-    for name, node in scm.nodes.items():
-        print(f"Equation for {name}")
-        print(node.equation)
 
     # Create a GameInstance with the generated SCM
     game_instance = GameInstance(scm, random_state)
