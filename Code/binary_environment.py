@@ -1,5 +1,6 @@
 from src.scm.dag import DAG
 from src.generators.dag_generator import DAGGenerator
+from src.generators.dag_generator_copy import DAGGenerator as DAGGeneratorCopy
 from src.generators.scm_generator import SCMGenerator
 from src.game.GameInstance import GameInstance
 from src.game.Environment import Environment
@@ -27,16 +28,28 @@ def main():
         num_nodes=3,
         num_roots=1,
         num_leaves=1,
-        edge_density=0.3,
-        max_in_degree=1,
-        max_out_degree=1,
+        edge_density=0.5,
+        max_in_degree=2,
+        max_out_degree=2,
         min_path_length=1,
-        max_path_length=2,
+        max_path_length=3,
+        random_state=random_state,
+    )
+    dag_gen_copy = DAGGeneratorCopy(
+        num_nodes=3,
+        num_roots=1,
+        num_leaves=1,
+        edge_density=0.5,
+        max_in_degree=2,
+        max_out_degree=2,
+        min_path_length=1,
+        max_path_length=3,
         random_state=random_state,
     )
     dag_obj = dag_gen.generate()
-
-    # dag_obj.plot()
+    dag_obj_copy = dag_gen_copy.generate()
+    print(dag_obj.edges)
+    print(dag_obj_copy.edges)
 
     # Define constraints for SCM generation
     scm_constraints = {
@@ -62,6 +75,7 @@ def main():
 
     # Generate the SCM
     scm_gen = SCMGenerator(dag_obj, **scm_constraints, random_state=random_state)
+    # scm_gen = SCMGenerator(dag_obj_copy, **scm_constraints, random_state=random_state)
     scm = scm_gen.generate()
 
     # Create a GameInstance with the generated SCM
@@ -100,8 +114,8 @@ def main():
     # Create a DAG custom object
     learned_dag = DAG(final_state["final_answer"])
 
-    dag_obj.plot()
-    learned_dag.plot()
+    dag_obj.plot("Original DAG")
+    learned_dag.plot("Learned DAG")
 
 
 if __name__ == "__main__":

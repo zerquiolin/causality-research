@@ -43,7 +43,7 @@ class DAG(BaseDAG):
         dag_graph = json_graph.node_link_graph(data, edges="edges")
         return cls(dag_graph)
 
-    def plot(self, spacing_factor: float = 2.0) -> None:
+    def plot(self, title="", spacing_factor: float = 2.0) -> None:
         roots, leaves, intermediates = self.get_node_types()
 
         node_colors, node_sizes = [], []
@@ -102,6 +102,6 @@ class DAG(BaseDAG):
                 ),
             )
 
-        plt.title("DAG Structure", fontsize=16)
+        plt.title(title or "DAG Structure", fontsize=16)
         plt.axis("off")
         plt.show()
