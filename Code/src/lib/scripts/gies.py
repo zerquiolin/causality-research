@@ -293,6 +293,8 @@ def learn(envs):
     learner.fit()
     est = learner.get_estimated_dag()
     print("Estimated edges:", est.edges())
-    # Create a directed graph from the estimated edges
-    graph = nx.DiGraph(est.edges())
+    # Rename the nodes to match the original variable names
+    est = nx.relabel_nodes(est, {i: f"X{i+1}" for i in range(3)})
+    # Convert to a DiGraph
+    graph = nx.DiGraph(est)
     return graph
