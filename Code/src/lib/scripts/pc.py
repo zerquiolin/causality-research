@@ -4,7 +4,12 @@ from typing import Dict, List, Set, Tuple
 import networkx as nx
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2, chi2_contingency, fisher_exact
+from scipy.stats import chi2, chi2_contingency, fisher_exact, chisquare
+
+# Combine p-values across strata via Fisher’s method
+from scipy.stats import combine_pvalues
+
+from scipy.stats import pearsonr
 
 
 # --------------------------------------------------------------------------
@@ -17,50 +22,68 @@ def _records_to_df(records: List[Dict[str, int]]) -> pd.DataFrame:
     return pd.DataFrame.from_records(records).copy()
 
 
-def _g_square_conditional(
+from scipy.stats import chi2_contingency, combine_pvalues
+import pandas as pd
+
+
+def ci_test_discrete(df, X, Y, Z, alpha=0.05):
+    """Test X⊥Y | Z for discrete variables via stratified chi-square."""
+    # No conditioning
+    if not Z:
+        table = pd.crosstab(df[X], df[Y])
+        print(table)
+        _, p, _, _ = chi2_contingency(table)
+        print(f"Conditional independence test: {X} _||_ {Y} → p = {p:.4f}")
+        return p > alpha
+
+    # Stratify by every combination of Z
+    pvals = []
+    for _, sub in df.groupby(Z):
+        # skip degenerate strata
+        if sub[X].nunique() < 2 or sub[Y].nunique() < 2:
+            continue
+        table = pd.crosstab(sub[X], sub[Y])
+        _, p, _, _ = chi2_contingency(table)
+        pvals.append(p)
+
+    if not pvals:
+        # unable to test (e.g. constant strata)—treat as independent
+        return True
+
+    _, p_comb = combine_pvalues(pvals, method="fisher")
+
+    print(f"Conditional independence test: {X} _||_ {Y} | {Z} → p = {p_comb:.4f}")
+    return p_comb > alpha
+
+
+def ci_test(
     df: pd.DataFrame,
     X: str,
     Y: str,
-    S: Tuple[str, ...] | List[str],
+    Z: Tuple[str, ...] | List[str],
     alpha: float = 0.05,
 ) -> bool:
-    """Likelihood‑ratio (G‑test) for conditional independence ``X ⫫ Y | S``.
-
-    Returns **True** *iff* we *fail* to reject independence at threshold
-    ``alpha`` – i.e. ``True`` → treat as independent / remove edge.
     """
-    S = tuple(S)
-    if not S:
-        table = pd.crosstab(df[X], df[Y]).to_numpy()
-        if table.shape == (2, 2):
-            # Fisher's exact test for 2x2 table
-            _, p = fisher_exact(table, alternative="greater")
-        else:
-            _, p, _, _ = chi2_contingency(
-                table, correction=False, lambda_="log-likelihood"
-            )
-        return p > alpha
+    Test conditional independence X _||_ Y | Z using (partial) correlation.
+    Returns True if independent at level alpha.
+    """
+    # No conditioning variables: simple Pearson correlation
+    if len(Z) == 0:
+        r, p = pearsonr(df[X], df[Y])
+    else:
+        # Regress out Z from X and Y to get residuals
+        def residuals(target: str) -> np.ndarray:
+            X_mat = df[list(Z)].values
+            y_vec = df[target].values
+            coef, _, _, _ = np.linalg.lstsq(X_mat, y_vec, rcond=None)
+            return y_vec - X_mat.dot(coef)
 
-    g_stat = 0.0
-    df_tot = 0
-    for _, sub in df.groupby(list(S)):
-        if sub.empty:
-            continue
-        table = pd.crosstab(sub[X], sub[Y]).to_numpy()
-        if table.shape != (2, 2):
-            continue  # not enough support in this stratum
-        stat, _, _, _ = chi2_contingency(
-            table, correction=False, lambda_="log-likelihood"
-        )
-        g_stat += stat
-        df_tot += 1
+        rx = residuals(X)
+        ry = residuals(Y)
+        r, p = pearsonr(rx, ry)
 
-    if df_tot == 0:
-        return False  # unable to test – err on the side of dependence
-
-    p_val = chi2.sf(g_stat, df_tot)
-    logging.info(f"G-square: {X} ⫫ {Y} | {S} → p = {p_val:.4f}")
-    return p_val > alpha
+    print(f"Conditional independence test: {X} _||_ {Y} | {Z} → p = {p:.4f}")
+    return p > alpha
 
 
 def _all_combinations(iterable, r):
@@ -68,6 +91,13 @@ def _all_combinations(iterable, r):
     if r > len(lst):
         return []
     return itertools.combinations(lst, r)
+
+
+def _all_permutations(iterable, r):
+    lst = list(iterable)
+    if r > len(lst):
+        return []
+    return itertools.permutations(lst, r)
 
 
 # --------------------------------------------------------------------------
@@ -92,28 +122,40 @@ def PC(data: Dict, alpha: float = 0.05):
     # 1 . start with a complete graph
     G = nx.DiGraph()
     G.add_nodes_from(variables)
-    G.add_edges_from(itertools.permutations(variables, 2))
+    G.add_edges_from(_all_permutations(variables, 2))
     logging.info(f"PC: initial graph with {list(G.edges())} edges")
 
     sep_sets: Dict[frozenset, Set[str]] = {}
 
-    # 2 . edge‑removal
-    cont = True
-    l = 0
-    while cont:
-        cont = False
-        for X, Y in list(G.edges()):  # snapshot because we might delete
-            nbrs_X = set(G.neighbors(X)) - {Y}
-            if len(nbrs_X) < l:
-                continue
-            # for S in _all_combinations(nbrs_X, l):
-            #     if _g_square_conditional(obs_df, X, Y, S, alpha):
-            #         G.remove_edge(X, Y)
-            #         sep_sets[frozenset({X, Y})] = set(S)
-            #         cont = True
-            #         logging.info(f"PC: removing edge {X} – {Y} | {S}")
-            #         break
-        l += 1
+    # compute the largest possible conditioning‐set size up front
+    max_l = max(len(set(G.neighbors(X)) - {Y}) for X, Y in G.edges())
+
+    # 2. edge-removal
+    print(f"max_l: {max_l}")
+
+    sep_sets = {}  # make sure this is initialized before
+
+    for l in range(max_l + 1):
+        removed = True
+        # keep going at this l until no more edges can be removed
+        while removed:
+            removed = False
+            # snapshot edges because we'll be mutating G
+            for X, Y in list(G.edges()):
+                nbrs_X = set(G.neighbors(X)) - {Y}
+                if len(nbrs_X) < l:
+                    continue
+                # test _all_ subsets of size l
+                for Z in _all_combinations(nbrs_X, l):
+                    if ci_test_discrete(df=obs_df, X=X, Y=Y, Z=list(Z)):
+                        G.remove_edge(X, Y)
+                        sep_sets[frozenset({X, Y})] = set(Z)
+                        logging.info(f"PC: removing edge {X} - {Y} | {Z}")
+                        removed = True
+                        break  # stop searching subsets for this edge
+            # end for edges
+        # end while removed at this l
+    # end for l
 
     skeleton = G.copy()
 
@@ -149,6 +191,9 @@ def PC(data: Dict, alpha: float = 0.05):
                     logging.info(f"PC: orienting edge {Y} → {Z} (Meek R1)")
                     break
 
+    logging.info(f"PC: final skeleton {list(skeleton.edges())}")
+    logging.info(f"PC: final directed edges {directed_edges}")
+
     return skeleton, directed_edges
 
 
@@ -167,67 +212,83 @@ def _effect_of_intervention(
     base = _records_to_df(data["empty"])
     if base.empty:
         return False
-    baseline = base[target].value_counts().reindex([0, 1]).fillna(0)
+    baseline = base[target].value_counts().reindex([0, 1])
 
-    rows = [baseline.values.astype(int)]
-    for _, records in data[int_var].items():
+    for inter_value, records in data[int_var].items():
+        logging.info(f"intervention: {int_var} = {inter_value}")
         df_int = _records_to_df(records)
         if df_int.empty:
             continue
-        cnt = df_int[target].value_counts().reindex([0, 1]).fillna(0)
-        rows.append(cnt.values.astype(int))
-    if len(rows) <= 1:
-        return False
+        cnt = df_int[target].value_counts().reindex([0, 1])
 
-    contingency = np.vstack(rows)
-    _, p, _, _ = chi2_contingency(contingency, correction=False)
-    logging.info(f"intervention: {int_var} → {target} → p = {p:.4f}")
-    return p < alpha
+        print(f"observational cnts: {baseline.values}")
+        print(f"counts: {cnt.values}")
+
+        a = baseline.values.astype("float64")
+        a /= a.sum()
+        b = cnt.values.astype("float64")
+        b /= b.sum()
+
+        total_variance_distance = abs(a - b).sum() / 2
+
+        logging.info(
+            f"intervention: {int_var} = {inter_value} → {target} p = {total_variance_distance:.4f}"
+        )
+        if total_variance_distance > alpha:
+            return True
+
+    return False
 
 
-def orient_edges(
+def _create_edge_blacklist_and_path_whitelist(
     data: Dict,
     skeleton: nx.Graph,
     initial_directed_edges: Set[Tuple[str, str]] | None = None,
     alpha: float = 0.05,
 ) -> Set[Tuple[str, str]]:
     """Orient additional arrows using interventional batches + Meek R1."""
+    blacklist = set()
+    whitelist = set()
     directed = set(initial_directed_edges) if initial_directed_edges else set()
 
     for X, Y in skeleton.edges():
         logging.info(f"orienting edge {X} ↔ {Y} (intervention)")
         if (X, Y) in directed or (Y, X) in directed:
             continue
+
         x_affects_y = _effect_of_intervention(data, X, Y, alpha)
         y_affects_x = _effect_of_intervention(data, Y, X, alpha)
+
         logging.info(
             f"intervention: {X} → {Y} = {x_affects_y}, {Y} → {X} = {y_affects_x}"
         )
-        if x_affects_y and not y_affects_x:
-            directed.add((X, Y))
-            logging.info(f"orienting edge {X} → {Y} (intervention)")
-        elif y_affects_x and not x_affects_y:
-            directed.add((Y, X))
-            logging.info(f"orienting edge {Y} → {X} (intervention)")
+        if not x_affects_y:
+            blacklist.add((X, Y))
+            logging.info(f"Black listing edge {X} → {Y} (intervention)")
+        else:
+            whitelist.add((X, Y))
+            logging.info(f"White listing edge {X} → {Y} (intervention)")
 
-    # final Meek R1 sweep
-    changed = True
-    while changed:
-        changed = False
-        for Y, Z in skeleton.edges():
-            if (Y, Z) in directed or (Z, Y) in directed:
-                continue
-            for X in skeleton.nodes():
-                if (
-                    (X, Y) in directed
-                    and not skeleton.has_edge(X, Z)
-                    and not skeleton.has_edge(Z, X)
-                ):
-                    directed.add((Y, Z))
-                    changed = True
-                    logging.info(f"orienting edge {Y} → {Z} (Meek R1)")
-                    break
-    return directed
+        if not y_affects_x:
+            blacklist.add((Y, X))
+            logging.info(f"Black listing edge {Y} → {X} (intervention)")
+        else:
+            whitelist.add((Y, X))
+            logging.info(f"White listing edge {Y} → {X} (intervention)")
+
+    return blacklist
+
+
+def _clean_skeleton_with_blacklist(
+    skeleton: nx.Graph, blacklist: Set[Tuple[str, str]], directed: Set[Tuple[str, str]]
+) -> nx.Graph:
+    """Remove edges from skeleton that are in the blacklist."""
+    G = skeleton.copy()
+    for X, Y in blacklist:
+        if G.has_edge(X, Y):
+            G.remove_edge(X, Y)
+            logging.info(f"Removing edge {X} ↔ {Y} from skeleton (blacklist)")
+    return G
 
 
 # --------------------------------------------------------------------------
@@ -253,9 +314,15 @@ def learn(data: Dict, alpha: float = 0.05) -> nx.DiGraph:
         prefer to keep them, add them as bidirectional pairs.)
     """
     skeleton, dir_pc = PC(data, alpha)
-    all_oriented = orient_edges(data, skeleton, dir_pc, alpha)
+    blacklist = _create_edge_blacklist_and_path_whitelist(data, skeleton, dir_pc, alpha)
+    bl_skeleton = _clean_skeleton_with_blacklist(skeleton, blacklist, dir_pc)
+
+    print(f"PC directed edges: {dir_pc}")
+    print(f"bl_skeleton: {bl_skeleton.edges()}")
+    print(f"blacklist: {blacklist}")
+    print(f"Oriented skeleton: {list(bl_skeleton.edges()) + list(dir_pc)}")
 
     G = nx.DiGraph()
     G.add_nodes_from(skeleton.nodes())
-    G.add_edges_from(all_oriented)
+    G.add_edges_from(list(bl_skeleton.edges()) + list(dir_pc))
     return G

@@ -13,6 +13,9 @@ from .nodes import SCMNode
 # Typing
 from typing import List, Dict, Optional
 
+# Utils
+from tqdm import tqdm
+
 
 class SCM:
     """
@@ -102,7 +105,7 @@ class SCM:
         rs = random_state or self.random_state
         return [
             self._generate_sample(interventions, random_state=rs)
-            for _ in range(num_samples)
+            for _ in tqdm(range(num_samples))
         ]
 
     def to_dict(self) -> Dict:

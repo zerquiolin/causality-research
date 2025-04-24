@@ -17,7 +17,10 @@ from src.generators.dag_generator import DAGGenerator
 
 @pytest.mark.parametrize(
     "seed, num_nodes, num_roots, num_leaves, edge_density, max_in_degree, max_out_degree, min_path_length, max_path_length",
-    [(42, 10, 2, 2, 0.5, 3, 3, 1, 4), (123, 8, 2, 2, 0.3, 3, 3, 2, 3)],
+    [
+        (42, 10, 2, 2, 0.5, 3, 3, 1, 4),
+        (42, 3, 1, 1, 0.2, 1, 1, 1, 3),
+    ],
 )
 def test_dag_reproducibility(
     seed,
@@ -39,7 +42,7 @@ def test_dag_reproducibility(
         max_out_degree=max_out_degree,
         min_path_length=min_path_length,
         max_path_length=max_path_length,
-        random_state=np.random.default_rng(seed),
+        random_state=np.random.RandomState(seed),
     ).generate()
     dag_b = DAGGenerator(
         num_nodes=num_nodes,
@@ -50,7 +53,7 @@ def test_dag_reproducibility(
         max_out_degree=max_out_degree,
         min_path_length=min_path_length,
         max_path_length=max_path_length,
-        random_state=np.random.default_rng(seed),
+        random_state=np.random.RandomState(seed),
     ).generate()
 
     # Check if the DAGs are isomorphic
@@ -60,7 +63,10 @@ def test_dag_reproducibility(
 
 @pytest.mark.parametrize(
     "seed1, seed2, num_nodes, num_roots, num_leaves, edge_density, max_in_degree, max_out_degree, min_path_length, max_path_length",
-    [(42, 43, 10, 2, 2, 0.5, 3, 3, 1, 4), (123, 456, 15, 3, 3, 0.3, 3, 3, 1, 4)],
+    [
+        (42, 43, 10, 2, 2, 0.5, 3, 3, 1, 4),
+        (42, 234, 5, 1, 1, 0.4, 2, 2, 1, 4),
+    ],
 )
 def test_dag_variability(
     seed1,
@@ -83,7 +89,7 @@ def test_dag_variability(
         max_out_degree=max_out_degree,
         min_path_length=min_path_length,
         max_path_length=max_path_length,
-        random_state=np.random.default_rng(seed1),
+        random_state=np.random.RandomState(seed1),
     ).generate()
     dag_b = DAGGenerator(
         num_nodes=num_nodes,
@@ -94,7 +100,7 @@ def test_dag_variability(
         max_out_degree=max_out_degree,
         min_path_length=min_path_length,
         max_path_length=max_path_length,
-        random_state=np.random.default_rng(seed2),
+        random_state=np.random.RandomState(seed2),
     ).generate()
 
     # Check if the DAGs are isomorphic
@@ -104,7 +110,10 @@ def test_dag_variability(
 
 @pytest.mark.parametrize(
     "seed, num_nodes, num_roots, num_leaves, edge_density, max_in_degree, max_out_degree, min_path_length, max_path_length",
-    [(123, 10, 2, 2, 0.5, 3, 3, 1, 4), (911, 9, 3, 3, 0.3, 3, 3, 1, 4)],
+    [
+        (42, 10, 2, 2, 0.5, 3, 3, 1, 4),
+        (42, 3, 1, 1, 0.2, 1, 1, 1, 3),
+    ],
 )
 def test_dag_serialization(
     seed,
@@ -126,7 +135,7 @@ def test_dag_serialization(
         max_out_degree=max_out_degree,
         min_path_length=min_path_length,
         max_path_length=max_path_length,
-        random_state=np.random.default_rng(seed),
+        random_state=np.random.RandomState(seed),
     ).generate()
     # Serialize the DAG
     dag_data = dag.to_dict()
@@ -139,7 +148,7 @@ def test_dag_serialization(
 
 @pytest.mark.parametrize(
     "seed, num_nodes, num_roots, num_leaves, edge_density, max_in_degree, max_out_degree, min_path_length, max_path_length",
-    [(123, 10, 2, 2, 0.5, 3, 3, 1, 4), (911, 9, 3, 3, 0.3, 3, 3, 1, 4)],
+    [(123, 15, 2, 2, 0.7, 3, 3, 1, 4), (911, 20, 2, 2, 0.5, 3, 3, 2, 4)],
 )
 def test_dag_is_valid(
     seed,
@@ -161,7 +170,7 @@ def test_dag_is_valid(
         max_out_degree=max_out_degree,
         min_path_length=min_path_length,
         max_path_length=max_path_length,
-        random_state=np.random.default_rng(seed),
+        random_state=np.random.RandomState(seed),
     ).generate()
     assert nx.is_directed_acyclic_graph(dag.graph), "Graph must be a DAG."
     assert (

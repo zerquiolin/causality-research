@@ -26,6 +26,8 @@ class GreedyAgent(BaseAgent):
 
         # Define the treatment list
         treatments = []
+        num_obs = 10**3
+        num_inter = 10**3
         # Iterate over all possible actions
         for node in actions.keys():
             # Skip the stop_with_answer action
@@ -34,7 +36,7 @@ class GreedyAgent(BaseAgent):
 
             # Generate observation data
             if node == "observe":
-                treatments.append(("observe", 1000))
+                treatments.append(("observe", num_obs))
                 continue
 
             # Get the domain of the action
@@ -43,11 +45,11 @@ class GreedyAgent(BaseAgent):
             if isinstance(domain, list):
                 for value in domain:
                     # Add all possible values to the treatment list
-                    treatments.append(({node: value}, 500))
+                    treatments.append(({node: value}, num_inter))
             else:
                 for i in np.linspace(domain[0], domain[1], 10):
                     # Add 10 values to the treatment list
-                    treatments.append(({node: i}, 500))
+                    treatments.append(({node: i}, num_inter))
 
         return "experiment", treatments
 
@@ -60,8 +62,8 @@ class GreedyAgent(BaseAgent):
         2. Refine edge orientations using interventional datasets.
         """
         # Use custom DAG learning script
-        # learned_dag = learn_dag(samples)
-        learned_dag = learn_dag_gies(samples)
+        learned_dag = learn_dag(samples)
+        # learned_dag = learn_dag_gies(samples)
         print(learned_dag.edges())
         # Save the refined graph as the learned DAG.
         self._learned_graph = learned_dag

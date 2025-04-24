@@ -15,20 +15,20 @@ test_dag_a = DAGGenerator(
     edge_density=0.5,
     max_in_degree=3,
     max_out_degree=3,
-    min_path_length=1,
+    min_path_length=2,
     max_path_length=4,
-    random_state=np.random.RandomState(123),
+    random_state=np.random.RandomState(52),
 ).generate()
 test_dag_b = DAGGenerator(
     num_nodes=8,
     num_roots=2,
     num_leaves=2,
     edge_density=0.3,
-    max_in_degree=3,
-    max_out_degree=3,
+    max_in_degree=2,
+    max_out_degree=2,
     min_path_length=2,
     max_path_length=3,
-    random_state=np.random.RandomState(911),
+    random_state=np.random.RandomState(42),
 ).generate()
 
 

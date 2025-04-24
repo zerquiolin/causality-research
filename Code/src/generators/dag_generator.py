@@ -44,9 +44,14 @@ class DAGGenerator:
         self._validate_init_args()
         # Label nodes as X0, X1, ...
         self._order = [f"X{i+1}" for i in range(self.num_nodes)]
-        # Prefix are roots, suffix are leaves
-        self._roots = set(self._order[: self.num_roots])
-        self._leaves = set(self._order[-self.num_leaves :])
+        # # Prefix are roots, suffix are leaves
+        # self._roots = set(self._order[: self.num_roots])
+        # self._leaves = set(self._order[-self.num_leaves :])
+        # Prefix are roots, suffix are leaves – keep both a list (ordered!) and a set (for fast membership)
+        self._roots_list = self._order[: self.num_roots]
+        self._leaves_list = self._order[-self.num_leaves :]
+        self._roots = set(self._roots_list)
+        self._leaves = set(self._leaves_list)
         if self._roots & self._leaves:
             raise ValueError("Roots and leaves must be disjoint.")
         self.graph = nx.DiGraph()
@@ -94,8 +99,10 @@ class DAGGenerator:
         def preds(v: str) -> List[str]:
             return [u for u in order if pos[u] < pos[v]]
 
-        # Roots: ensure ≥1 outgoing under caps
-        for r in self._roots:
+        # # Roots: ensure ≥1 outgoing under caps
+        # for r in self._roots:
+        # Roots: ensure ≥1 outgoing under caps (in the original node‐order)
+        for r in self._roots_list:
             candidates = [v for v in succs(r) if self._can_add_edge(r, v)]
             if not candidates:
                 raise RuntimeError(
@@ -103,8 +110,10 @@ class DAGGenerator:
                 )
             self._add_edge(r, self.random_state.choice(candidates))
 
-        # Leaves: ensure ≥1 incoming under caps
-        for l in self._leaves:
+        # # Leaves: ensure ≥1 incoming under caps
+        # for l in self._leaves:
+        # Leaves: ensure ≥1 incoming under caps (ditto)
+        for l in self._leaves_list:
             candidates = [u for u in preds(l) if self._can_add_edge(u, l)]
             if not candidates:
                 raise RuntimeError(
@@ -112,8 +121,13 @@ class DAGGenerator:
                 )
             self._add_edge(self.random_state.choice(candidates), l)
 
-        # Intermediates: at least one in and one out under caps
-        intermediates = set(order) - self._roots - self._leaves
+        # # Intermediates: at least one in and one out under caps
+        # intermediates = set(order) - self._roots - self._leaves
+        # for m in intermediates:
+        # Intermediates in fixed order
+        intermediates = [
+            n for n in self._order if n not in self._roots and n not in self._leaves
+        ]
         for m in intermediates:
             if self.graph.in_degree(m) == 0:
                 preds_cand = [u for u in preds(m) if self._can_add_edge(u, m)]
@@ -235,7 +249,9 @@ class DAGGenerator:
 
     def _random_offending_path(self, *, short: bool):
         off = []
-        for r in self._roots:
+        # for r in self._roots:
+        # same trick here if you ever hit this
+        for r in self._roots_list:
             for l in self._leaves:
                 try:
                     p = nx.shortest_path(self.graph, r, l)
@@ -249,6 +265,3 @@ class DAGGenerator:
         if not off:
             raise RuntimeError("No offending paths.")
         return off[self.random_state.randint(0, len(off))]
-
-
-# Pytest tests omitted for brevity but labels now Xi-based

@@ -20,6 +20,7 @@ logging.basicConfig(
 
 
 def main():
+    # seed = 42
     seed = 911
     random_state = np.random.RandomState(seed)
 
@@ -35,21 +36,9 @@ def main():
         max_path_length=3,
         random_state=random_state,
     )
-    dag_gen_copy = DAGGeneratorCopy(
-        num_nodes=3,
-        num_roots=1,
-        num_leaves=1,
-        edge_density=0.5,
-        max_in_degree=2,
-        max_out_degree=2,
-        min_path_length=1,
-        max_path_length=3,
-        random_state=random_state,
-    )
     dag_obj = dag_gen.generate()
-    dag_obj_copy = dag_gen_copy.generate()
-    print(dag_obj.edges)
-    print(dag_obj_copy.edges)
+
+    print("Dag generation complete")
 
     # Define constraints for SCM generation
     scm_constraints = {
@@ -78,6 +67,8 @@ def main():
     # scm_gen = SCMGenerator(dag_obj_copy, **scm_constraints, random_state=random_state)
     scm = scm_gen.generate()
 
+    print("SCM generation complete")
+
     # Create a GameInstance with the generated SCM
     game_instance = GameInstance(scm, random_state)
 
@@ -92,6 +83,8 @@ def main():
     env = Environment(
         game_instance, greedy_agent, max_rounds=10, random_state=random_state
     )
+
+    print("\n🎮 Environment created!")
 
     # print(f"env: {env}, game_instance: {game_instance}, agent: {agent}, scm: {scm}")
 
