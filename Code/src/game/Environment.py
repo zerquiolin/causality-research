@@ -181,7 +181,7 @@ class Environment:
 
                 self.perform_experiment([experiment])
         else:
-            error(f"Invalid action: {action}")
+            print(f"Invalid action: {action}")
 
     def perform_experiment(self, treatments: List[Tuple[Any, int]]) -> None:
         """
@@ -245,7 +245,11 @@ class Environment:
                 {
                     "round": self.current_round,
                     "action": action,
-                    "action_object": action_object,
+                    "action_object": (
+                        action_object
+                        if action != "stop_with_answer"
+                        else self.agent.submit_answer()
+                    ),
                     "state_datasets": state["datasets"],
                 }
             )
@@ -257,17 +261,30 @@ class Environment:
             self.apply_action(action, action_object)
             self.current_round += 1
 
-        return self.get_state(), self.history
+        return self.get_state(), pd.DataFrame(self.history)
 
-    def get_game_history(self) -> pd.DataFrame:
+    def save_game_history(self, path: str = None) -> pd.DataFrame:
         """
         Converts the stored state-action history into a Pandas DataFrame and saves it as a CSV file.
+
+        Args:
+            path (str): The path where the CSV file will be saved.
 
         Returns:
             pd.DataFrame: The DataFrame containing the game history.
         """
         history_df = pd.DataFrame(self.history)
-        file_path = f"./output/game_history-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
+        if path and not path.endswith(".csv"):
+            if not path.endswith("/"):
+                path += "/"
+            path += (
+                f"results-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
+            )
+        file_path = (
+            path
+            or f"./output/game_history-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
+        )
+        print(file_path)
         directory = os.path.dirname(file_path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)

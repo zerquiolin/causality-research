@@ -1,19 +1,13 @@
-import logging
-import re
 import numpy as np
-import pandas as pd
-import networkx as nx
-from pgmpy.estimators import PC
-from pgmpy.models import BayesianModel
 
-from .base import BaseAgent
+from ..base import BaseAgent
 
 # Dag Learning Script
 from src.lib.scripts.pc import learn as learn_dag
 from src.lib.scripts.gies import learn as learn_dag_gies
 
 
-class GreedyAgent(BaseAgent):
+class ExhaustiveAgent(BaseAgent):
     _is_first_round = True
 
     def choose_action(self, samples, actions, num_rounds):
@@ -63,8 +57,6 @@ class GreedyAgent(BaseAgent):
         """
         # Use custom DAG learning script
         learned_dag = learn_dag(samples)
-        # learned_dag = learn_dag_gies(samples)
-        print(learned_dag.edges())
         # Save the refined graph as the learned DAG.
         self._learned_graph = learned_dag
 

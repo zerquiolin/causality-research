@@ -4,8 +4,8 @@ from src.generators.dag_generator_copy import DAGGenerator as DAGGeneratorCopy
 from src.generators.scm_generator import SCMGenerator
 from src.game.GameInstance import GameInstance
 from src.game.Environment import Environment
-from src.agents.RandomAgent import RandomAgent
-from src.agents.GreedyAgent import GreedyAgent
+from src.agents.impl.RandomAgent import RandomAgent
+from src.agents.impl.ExhaustiveAgent import ExhaustiveAgent
 import numpy as np
 import sympy as sp
 import pandas as pd
@@ -21,8 +21,10 @@ logging.basicConfig(
 
 def main():
     # seed = 42
-    seed = 911
+    seed = 123
     random_state = np.random.RandomState(seed)
+    scm_seed = 42
+    scm_random_state = np.random.RandomState(scm_seed)
 
     # Generate a DAG
     dag_gen = DAGGenerator(
@@ -63,7 +65,7 @@ def main():
         scm_constraints["variable_domains"][node] = [0, 1]
 
     # Generate the SCM
-    scm_gen = SCMGenerator(dag_obj, **scm_constraints, random_state=random_state)
+    scm_gen = SCMGenerator(dag_obj, **scm_constraints, random_state=scm_random_state)
     # scm_gen = SCMGenerator(dag_obj_copy, **scm_constraints, random_state=random_state)
     scm = scm_gen.generate()
 
@@ -74,7 +76,7 @@ def main():
 
     # Create a RandomAgent
     random_agent = RandomAgent()
-    greedy_agent = GreedyAgent()
+    greedy_agent = ExhaustiveAgent()
 
     # Create the Environment using the GameInstance and Agent
     # env = Environment(
@@ -95,7 +97,7 @@ def main():
     # print(f"Final Dataset: {final_state[0]['datasets']}")
 
     # Retrieve and display the state-action history
-    game_history_df = env.get_game_history()
+    game_history_df = env.save_game_history()
 
     print("\n📊 Game History DataFrame:")
     print(game_history_df)

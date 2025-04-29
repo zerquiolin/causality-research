@@ -4,11 +4,8 @@ from typing import Dict, List, Set, Tuple
 import networkx as nx
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2, chi2_contingency, fisher_exact, chisquare
-
-# Combine p-values across strata via Fisher’s method
-from scipy.stats import combine_pvalues
-
+from scipy.stats import chi2_contingency, combine_pvalues
+import pandas as pd
 from scipy.stats import pearsonr
 
 
@@ -22,18 +19,13 @@ def _records_to_df(records: List[Dict[str, int]]) -> pd.DataFrame:
     return pd.DataFrame.from_records(records).copy()
 
 
-from scipy.stats import chi2_contingency, combine_pvalues
-import pandas as pd
-
-
 def ci_test_discrete(df, X, Y, Z, alpha=0.05):
     """Test X⊥Y | Z for discrete variables via stratified chi-square."""
     # No conditioning
     if not Z:
         table = pd.crosstab(df[X], df[Y])
-        print(table)
         _, p, _, _ = chi2_contingency(table)
-        print(f"Conditional independence test: {X} _||_ {Y} → p = {p:.4f}")
+        logging.debug(f"Conditional independence test: {X} _||_ {Y} → p = {p:.4f}")
         return p > alpha
 
     # Stratify by every combination of Z
@@ -52,7 +44,9 @@ def ci_test_discrete(df, X, Y, Z, alpha=0.05):
 
     _, p_comb = combine_pvalues(pvals, method="fisher")
 
-    print(f"Conditional independence test: {X} _||_ {Y} | {Z} → p = {p_comb:.4f}")
+    logging.debug(
+        f"Conditional independence test: {X} _||_ {Y} | {Z} → p = {p_comb:.4f}"
+    )
     return p_comb > alpha
 
 
@@ -82,7 +76,7 @@ def ci_test(
         ry = residuals(Y)
         r, p = pearsonr(rx, ry)
 
-    print(f"Conditional independence test: {X} _||_ {Y} | {Z} → p = {p:.4f}")
+    logging.debug(f"Conditional independence test: {X} _||_ {Y} | {Z} → p = {p:.4f}")
     return p > alpha
 
 
@@ -123,7 +117,7 @@ def PC(data: Dict, alpha: float = 0.05):
     G = nx.DiGraph()
     G.add_nodes_from(variables)
     G.add_edges_from(_all_permutations(variables, 2))
-    logging.info(f"PC: initial graph with {list(G.edges())} edges")
+    logging.debug(f"PC: initial graph with {list(G.edges())} edges")
 
     sep_sets: Dict[frozenset, Set[str]] = {}
 
@@ -131,7 +125,7 @@ def PC(data: Dict, alpha: float = 0.05):
     max_l = max(len(set(G.neighbors(X)) - {Y}) for X, Y in G.edges())
 
     # 2. edge-removal
-    print(f"max_l: {max_l}")
+    logging.debug(f"max_l: {max_l}")
 
     sep_sets = {}  # make sure this is initialized before
 
@@ -150,7 +144,7 @@ def PC(data: Dict, alpha: float = 0.05):
                     if ci_test_discrete(df=obs_df, X=X, Y=Y, Z=list(Z)):
                         G.remove_edge(X, Y)
                         sep_sets[frozenset({X, Y})] = set(Z)
-                        logging.info(f"PC: removing edge {X} - {Y} | {Z}")
+                        logging.debug(f"PC: removing edge {X} - {Y} | {Z}")
                         removed = True
                         break  # stop searching subsets for this edge
             # end for edges
@@ -168,7 +162,7 @@ def PC(data: Dict, alpha: float = 0.05):
                 continue  # shielded triangle
             if Z not in sep_sets.get(frozenset({X, Y}), set()):
                 directed_edges.update({(X, Z), (Y, Z)})
-                logging.info(f"PC: orienting v-structure {X} → {Z} ← {Y} (unshielded)")
+                logging.debug(f"PC: orienting v-structure {X} → {Z} ← {Y} (unshielded)")
 
     # 4 . Meek Rule R1: (X → Y –– Z) and X ∦ Z ⇒ orient Y → Z
     changed = True
@@ -188,11 +182,11 @@ def PC(data: Dict, alpha: float = 0.05):
                 ):
                     directed_edges.add((Y, Z))
                     changed = True
-                    logging.info(f"PC: orienting edge {Y} → {Z} (Meek R1)")
+                    logging.debug(f"PC: orienting edge {Y} → {Z} (Meek R1)")
                     break
 
-    logging.info(f"PC: final skeleton {list(skeleton.edges())}")
-    logging.info(f"PC: final directed edges {directed_edges}")
+    logging.debug(f"PC: final skeleton {list(skeleton.edges())}")
+    logging.debug(f"PC: final directed edges {directed_edges}")
 
     return skeleton, directed_edges
 
@@ -215,14 +209,14 @@ def _effect_of_intervention(
     baseline = base[target].value_counts().reindex([0, 1])
 
     for inter_value, records in data[int_var].items():
-        logging.info(f"intervention: {int_var} = {inter_value}")
+        logging.debug(f"intervention: {int_var} = {inter_value}")
         df_int = _records_to_df(records)
         if df_int.empty:
             continue
         cnt = df_int[target].value_counts().reindex([0, 1])
 
-        print(f"observational cnts: {baseline.values}")
-        print(f"counts: {cnt.values}")
+        logging.debug(f"observational cnts: {baseline.values}")
+        logging.debug(f"counts: {cnt.values}")
 
         a = baseline.values.astype("float64")
         a /= a.sum()
@@ -231,7 +225,7 @@ def _effect_of_intervention(
 
         total_variance_distance = abs(a - b).sum() / 2
 
-        logging.info(
+        logging.debug(
             f"intervention: {int_var} = {inter_value} → {target} p = {total_variance_distance:.4f}"
         )
         if total_variance_distance > alpha:
@@ -252,29 +246,29 @@ def _create_edge_blacklist_and_path_whitelist(
     directed = set(initial_directed_edges) if initial_directed_edges else set()
 
     for X, Y in skeleton.edges():
-        logging.info(f"orienting edge {X} ↔ {Y} (intervention)")
+        logging.debug(f"orienting edge {X} ↔ {Y} (intervention)")
         if (X, Y) in directed or (Y, X) in directed:
             continue
 
         x_affects_y = _effect_of_intervention(data, X, Y, alpha)
         y_affects_x = _effect_of_intervention(data, Y, X, alpha)
 
-        logging.info(
+        logging.debug(
             f"intervention: {X} → {Y} = {x_affects_y}, {Y} → {X} = {y_affects_x}"
         )
         if not x_affects_y:
             blacklist.add((X, Y))
-            logging.info(f"Black listing edge {X} → {Y} (intervention)")
+            logging.debug(f"Black listing edge {X} → {Y} (intervention)")
         else:
             whitelist.add((X, Y))
-            logging.info(f"White listing edge {X} → {Y} (intervention)")
+            logging.debug(f"White listing edge {X} → {Y} (intervention)")
 
         if not y_affects_x:
             blacklist.add((Y, X))
-            logging.info(f"Black listing edge {Y} → {X} (intervention)")
+            logging.debug(f"Black listing edge {Y} → {X} (intervention)")
         else:
             whitelist.add((Y, X))
-            logging.info(f"White listing edge {Y} → {X} (intervention)")
+            logging.debug(f"White listing edge {Y} → {X} (intervention)")
 
     return blacklist
 
@@ -287,7 +281,7 @@ def _clean_skeleton_with_blacklist(
     for X, Y in blacklist:
         if G.has_edge(X, Y):
             G.remove_edge(X, Y)
-            logging.info(f"Removing edge {X} ↔ {Y} from skeleton (blacklist)")
+            logging.debug(f"Removing edge {X} ↔ {Y} from skeleton (blacklist)")
     return G
 
 
@@ -317,10 +311,10 @@ def learn(data: Dict, alpha: float = 0.05) -> nx.DiGraph:
     blacklist = _create_edge_blacklist_and_path_whitelist(data, skeleton, dir_pc, alpha)
     bl_skeleton = _clean_skeleton_with_blacklist(skeleton, blacklist, dir_pc)
 
-    print(f"PC directed edges: {dir_pc}")
-    print(f"bl_skeleton: {bl_skeleton.edges()}")
-    print(f"blacklist: {blacklist}")
-    print(f"Oriented skeleton: {list(bl_skeleton.edges()) + list(dir_pc)}")
+    logging.debug(f"PC directed edges: {dir_pc}")
+    logging.debug(f"bl_skeleton: {bl_skeleton.edges()}")
+    logging.debug(f"blacklist: {blacklist}")
+    logging.debug(f"Oriented skeleton: {list(bl_skeleton.edges()) + list(dir_pc)}")
 
     G = nx.DiGraph()
     G.add_nodes_from(skeleton.nodes())

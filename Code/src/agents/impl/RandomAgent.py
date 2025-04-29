@@ -1,5 +1,5 @@
 import random
-from .base import BaseAgent
+from ..base import BaseAgent
 
 
 class RandomAgent(BaseAgent):
