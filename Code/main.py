@@ -1,21 +1,21 @@
 # Agents
-from src.agents.impl.RandomAgent import RandomAgent
-from src.agents.impl.ExhaustiveAgent import ExhaustiveAgent
+from causalitygame.agents.impl.RandomAgent import RandomAgent
+from causalitygame.agents.impl.ExhaustiveAgent import ExhaustiveAgent
 
 # Metrics
-from src.evaluators.impl.BehaviorMetrics import (
+from causalitygame.evaluators.impl.BehaviorMetrics import (
     ExperimentsBehaviorMetric,
     TreatmentsBehaviorMetric,
     RoundsBehaviorMetric,
 )
-from src.evaluators.impl.DeliverableMetrics import (
+from causalitygame.evaluators.impl.DeliverableMetrics import (
     SHDDeliverableMetric,
     F1DeliverableMetric,
     EdgeAccuracyDeliverableMetric,
 )
 
 # Game
-from src.game.Game import Game
+from causalitygame.game.Game import Game
 
 import numpy as np
 
@@ -71,4 +71,5 @@ game = Game(
 )
 
 results = game.run()
+print(results)
 game.plot()

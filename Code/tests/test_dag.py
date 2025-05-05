@@ -9,10 +9,10 @@ import networkx as nx
 from networkx.algorithms import isomorphism
 
 # DAG
-from src.scm.dag import DAG
+from causalitygame.scm.dag import DAG
 
 # Generator
-from src.generators.dag_generator import DAGGenerator
+from causalitygame.generators.dag_generator import DAGGenerator
 
 
 @pytest.mark.parametrize(

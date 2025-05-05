@@ -1,7 +1,7 @@
 import numpy as np
 
-from src.scm.impl.basic_binary_scm import gen_binary_scm
-from src.game.GameInstance import GameInstance
+from causalitygame.scm.impl.basic_binary_scm import gen_binary_scm
+from causalitygame.game.GameInstance import GameInstance
 
 # Create a random state for reproducibility
 random_state = np.random.RandomState(42)

@@ -1,10 +1,10 @@
 from itertools import permutations
 import json
 import pytest
-from src.game.Environment import Environment
-from src.game.GameInstance import GameInstance
-from src.generators.scm_generator import SCMGenerator
-from src.generators.dag_generator import DAGGenerator
+from causalitygame.game.Environment import Environment
+from causalitygame.game.GameInstance import GameInstance
+from causalitygame.generators.scm_generator import SCMGenerator
+from causalitygame.generators.dag_generator import DAGGenerator
 from scipy.stats import norm, uniform
 import sympy as sp
 import numpy as np

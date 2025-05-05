@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: causalitygame
+Version: 0.1.0
+Summary: A causal inference game simulation engine
+Author: Sergio Amortegui & Felix Mohr
+License: MIT
+Requires-Dist: networkx
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: matplotlib
+Requires-Dist: sympy
+Requires-Dist: scipy
+Requires-Dist: joblib
+Requires-Dist: pytest
+Requires-Dist: tqdm

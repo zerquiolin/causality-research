@@ -1,10 +1,10 @@
 import json
 import pytest
 import joblib
-from src.generators.scm_generator import SCMGenerator
-from src.scm.scm import SCM
-from src.scm.dag import DAG
-from src.generators.dag_generator import DAGGenerator
+from causalitygame.generators.scm_generator import SCMGenerator
+from causalitygame.scm.scm import SCM
+from causalitygame.scm.dag import DAG
+from causalitygame.generators.dag_generator import DAGGenerator
 from scipy.stats import norm, uniform
 import numpy as np
 
@@ -270,11 +270,8 @@ def test_scm_deserialization(dag, num_nodes, seed):
         node.to_dict()
         for node in sorted(scm_deserialized_json.nodes.values(), key=lambda n: n.name)
     ]
-    print(nodes_a)
-    print(nodes_b)
-    print(nodes_c)
-
     assert nodes_a == nodes_b == nodes_c, "SCMs should be equal after serialization."
+
     # Check if the random states are equal
     state_a = scm.get_random_state().get_state()
     state_b = scm_deserialized.get_random_state().get_state()
@@ -296,6 +293,12 @@ def test_scm_deserialization(dag, num_nodes, seed):
     assert (
         samples_a == samples_b == samples_c
     ), "Samples should be equal after serialization."
+
+    # Delete the file after the test
+    import os
+
+    if os.path.exists("scm_data.pkl"):
+        os.remove("scm_data.pkl")
 
 
 @pytest.mark.parametrize(
