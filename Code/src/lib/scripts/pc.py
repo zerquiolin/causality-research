@@ -288,9 +288,34 @@ def _clean_skeleton_with_blacklist(
 # --------------------------------------------------------------------------
 # Convenience wrapper – full learning pipeline
 # --------------------------------------------------------------------------
+def remove_cycles_from_digraph(graph: nx.DiGraph, seed: int) -> nx.DiGraph:
+    """
+    Removes cycles from a directed graph by deleting one edge per cycle detected.
+
+    Args:
+        graph (nx.DiGraph): A potentially cyclic directed graph.
+        seed (int): Random seed for reproducibility.
+
+    Returns:
+        nx.DiGraph: An acyclic version of the graph.
+    """
+    rs = np.random.RandomState(seed)
+    g = graph.copy()
+    try:
+        while True:
+            cycle = nx.find_cycle(g, orientation="original")
+            # Remove one edge from the cycle randomly
+            rid = rs.choice(len(cycle))
+            edge_to_remove = cycle[rid][:2]  # (source, target)
+            print(f"Removing edge {edge_to_remove} to break cycle.")
+            g.remove_edge(*edge_to_remove)
+    except nx.NetworkXNoCycle:
+        pass  # No more cycles
+
+    return g
 
 
-def learn(data: Dict, alpha: float = 0.05) -> nx.DiGraph:
+def learn(data: Dict, alpha: float = 0.05, seed: int = 911) -> nx.DiGraph:
     """End‑to‑end learner: observational PC → interventional orientation.
 
     Parameters
@@ -319,4 +344,8 @@ def learn(data: Dict, alpha: float = 0.05) -> nx.DiGraph:
     G = nx.DiGraph()
     G.add_nodes_from(skeleton.nodes())
     G.add_edges_from(list(bl_skeleton.edges()) + list(dir_pc))
+
+    # todo: fix this
+    # Remove cycles from the directed graph (Just temporay solution)
+    G = remove_cycles_from_digraph(graph=G, seed=seed)
     return G

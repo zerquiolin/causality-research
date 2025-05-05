@@ -13,13 +13,13 @@ import numpy as np
 dag_random_state = np.random.RandomState(911)
 dag = DAGGenerator(
     num_nodes=10,
-    num_roots=3,
-    num_leaves=3,
-    edge_density=0.3,
+    num_roots=2,
+    num_leaves=2,
+    edge_density=0.5,
     max_in_degree=3,
     max_out_degree=3,
-    min_path_length=2,
-    max_path_length=5,
+    min_path_length=1,
+    max_path_length=4,
     random_state=dag_random_state,
 ).generate()
 

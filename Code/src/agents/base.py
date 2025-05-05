@@ -1,4 +1,3 @@
-# File: causality_game/agents/base_agent.py
 from abc import ABC, abstractmethod
 
 

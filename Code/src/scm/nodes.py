@@ -166,7 +166,7 @@ class SCMNode:
             # Sample a category based on the CDF values.
             sampled_cat = rs.choice(list(cat_values.keys()), p=cdf_values)
             # Check if the sampled category is in the domain.
-            if sampled_cat not in self.domain:
+            if str(sampled_cat) not in [str(d) for d in self.domain]:
                 raise ValueError(
                     f"Sampled category {sampled_cat} not in domain {self.domain}."
                 )
@@ -186,7 +186,8 @@ class SCMNode:
         cdf_values = np.array([cdf_lambda(x) for x in x_values])
         return cdf_values.tolist()
 
-    def _create_cdf_lambda(self, step_points: np.ndarray) -> callable:
+    @staticmethod
+    def _create_cdf_lambda(step_points: np.ndarray) -> callable:
         """
         Reconstructs a lambda function from step points.
 
@@ -292,3 +293,20 @@ class SCMNode:
             random_state=random_state,
         )
         return node
+
+
+class SerializableCDF:
+    def __init__(self, sorted_samples):
+        self.sorted_samples = np.array(sorted_samples)
+
+    def __call__(self, x):
+        return np.searchsorted(self.sorted_samples, x, side="right") / len(
+            self.sorted_samples
+        )
+
+    def to_list(self):
+        return self.sorted_samples.tolist()
+
+    @classmethod
+    def from_list(cls, data):
+        return cls(np.array(data))

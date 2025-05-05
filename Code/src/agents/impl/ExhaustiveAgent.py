@@ -4,7 +4,6 @@ from ..base import BaseAgent
 
 # Dag Learning Script
 from src.lib.scripts.pc import learn as learn_dag
-from src.lib.scripts.gies import learn as learn_dag_gies
 
 
 class ExhaustiveAgent(BaseAgent):

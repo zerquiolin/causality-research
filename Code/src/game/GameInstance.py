@@ -1,6 +1,7 @@
 import os
 import json
 import numpy as np
+import joblib
 from networkx.readwrite import json_graph
 
 from src.generators.dag_generator import DAGGenerator
@@ -55,8 +56,7 @@ class GameInstance:
             os.makedirs(directory, exist_ok=True)
 
         # Write the JSON file
-        with open(filename, "w") as f:
-            json.dump(self.to_dict(), f)
+        joblib.dump(self.to_dict(), filename)
 
     @classmethod
     def load(cls, filename):
@@ -65,8 +65,7 @@ class GameInstance:
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         # Write the JSON file
-        with open(filename, "r") as f:
-            data = json.load(f)
+        data = joblib.load(filename)
         return cls.from_dict(data)
 
 

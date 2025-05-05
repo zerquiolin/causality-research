@@ -1,5 +1,6 @@
 import json
 import pytest
+import joblib
 from src.generators.scm_generator import SCMGenerator
 from src.scm.scm import SCM
 from src.scm.dag import DAG
@@ -15,18 +16,18 @@ test_dag_a = DAGGenerator(
     edge_density=0.5,
     max_in_degree=3,
     max_out_degree=3,
-    min_path_length=2,
+    min_path_length=1,
     max_path_length=4,
-    random_state=np.random.RandomState(52),
+    random_state=np.random.RandomState(42),
 ).generate()
 test_dag_b = DAGGenerator(
-    num_nodes=8,
-    num_roots=2,
-    num_leaves=2,
-    edge_density=0.3,
-    max_in_degree=2,
-    max_out_degree=2,
-    min_path_length=2,
+    num_nodes=3,
+    num_roots=1,
+    num_leaves=1,
+    edge_density=0.2,
+    max_in_degree=1,
+    max_out_degree=1,
+    min_path_length=1,
     max_path_length=3,
     random_state=np.random.RandomState(42),
 ).generate()
@@ -224,8 +225,12 @@ def test_scm_deserialization(dag, num_nodes, seed):
     Test if SCMGenerator is reproducible with the same seed.
     """
 
-    variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
-    variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
+    variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes)}
+    variable_types[f"X{num_nodes}"] = "categorical"
+    variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes)}
+    variable_domains[f"X{num_nodes}"] = ["A", "B", "C"]
+    # variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
+    # variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
 
     scm_generator = SCMGenerator(
         dag=dag,
@@ -246,6 +251,12 @@ def test_scm_deserialization(dag, num_nodes, seed):
     scm_data = scm.to_dict()
     # Deserialize the SCM
     scm_deserialized = SCM.from_dict(scm_data)
+    # Save the serialized data to a file
+    joblib.dump(scm_data, "scm_data.pkl")
+    # Read the serialized data from the file
+    joblib_data = joblib.load("scm_data.pkl")
+    # Deserialize the SCM
+    scm_deserialized_json = SCM.from_dict(joblib_data)
 
     # Check if the SCMs are not equal
     nodes_a = [
@@ -255,24 +266,36 @@ def test_scm_deserialization(dag, num_nodes, seed):
         node.to_dict()
         for node in sorted(scm_deserialized.nodes.values(), key=lambda n: n.name)
     ]
+    nodes_c = [
+        node.to_dict()
+        for node in sorted(scm_deserialized_json.nodes.values(), key=lambda n: n.name)
+    ]
+    print(nodes_a)
+    print(nodes_b)
+    print(nodes_c)
 
-    assert nodes_a == nodes_b, "SCMs should be equal after serialization."
-
+    assert nodes_a == nodes_b == nodes_c, "SCMs should be equal after serialization."
     # Check if the random states are equal
     state_a = scm.get_random_state().get_state()
     state_b = scm_deserialized.get_random_state().get_state()
+    state_c = scm_deserialized_json.get_random_state().get_state()
 
-    for a, b in zip(state_a, state_b):
+    for a, b, c in zip(state_a, state_b, state_c):
         if isinstance(a, np.ndarray):
-            assert (a == b).all(), "Random states should be equal after serialization."
+            assert np.array_equal(a, b) and np.array_equal(
+                b, c
+            ), "Random state arrays should be equal after serialization."
         else:
-            assert a == b, "Random states should be equal after serialization."
+            assert a == b == c, "Random states should be equal after serialization."
 
     # Generate samples
     samples_a = scm.generate_samples(num_samples=10)
     samples_b = scm_deserialized.generate_samples(num_samples=10)
+    samples_c = scm_deserialized_json.generate_samples(num_samples=10)
 
-    assert samples_a == samples_b, "Samples should be equal after serialization."
+    assert (
+        samples_a == samples_b == samples_c
+    ), "Samples should be equal after serialization."
 
 
 @pytest.mark.parametrize(

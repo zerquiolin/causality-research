@@ -157,6 +157,14 @@ class Environment:
         if action == "stop_with_answer":
             answer = self.agent.submit_answer()
             self.state["final_answer"] = answer
+            self.history.append(
+                {
+                    "round": self.current_round,
+                    "action": "final_answer",
+                    "action_object": answer,
+                    "state_datasets": self.state["datasets"],
+                }
+            )
         elif action == "experiment":
             for experiment in action_object:
                 # Handle observe action separately
@@ -255,11 +263,13 @@ class Environment:
             )
 
             if action == "stop_with_answer":
-                self.apply_action(action)
                 break
 
             self.apply_action(action, action_object)
             self.current_round += 1
+
+        # Game termination
+        self.apply_action("stop_with_answer")
 
         return self.get_state(), pd.DataFrame(self.history)
 
