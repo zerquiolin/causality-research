@@ -7,7 +7,7 @@ import networkx as nx
 
 # SCM
 from src.scm.scm import SCM
-from src.scm.nodes import SCMNode
+from src.scm.nodes import SCMNode, SerializableCDF
 
 # DAG
 from src.scm.dag import DAG
@@ -212,10 +212,12 @@ class SCMGenerator(AbstractSCMGenerator):
                             samples = [0] * 1000
 
                     sorted_samples = np.sort(samples)
-                    cdf_mappings[category] = (
-                        lambda x, s=sorted_samples: np.searchsorted(s, x, side="right")
-                        / len(s)
-                    )
+                    # todo: check if this is correct
+                    # cdf_mappings[category] = (
+                    #     lambda x, s=sorted_samples: np.searchsorted(s, x, side="right")
+                    #     / len(s)
+                    # )
+                    cdf_mappings[category] = SerializableCDF(sorted_samples)
                 eq = eq_dict  # For categorical nodes, equation is a dict mapping each category to its equation.
 
             node = SCMNode(

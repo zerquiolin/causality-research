@@ -1,6 +1,5 @@
 # Environment
 from src.game.Environment import Environment
-from src.scm.impl.basic_binary_scm import gen_binary_scm
 
 # Game Instance
 from src.game.GameInstance import GameInstance
@@ -12,7 +11,7 @@ from src.evaluators.Evaluator import Evaluator
 from src.evaluators.base import WeightedScores
 
 # Utils
-from src.lib.utils.json import load_json
+from tqdm import tqdm
 
 # Math
 import numpy as np
@@ -85,7 +84,7 @@ class Game:
           - 'eval'    (raw Evaluator results)
           - 'behavior_score', 'deliverable_score'
         """
-        for name, agent in self.agents:
+        for name, agent in tqdm(self.agents):
             # 1) Build a fresh environment
             env = self._make_env(agent)
 

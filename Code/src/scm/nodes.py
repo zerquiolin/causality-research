@@ -221,7 +221,9 @@ class SCMNode:
             "domain": self.domain,
             "var_type": self.var_type,
             "cdf_mappings": {
-                cat: self._extract_step_points(self.cdf_mappings[cat])
+                # todo: check if this is correct
+                # cat: self._extract_step_points(self.cdf_mappings[cat])
+                cat: self.cdf_mappings[cat].to_list()
                 for cat in self.cdf_mappings
             },
             "parent_mappings": self.parent_mappings,
@@ -267,7 +269,9 @@ class SCMNode:
             equation = {k: eval(v, safe_dict) for k, v in data["equation"].items()}
             # Reconstruct the CDF mappings from step points.
             cdf_mappings = {
-                cat: cls._create_cdf_lambda(np.array(points))
+                # todo: check if this is correct
+                cat: SerializableCDF.from_list(points)
+                # cat: cls._create_cdf_lambda(np.array(points))
                 for cat, points in data["cdf_mappings"].items()
             }
 
