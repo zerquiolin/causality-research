@@ -1,10 +1,10 @@
 from itertools import permutations
 import json
 import pytest
-from src.game.Environment import Environment
-from src.game.GameInstance import GameInstance
-from src.generators.SCMGenerator import SCMGenerator
-from src.generators.DagGenerator import DAGGenerator
+from causalitygame.game.Environment import Environment
+from causalitygame.game.GameInstance import GameInstance
+from causalitygame.generators.scm_generator import SCMGenerator
+from causalitygame.generators.dag_generator import DAGGenerator
 from scipy.stats import norm, uniform
 import sympy as sp
 import numpy as np
@@ -13,13 +13,13 @@ import numpy as np
 dag_random_state = np.random.RandomState(911)
 dag = DAGGenerator(
     num_nodes=10,
-    num_roots=3,
-    num_leaves=3,
-    edge_density=0.3,
+    num_roots=2,
+    num_leaves=2,
+    edge_density=0.5,
     max_in_degree=3,
     max_out_degree=3,
-    min_path_length=2,
-    max_path_length=5,
+    min_path_length=1,
+    max_path_length=4,
     random_state=dag_random_state,
 ).generate()
 
