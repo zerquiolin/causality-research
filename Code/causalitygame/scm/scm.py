@@ -28,9 +28,7 @@ class SCM:
         random_state (np.random.RandomState): Random number generator for reproducibility.
     """
 
-    def __init__(
-        self, dag: DAG, nodes: List[SCMNode], random_state: np.random.RandomState
-    ):
+    def __init__(self, dag: DAG, nodes: List[SCMNode], random_state: int):
         """
         Initializes the SCM with a DAG, a list of nodes, and a random number generator.
 
@@ -41,7 +39,8 @@ class SCM:
         """
         self.dag = dag
         self.nodes = {node.name: node for node in nodes}
-        self.random_state = random_state
+        self.random_state_seed = random_state
+        self.random_state = np.random.RandomState(random_state)
 
     def get_random_state(self) -> np.random.RandomState:
         """

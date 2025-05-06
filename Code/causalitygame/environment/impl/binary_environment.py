@@ -20,7 +20,7 @@ def gen_binary_environment(
     random_state = np.random.RandomState(seed)
 
     # Generate a binary SCM with the specified seed
-    dag, scm = gen_binary_scm(random_state=random_state)
+    dag, scm = gen_binary_scm(random_state=seed)
 
     # Create a GameInstance with the generated SCM
     game_instance = GameInstance(scm=scm, random_state=random_state)

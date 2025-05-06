@@ -19,8 +19,8 @@ class ExhaustiveAgent(BaseAgent):
 
         # Define the treatment list
         treatments = []
-        num_obs = 10**3
-        num_inter = 10**3
+        num_obs = 10**4
+        num_inter = 10**4
         # Iterate over all possible actions
         for node in actions.keys():
             # Skip the stop_with_answer action

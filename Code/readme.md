@@ -245,14 +245,15 @@ This makes it easy to compare agent strategies and outcomes.
 
 ## 📚 Summary
 
-Component Description
-dag_generator Generate or customize DAG structures
-scm_generator Create symbolic SCM equations over DAGs
-GameInstance Bundle DAG + SCM for reproducible game
-agents.impl Ready-made agents (Random, Exhaustive)
-agents.base Interface for custom agent design
-evaluators.impl Built-in behavior & deliverable metrics
-evaluators.base For building your own metrics
-Game Runs the full benchmark and evaluation
+Component Description:
+
+- dag_generator: Generate or customize DAG structures.
+- scm_generator: Create symbolic SCM equations over DAGs.
+- GameInstance: Bundle DAG + SCM for reproducible game.
+- agents.impl: Ready-made agents (Random, Exhaustive).
+- agents.base: Interface for custom agent design.
+- evaluators.impl: Built-in behavior & deliverable metrics.
+- evaluators.base: For building your own metrics.
+- Game: Runs the full benchmark and evaluation.
 
 Let me know if you’d like this turned into a README.md or integrated into docstrings across the repo.

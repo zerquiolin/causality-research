@@ -1,16 +1,20 @@
 # Math
 import numpy as np
 import sympy as sp
-from scipy.stats import norm, uniform
+
+# Noise Distributions
+from causalitygame.scm.noise_distributions import (
+    GaussianNoiseDistribution,
+    UniformNoiseDistribution,
+)
 
 # Generators
 from causalitygame.generators.dag_generator import DAGGenerator
-from causalitygame.generators.scm_generator import SCMGenerator
+from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 
 
-def gen_binary_scm(
-    random_state: np.random.RandomState = np.random.RandomState(42),
-):
+def gen_binary_scm(random_state: int = 42):
+    rs = np.random.RandomState(random_state)
     # Generate a DAG
     dag_gen = DAGGenerator(
         num_nodes=3,
@@ -21,7 +25,7 @@ def gen_binary_scm(
         max_out_degree=2,
         min_path_length=1,
         max_path_length=3,
-        random_state=random_state,
+        random_state=rs,
     )
     dag = dag_gen.generate()
 
@@ -36,10 +40,10 @@ def gen_binary_scm(
         },
         "allowed_operations": ["+", "-", "*", "/"],
         "allowed_functions": [sp.sin, sp.exp, sp.log],
-        "noise_distributions": {
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        "noise_distributions": [
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
     }
 
     # Define variable domains
@@ -48,7 +52,9 @@ def gen_binary_scm(
 
     # Generate the SCM
     # scm_gen = SCMGenerator(dag, **scm_constraints, random_state=scm_random_state)
-    scm_gen = SCMGenerator(dag, **scm_constraints, random_state=random_state)
+    scm_gen = EquationBasedSCMGenerator(
+        dag, **scm_constraints, random_state=random_state
+    )
     scm = scm_gen.generate()
 
     return dag, scm

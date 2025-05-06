@@ -6,7 +6,7 @@ from networkx.readwrite import json_graph
 
 from causalitygame.generators.dag_generator import DAGGenerator
 from causalitygame.scm.dag import DAG
-from causalitygame.generators.scm_generator import SCMGenerator
+from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.scm.scm import SCM
 
 
@@ -94,8 +94,8 @@ class GameInstanceCreator:
         dag = dag_gen.generate()
 
         # SCM generation.
-        scm_gen = SCMGenerator(
-            dag=dag, **self.scm_generator_params, random_state=random_state
+        scm_gen = EquationBasedSCMGenerator(
+            dag=dag, **self.scm_generator_params, random_state=self.random_state_seed
         )
         scm = scm_gen.generate()
 

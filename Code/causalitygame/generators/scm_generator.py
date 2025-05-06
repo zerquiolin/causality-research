@@ -7,10 +7,17 @@ import networkx as nx
 
 # SCM
 from causalitygame.scm.scm import SCM
-from causalitygame.scm.nodes import SCMNode, SerializableCDF
+from causalitygame.scm.new_nodes import (
+    EquationBasedNumericalSCMNode,
+    EquationBasedCategoricalSCMNode,
+    SerializableCDF,
+)
 
 # DAG
 from causalitygame.scm.dag import DAG
+
+# Types
+from causalitygame.scm.base import BaseNoiseDistribution
 
 # Abstract
 from typing import Dict, Any, List, Tuple, Callable
@@ -20,7 +27,7 @@ from .base import AbstractSCMGenerator
 import logging
 
 
-class SCMGenerator(AbstractSCMGenerator):
+class EquationBasedSCMGenerator(AbstractSCMGenerator):
     def __init__(
         self,
         dag: DAG,
@@ -31,8 +38,8 @@ class SCMGenerator(AbstractSCMGenerator):
             Any
         ],  # Currently unused; consider removal or integration.
         allowed_functions: List[Callable[[sp.Expr], sp.Expr]],
-        noise_distributions: Dict[str, Any],
-        random_state: np.random.RandomState,  # or np.random.Generator
+        noise_distributions: List[BaseNoiseDistribution],
+        random_state: int,
     ):
         """
         Initializes the SCMGenerator with the DAG and configuration for generating node equations.
@@ -54,9 +61,10 @@ class SCMGenerator(AbstractSCMGenerator):
         self.allowed_operations = allowed_operations
         self.allowed_functions = allowed_functions
         self.noise_distributions = noise_distributions
-        self.random_state = random_state
+        self.random_state_seed = random_state
+        self.random_state = np.random.RandomState(random_state)
 
-    def _generate_function(self, input_vars: List[sp.Expr]) -> sp.Expr:
+    def _generate_equation(self, input_vars: List[sp.Expr]) -> sp.Expr:
         """
         Generates a symbolic function using the input variables and allowed functions.
 
@@ -98,20 +106,6 @@ class SCMGenerator(AbstractSCMGenerator):
 
         return function
 
-    def _sample_noise(self) -> sp.Expr:
-        """
-        Samples a noise value from a user-defined distribution.
-
-        Returns:
-            sp.Expr: A sympy Float representing the noise.
-        """
-        noise_dist_name = self.random_state.choice(
-            list(self.noise_distributions.keys())
-        )
-        noise_dist = self.noise_distributions[noise_dist_name]
-        noise_value = noise_dist.rvs(random_state=self.random_state)
-        return sp.Float(noise_value, precision=53)
-
     def generate(self) -> SCM:
         """
         Generates an SCM object by creating SCMNodes for each node in the DAG.
@@ -124,111 +118,175 @@ class SCMGenerator(AbstractSCMGenerator):
             SCM: An instance of the SCM with generated nodes.
         """
         topological_order = list(nx.topological_sort(self.dag.graph))
-        nodes: List[SCMNode] = []
+        nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode] = (
+            []
+        )
 
         for node_name in topological_order:
             # Get the parents of the current node.
             parents = list(self.dag.graph.predecessors(node_name))
             # Build parent mappings: for each parent that is categorical, map its domain via label encoding.
-            parent_mappings = {}
-            for p in parents:
-                if self.variable_types.get(p) == "categorical":
-                    # Simple label encoding: assign an integer based on order.
-                    mapping = {
-                        cat: idx for idx, cat in enumerate(self.variable_domains[p])
-                    }
-                    parent_mappings[p] = mapping
-
-            if self.variable_types[node_name] == "numerical":
-                if not parents:  # Root node
-                    noise_term = self._sample_noise()
-                    eq = sp.Symbol(node_name) + noise_term
-                else:
-                    input_vars = [sp.Symbol(p) for p in parents]
-                    function = self._generate_function(input_vars)
-                    noise_term = self._sample_noise()
-                    eq = sp.re(function + noise_term)
-                    if isinstance(self.variable_domains[node_name], tuple):
-                        min_val, max_val = self.variable_domains[node_name]
-                        eq = sp.Max(sp.Min(eq, max_val), min_val)
-                cdf_mappings = {}  # Not used for numerical nodes.
-            else:
-                # Categorical node: generate an equation and CDF for each possible category.
-                eq_dict = {}
-                cdf_mappings = {}
-                categories = self.variable_domains[node_name]
-                for category in categories:
-                    if not parents:
-                        noise_term = self._sample_noise()
-                        eq_cat = sp.Symbol(node_name) + noise_term
-                    else:
-                        input_vars = [sp.Symbol(p) for p in parents]
-                        eq_cat = sp.re(
-                            self._generate_function(input_vars) + self._sample_noise()
-                        )
-                    eq_dict[category] = eq_cat
-
-                    # Generate CDF: sample at least 1000 datapoints.
-                    if parents:
-                        samples = []
-                        # Generate 1000 samples
-                        for _ in range(1000):
-                            # Sample parent values based on their mappings.
-                            parent_values = {}
-                            for p in parents:
-                                if self.variable_types[p] == "categorical":
-                                    # Use the mapping to sample a value.
-                                    parent_values[p] = self.random_state.choice(
-                                        list(parent_mappings[p].keys())
-                                    )
-                                else:
-                                    # For numerical parents, sample from the domain.
-                                    min_val, max_val = self.variable_domains[p]
-                                    parent_values[p] = self.random_state.uniform(
-                                        min_val, max_val
-                                    )
-
-                            # Substitute parent values into the equation.
-                            try:
-                                val = eq_cat.subs(
-                                    {sp.Symbol(p): parent_values[p] for p in parents}
-                                ).evalf()
-                                samples.append(float(val))
-                            except Exception:
-                                raise ValueError(
-                                    f"Error evaluating equation for {node_name} with parents {parent_values}: {eq_cat}"
-                                )
-                    else:
-                        try:
-                            val = eq_cat.subs(
-                                {
-                                    sp.Symbol(
-                                        node_name
-                                    ): 0,  # Placeholder for self, prevent unresolved symbols.
-                                }
-                            ).evalf()
-                            samples = [float(val)] * 1000
-                        except Exception:
-                            samples = [0] * 1000
-
-                    sorted_samples = np.sort(samples)
-                    # todo: check if this is correct
-                    # cdf_mappings[category] = (
-                    #     lambda x, s=sorted_samples: np.searchsorted(s, x, side="right")
-                    #     / len(s)
-                    # )
-                    cdf_mappings[category] = SerializableCDF(sorted_samples)
-                eq = eq_dict  # For categorical nodes, equation is a dict mapping each category to its equation.
-
-            node = SCMNode(
-                name=node_name,
-                equation=eq,
-                domain=self.variable_domains[node_name],
-                var_type=self.variable_types[node_name],
-                cdf_mappings=cdf_mappings,
+            parent_mappings = {
+                p: {cat: idx for idx, cat in enumerate(self.variable_domains[p])}
+                for p in parents
+                if self.variable_types[p] == "categorical"
+            }
+            #  Define a mapping of variable types to generator functions
+            type_generators = {
+                "numerical": self._generate_numerical_node,
+                "categorical": self._generate_categorical_node,
+            }
+            # Use the mapping to get the right generator
+            node_type = self.variable_types[node_name]
+            generator = type_generators.get(node_type)
+            # Check for existence of the generator
+            assert generator, f"Unsupported variable type: {node_type}"
+            # Generate the node
+            node = generator(
+                node_name=node_name,
+                parents=parents,
                 parent_mappings=parent_mappings,
-                random_state=self.random_state,
+                nodes=nodes,
             )
             nodes.append(node)
 
-        return SCM(self.dag, nodes, self.random_state)
+        return SCM(self.dag, nodes, self.random_state_seed)
+
+    def _generate_numerical_node(
+        self,
+        node_name: str,
+        parents: List[str],
+        parent_mappings: Dict[str, int],
+        nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode],
+    ) -> Tuple[EquationBasedNumericalSCMNode, Dict[str, Any]]:
+        """
+        Generates a numerical SCM node.
+
+        Args:
+            node_name (str): The name of the node.
+            parents (List[str]): List of parent node names.
+            parent_mappings (Dict[str, int]): Mapping of parent names to their mappings.
+
+        Returns:
+            Tuple[EquationBasedNumericalSCMNode, Dict[str, Any]]: The generated node and its parameters.
+        """
+        # Select a random noise distribution from the available options.
+        noise_distribution = self.random_state.choice(self.noise_distributions)
+        # Check for parent nodes and generate the equation accordingly
+        if not parents:  # Root node
+            return EquationBasedNumericalSCMNode(
+                name=node_name,
+                evaluation=None,
+                domain=self.variable_domains[node_name],
+                noise_distribution=noise_distribution,
+                parents=None,
+                parent_mappings=None,
+                random_state=self.random_state_seed,
+            )
+        # Format parent names as symbols for the equation
+        input_vars = [sp.Symbol(p) for p in parents]
+        # Generate the equation for the node
+        equation = self._generate_equation(input_vars)
+        # Create the node
+        return EquationBasedNumericalSCMNode(
+            name=node_name,
+            evaluation=equation,
+            domain=self.variable_domains[node_name],
+            noise_distribution=noise_distribution,
+            parents=parents,
+            parent_mappings=parent_mappings,
+            random_state=self.random_state_seed,
+        )
+
+    def _generate_categorical_node(
+        self,
+        node_name: str,
+        parents: List[str],
+        parent_mappings: Dict[str, int],
+        nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode],
+    ) -> Tuple[EquationBasedCategoricalSCMNode, Dict[str, Any]]:
+        """
+        Generates a categorical SCM node.
+
+        Args:
+            node_name (str): The name of the node.
+            parents (List[str]): List of parent node names.
+            parent_mappings (Dict[str, int]): Mapping of parent names to their mappings.
+
+        Returns:
+            Tuple[EquationBasedCategoricalSCMNode, Dict[str, Any]]: The generated node and its parameters.
+        """
+        # Select a random noise distribution from the available options.
+        noise_distribution = self.random_state.choice(self.noise_distributions)
+        # Check if the variable has parents
+        if not parents:
+            return EquationBasedCategoricalSCMNode(
+                name=node_name,
+                evaluation=None,
+                domain=self.variable_domains[node_name],
+                noise_distribution=noise_distribution,
+                cdfs=None,
+                parents=None,
+                parent_mappings=None,
+                random_state=self.random_state_seed,
+            )
+        # Define an equation for each possible variable in the domain
+        equations = {}
+        # Define the CDFs for each possible variable in the domain
+        cdf_mappings = {}
+        # Format parent names as symbols for the equation
+        input_vars = [sp.Symbol(p) for p in parents]
+        # Iterate over each possible variable in the domain
+        for category in self.variable_domains[node_name]:
+            # Generate the equation for the node
+            equation = self._generate_equation(input_vars)
+            equations[category] = equation
+
+            # Generate CDF: sample at least 1000 datapoints.
+            samples = []
+            # Generate 1000 samples
+            for i in range(1000):
+                # Values for the evaluated nodes
+                node_values = {}
+                # Iterate over the already generated nodes
+                for n in nodes:
+                    # Generate values for the current node n
+                    node_values[n.name] = n.generate_value(
+                        parent_values=node_values,
+                        random_state=self.random_state_seed + i,
+                    )
+                # Substitute parent values into the equation.
+                try:
+                    # Filter out only the parent values
+                    parent_values = {
+                        p: node_values[p] for p in parents if p in node_values
+                    }
+                    val = equation.subs(
+                        {sp.Symbol(p): parent_values[p] for p in parents}
+                    ).evalf()
+                    samples.append(float(val))
+                except Exception:
+                    logging.error(
+                        f"Error evaluating equation for {node_name} with parents {parents}: {equation}"
+                    )
+                    logging.error(f"Node values: {node_values}")
+                    logging.error(f"Equation: {equation}")
+                    raise ValueError(
+                        f"Error evaluating equation for {node_name} with parents {parents}: {equation}"
+                    )
+            sorted_samples = np.sort(samples)
+            cdf_mappings[category] = SerializableCDF(sorted_samples)
+
+        # Create the node
+        node = EquationBasedCategoricalSCMNode(
+            name=node_name,
+            evaluation=equations,
+            domain=self.variable_domains[node_name],
+            noise_distribution=noise_distribution,
+            cdfs=cdf_mappings,
+            parents=parents,
+            parent_mappings=parent_mappings,
+            random_state=self.random_state_seed,
+        )
+
+        return node

@@ -1,6 +1,6 @@
 # Abstract
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 
 # DAG
@@ -136,18 +136,94 @@ class BaseSCM(ABC):
         pass
 
 
-class BaseSCMNode(ABC):
+class BaseNoiseDistribution(ABC):
+    def generate(self, random_state: Optional[int] = 911) -> float:
+        """
+        Generates a noise value using the provided random state.
+
+        Args:
+            random_state (int, optional): Seed for random number generation. Defaults to 911.
+
+        Returns:
+            float: A generated noise value.
+        """
+        return self.noise.rsv(random_state=random_state)
+
     @abstractmethod
-    def generate_value(
-        self, parent_values: dict, random_state: np.random.RandomState
-    ) -> float:
-        pass
+    def to_dict(self) -> Dict:
+        """
+        Serializes the noise object into a dictionary format.
+
+        Returns:
+            Dict: The dictionary representation of the noise object.
+        """
+        raise NotImplementedError("Subclasses must implement this method.")
+
+    @abstractmethod
+    def from_dict(cls, data: Dict) -> "BaseNoiseDistribution":
+        """
+        Deserializes the noise object from a dictionary representation.
+
+        Args:
+            data (Dict): The dictionary containing noise data.
+
+        Returns:
+            BaseNoise: An instance of a noise object reconstructed from the data.
+        """
+        raise NotImplementedError("Subclasses must implement this method.")
+
+
+class BaseSCMNode(ABC):
+    def __init__(
+        self,
+        name: str,
+        evaluation: Optional[Callable],
+        domain: List[float | str],
+        noise_distribution: BaseNoiseDistribution,
+        parents: Optional[List[str]] = None,
+        parent_mappings: Optional[Dict[str, int | float]] = None,
+        random_state: int = 911,
+    ):
+        """
+        SCMNode is class representing a node in a Structural Causal Model (SCM).
+        It encapsulates the node's name, evaluation function, domain of possible values,
+        parent nodes, and a random state for generating random values.
+
+        Args:
+            name (str): The name of the node.
+            evaluation (Callable): A function to evaluate the node's value based on its parents.
+            domain (List[float | str]): The domain of possible values for the node.
+            parents (List[str]): A list of parent node names.
+            random_state (int): Seed for random number generation.
+        """
+        self.name = name
+        self.evaluation = evaluation
+        self.domain = domain
+        self.noise_distribution = noise_distribution
+        self.parents = parents
+        self.parent_mappings = parent_mappings
+        self.random_state_seed = random_state
+        self.random_state = np.random.RandomState(random_state)
+
+    @abstractmethod
+    def generate_value(self, parent_values: dict, random_state: int) -> float | str:
+        """
+        Generates a value for the node based on its parents and noise.
+
+        Args:
+            parent_values (dict): A dictionary of parent node values.
+            random_state (int): Seed for random number generation.
+
+        Returns:
+            float | str: The generated value for the node.
+        """
+        raise NotImplementedError("Subclasses must implement this method.")
 
     @abstractmethod
     def to_dict(self) -> dict:
-        pass
+        raise NotImplementedError("Subclasses must implement this method.")
 
     @classmethod
     @abstractmethod
     def from_dict(cls, data: dict) -> "BaseSCMNode":
-        pass
+        raise NotImplementedError("Subclasses must implement this method.")

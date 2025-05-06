@@ -215,6 +215,8 @@ class Environment:
                     zlib.crc32(str(hashable_treatment).encode())
                 )
 
+            # Generate samples for the treatment using the dedicated random state
+            print(f"Generating samples for treatment: {treatment}")
             samples = self.game_instance.scm.generate_samples(
                 interventions=treatment,
                 num_samples=num_samples,
@@ -240,7 +242,7 @@ class Environment:
         while self.current_round < self.max_rounds:
             state = self.get_state()
             samples = state["datasets"]
-            # todo: filter samples to show only measurable nodes
+            # TODO: filter samples to show only measurable nodes
             actions = state["available_actions"]
             num_rounds = state["round"]
 
