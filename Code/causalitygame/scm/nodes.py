@@ -2,230 +2,82 @@
 import numpy as np
 import sympy as sp
 
+from causalitygame.scm.noise_distributions import (
+    GaussianNoiseDistribution,
+    UniformNoiseDistribution,
+)
+
+# Abstract Base Class
+from .base import BaseNoiseDistribution, BaseSCMNode
+
+# Types
+from typing import Callable, Dict, List, Optional
+
 # Utils
+from collections import Counter
 import logging
 
 
-class SCMNode:
-    """
-    Represents a single node in the Structural Causal Model (SCM).
-
-    This class handles both numerical and categorical nodes.
-    For numerical nodes, the `equation` is used for generating values - parent variables that are categorical
-    are converted via label encoding using the provided parent mappings.
-    For categorical nodes, a separate equation is generated for each possible class.
-    A CDF is computed (from at least 1000 datapoints) for each equation and stored in cdf_mappings.
-
-    Attributes:
-        name (str): The node name.
-        equation: For numerical nodes, a symbolic equation; for categorical nodes, a dict mapping each category to its equation.
-        domain (tuple or list): The domain of values.
-        var_type (str): "numerical" or "categorical".
-        cdf_mappings (dict): For categorical nodes, maps each category to a CDF function.
-        parent_mappings (dict): Maps parent node names (if categorical) to a label encoding dictionary.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        equation,
-        domain,
-        var_type: str,
-        cdf_mappings: dict,
-        parent_mappings: dict,
-        random_state: np.random.RandomState = np.random,
-    ):
-        """
-        Initializes an SCMNode instance.
-
-        Args:
-            name (str): The name of the node.
-            equation: The symbolic equation for the node (or a dict for categorical nodes).
-            domain (tuple or list): The range of values for numerical nodes or list of possible categories for categorical nodes.
-            var_type (str): The type of the variable ('numerical' or 'categorical').
-            cdf_mappings (dict, optional): For categorical nodes, a mapping from each category to its CDF function.
-            parent_mappings (dict, optional): A mapping of parent names to their label encoding dictionaries.
-            random_state (np.random.RandomState, optional): Random state for reproducibility.
-        """
-        self.name = name
-        self.equation = equation
-        self.domain = domain
-        self.var_type = var_type
-        self.cdf_mappings = cdf_mappings
-        self.parent_mappings = parent_mappings
-        self.random_state = random_state
-
+class EquationBasedNumericalSCMNode(BaseSCMNode):
     def generate_value(
-        self, parent_values: dict, random_state: np.random.RandomState
-    ) -> float:
-        """
-        Generates a value for the node based on its type and parent values.
-
-        For numerical nodes, substitutes parent values into the symbolic equation.
-        If a parent value is categorical, its numeric (label encoded) version is obtained from parent_mappings.
-        For categorical nodes, this method is expected to use the stored CDF mappings (not shown here).
-
-        Args:
-            parent_values (dict): A dictionary of parent values.
-            random_state (np.random.RandomState): Random state for generating random values.
-
-        Returns:
-            float: The generated value (or, for categorical nodes, the chosen category).
-        """
-        # Determine the random state to use.
-        rs = random_state or self.random_state
-
-        # Create a substitution dictionary for the equation.
-        # This will map parent variable names to their values.
-        subs_dict = {}
-        # Iterate over the free symbols in the equation.
-        if self.var_type == "numerical":
-            symbols = self.equation.free_symbols
-        else:
-            symbols = set()
-            for eq in self.equation.values():
-                symbols.update(eq.free_symbols)
-
-        for var in symbols:
-            # Convert the variable to a string for easier comparison.
-            var_str = str(var)
-
-            # Check if the variable is the current node's name.
-            if var_str == self.name:
-                if len(symbols) > 1:
-                    raise ValueError(
-                        f"Node {self.name} has multiple free symbols in its equation. Cannot resolve."
-                    )
-                # Generate a random value within th domain for the node.
-                if isinstance(self.domain, tuple):
-                    min_val, max_val = self.domain
-                    val = rs.uniform(min_val, max_val)
-                else:
-                    # For categorical nodes, randomly select a category from the domain.
-                    val = rs.choice(self.domain)
-                # Add the value to the substitution dictionary.
-                subs_dict[var_str] = val
-                continue
-
-            if var_str in parent_values:
-                # Get the value from parent_values.
-                val = parent_values[var_str]
-                # If the parent's value is a string (categorical), convert it using parent_mappings.
-                if isinstance(val, str) and var_str in self.parent_mappings:
-                    val = self.parent_mappings[var_str][val]
-                # Add the value to the substitution dictionary.
-                subs_dict[str(var)] = val
-            else:
-                raise ValueError(
-                    f"Parent variable {var_str} not found in parent_values."
-                )
-        # Warn if any symbols remain unresolved.
-        for var in symbols:
-            if str(var) not in subs_dict:
-                logging.warning(f"Unresolved symbol in {self.name} ->", var)
-
-        if self.var_type == "numerical":
-            # For numerical nodes, substitute the values into the equation.
-            eval_equation = self.equation.subs(subs_dict).evalf()
-            if isinstance(eval_equation, sp.Basic) and not eval_equation.is_number:
-                logging.warning(
-                    f"Equation for {self.name} did not fully resolve:",
-                    eval_equation,
-                )
-            result = (
-                float(eval_equation.as_real_imag()[0])
-                if not eval_equation.is_real
-                else float(eval_equation)
+        self,
+        parent_values: Dict[str, float | str | int],
+        random_state: Optional[np.random.RandomState] = None,
+    ):
+        # Define random state
+        rs = random_state if random_state else self.random_state
+        # Check if the node has parents
+        if not self.parents:
+            return self.noise_distribution.generate(rs)
+        # Get the evaluation symbols for evaluation
+        symbols = [
+            str(symb) for symb in self.evaluation.free_symbols
+        ]  # Parsed for easier comparison
+        # Check if the parent values are provided
+        assert set(symbols).issubset(
+            parent_values.keys()
+        ), "Parent values do not match the expected symbols"
+        # Map categorical parent values
+        substitutions = {
+            symb: (
+                self.parent_mappings[symb]
+                if symb in self.parent_mappings
+                else parent_values[symb]
             )
-            if isinstance(self.domain, tuple):
-                min_val, max_val = self.domain
-                result = max(min_val, min(max_val, result))
-            return result
-        else:
-            cat_values = {}
-            for cat, eq in self.equation.items():
-                # Substitute the parent values into the equation for each category.
-                cat_eq = eq.subs(subs_dict).evalf()
-                if isinstance(cat_eq, sp.Basic) and not cat_eq.is_number:
-                    logging.warning(
-                        f"Equation for {self.name} -> {cat} did not fully resolve:",
-                        cat_eq,
-                    )
-                # Calculate the CDF for the category.
-                cdf_lambda = self.cdf_mappings[cat]
-                cdf_value = cdf_lambda(cat_eq)
-                cat_values[cat] = cdf_value
-            # Choose a category based on the CDF values with Softmax.
-            cdf_values = np.array(list(cat_values.values()))
-            cdf_values /= np.sum(cdf_values)
-            # Ensure the CDF values sum to 1.
-            if not np.isclose(np.sum(cdf_values), 1.0):
-                raise ValueError(
-                    f"CDF values for {self.name} do not sum to 1: {cdf_values}"
-                )
-            # Sample a category based on the CDF values.
-            sampled_cat = rs.choice(list(cat_values.keys()), p=cdf_values)
-            # Check if the sampled category is in the domain.
-            if str(sampled_cat) not in [str(d) for d in self.domain]:
-                raise ValueError(
-                    f"Sampled category {sampled_cat} not in domain {self.domain}."
-                )
-            return sampled_cat
-
-    def _extract_step_points(self, cdf_lambda) -> list:
-        """
-        Extracts step points from a given CDF lambda function by sampling.
-
-        Args:
-            cdf_lambda: The lambda function representing the CDF.
-
-        Returns:
-            list: A list of step points extracted from the CDF.
-        """
-        x_values = np.linspace(0, 1, 100)
-        cdf_values = np.array([cdf_lambda(x) for x in x_values])
-        return cdf_values.tolist()
-
-    @staticmethod
-    def _create_cdf_lambda(step_points: np.ndarray) -> callable:
-        """
-        Reconstructs a lambda function from step points.
-
-        Args:
-            step_points (np.ndarray): The step points used to create the CDF.
-
-        Returns:
-            callable: A lambda function representing the CDF.
-        """
-        return lambda x: np.searchsorted(step_points, x, side="right") / len(
-            step_points
+            for symb in symbols
+        }
+        # Evaluate the expression
+        evaluated = self.evaluation.subs(substitutions).evalf()
+        assert evaluated.is_number, "Evaluation failed"
+        # Cover for "Possibly" imaginary numbers
+        evaluated = (
+            float(evaluated.as_real_imag()[0])
+            if not evaluated.is_real
+            else float(evaluated)
         )
+        # Clip to the minimum and maximum values
+        evaluated = min(max(evaluated, self.domain[0]), self.domain[-1])
+        # Add noise to the evaluated value
+        noise = self.noise_distribution.generate(rs)
+        # Return the final value
+        return evaluated + noise
 
-    def to_dict(self) -> dict:
+    def to_dict(self):
         """
-        Serializes the node to a dictionary, converting any non-serializable objects as needed.
+        Converts the node to a dictionary representation.
 
         Returns:
-            dict: A dictionary representation of the node.
+            dict: Dictionary representation of the node.
         """
-        # Serialize the random state.
+        print(type(self.random_state))
         state = self.random_state.get_state()
-
         return {
+            "class": self.__class__.__name__,
             "name": self.name,
-            "equation": (
-                sp.srepr(self.equation)
-                if self.var_type == "numerical"
-                else {k: sp.srepr(v) for k, v in self.equation.items()}
-            ),
+            "evaluation": sp.srepr(self.evaluation),
             "domain": self.domain,
-            "var_type": self.var_type,
-            "cdf_mappings": {
-                # todo: check if this is correct
-                # cat: self._extract_step_points(self.cdf_mappings[cat])
-                cat: self.cdf_mappings[cat].to_list()
-                for cat in self.cdf_mappings
-            },
+            "noise_distribution": self.noise_distribution.to_dict(),
+            "parents": self.parents,
             "parent_mappings": self.parent_mappings,
             "random_state": {
                 "state": state[0],
@@ -237,15 +89,15 @@ class SCMNode:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "SCMNode":
+    def from_dict(cls, data: Dict):
         """
-        Deserializes an SCMNode instance from a dictionary.
+        Deserializes the node from a dictionary representation.
 
         Args:
-            data (dict): The dictionary containing node data.
+            data (Dict): Dictionary containing node data.
 
         Returns:
-            SCMNode: An instance of SCMNode.
+            EquationBasedNumericalSCMNode: An instance of the node.
         """
         # Reconstruct the equation from the serialized string.
         safe_dict = {
@@ -259,42 +111,334 @@ class SCMNode:
             "Min": sp.Min,
             "re": sp.re,
             "np": np,
-            "im": sp.im,  # todo: check if this is correct
+            "im": sp.im,
         }
-        if data["var_type"] == "numerical":
-            equation = eval(data["equation"], safe_dict)
-            cdf_mappings = {}
+        evaluation = eval(data["evaluation"], safe_dict)
+        # Deserialize the noise distribution
+        noise_distribution = data["noise_distribution"]
+        if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
+            noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
+        elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
+            noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
         else:
-            # For categorical nodes, reconstruct the equation dictionary.
-            equation = {k: eval(v, safe_dict) for k, v in data["equation"].items()}
-            # Reconstruct the CDF mappings from step points.
-            cdf_mappings = {
-                cat: SerializableCDF.from_list(points)
-                for cat, points in data["cdf_mappings"].items()
-            }
-
-        # Reconstruct the random state.
-        state_tuple = (
-            str(data["random_state"]["state"]),
-            np.array(data["random_state"]["keys"], dtype=np.uint32),
-            int(data["random_state"]["pos"]),
-            int(data["random_state"]["has_gauss"]),
-            float(data["random_state"]["cached_gaussian"]),
-        )
+            raise ValueError(
+                f"Unknown noise distribution class: {noise_distribution['class']}"
+            )
+        # Deserailize the random staet
         random_state = np.random.RandomState()
-        random_state.set_state(state_tuple)
-
-        # Create the SCMNode instance.
-        node = cls(
+        random_state.set_state(
+            (
+                str(data["random_state"]["state"]),
+                np.array(data["random_state"]["keys"], dtype=np.uint32),
+                int(data["random_state"]["pos"]),
+                int(data["random_state"]["has_gauss"]),
+                float(data["random_state"]["cached_gaussian"]),
+            )
+        )
+        # Create the node
+        new_class = cls(
             name=data["name"],
-            equation=equation,
+            evaluation=evaluation,
             domain=data["domain"],
-            var_type=data["var_type"],
-            cdf_mappings=cdf_mappings,
-            parent_mappings=data.get("parent_mappings", {}),
+            noise_distribution=noise_distribution,
+            parents=data.get("parents"),
+            parent_mappings=data.get("parent_mappings"),
+        )
+        # Set the random state
+        new_class.random_state = random_state
+        # Return the new class
+        return new_class
+
+
+class EquationBasedCategoricalSCMNode(BaseSCMNode):
+    def __init__(
+        self,
+        name: str,
+        evaluation: Optional[Callable],
+        domain: List[float | str],
+        noise_distribution: BaseNoiseDistribution,
+        cdfs: Optional[List[Callable]] = None,
+        parents: Optional[List[str]] = None,
+        parent_mappings: Optional[Dict[str, int | float]] = None,
+        domain_distribution: Optional[Dict[str, float]] = None,
+        random_state: np.random.RandomState = np.random.RandomState(911),
+    ):
+        # Superclass constructor
+        super().__init__(
+            name=name,
+            evaluation=evaluation,
+            domain=domain,
+            noise_distribution=noise_distribution,
+            parents=parents,
+            parent_mappings=parent_mappings,
             random_state=random_state,
         )
-        return node
+        # Initialize the CDFs
+        self.cdfs = cdfs
+        # Initialize the noise distribution
+        self.domain_noise_distribution = (
+            self._noise_to_category_distribution()
+            if not domain_distribution
+            else domain_distribution
+        )
+
+    def _noise_to_category_distribution(
+        self, n_samples: int = 10000
+    ) -> Dict[str, float]:
+        """
+        Converts a continuous noise distribution into a discrete probability distribution over given categories.
+
+        Args:
+            n_samples (int): Number of samples to draw from the noise distribution.
+
+        Returns:
+            Dict[str, float]: A dictionary mapping each category to a probability.
+        """
+        # Sample from the noise distribution
+        samples = [self.noise_distribution.generate() for _ in range(n_samples)]
+
+        # Use quantiles to bin the samples into categories
+        quantiles = np.percentile(samples, np.linspace(0, 100, len(self.domain) + 1))
+
+        # Assign samples to bins
+        bin_indices = np.digitize(samples, quantiles[1:-1], right=True)
+
+        # Map bin indices to categories
+        mapped = [self.domain[i] for i in bin_indices]
+
+        # Count and normalize
+        counts = Counter(mapped)
+        total = sum(counts.values())
+        return {cat: counts.get(cat, 0) / total for cat in self.domain}
+
+    def generate_value(
+        self,
+        parent_values: Dict[str, float | str | int],
+        random_state: Optional[np.random.RandomState] = np.random.RandomState(911),
+    ):
+        # Define random state
+        rs = random_state if random_state else self.random_state
+        # Check if the node has parents
+        if not self.parents:
+            return rs.choice(
+                list(self.domain_noise_distribution.keys()),
+                p=list(self.domain_noise_distribution.values()),
+            )
+        # Get the evaluation symbols for evaluation
+        symbols = set()
+        for eq in self.evaluation.values():
+            symbols.update(eq.free_symbols)
+        symbols = [str(symb) for symb in symbols]  # Parsed for easier comparison
+        # Check if the parent values are provided
+        assert set(symbols).issubset(
+            parent_values.keys()
+        ), "Parent values do not match the expected symbols"
+
+        # Map categorical parent values
+        substitutions = {
+            symb: (
+                self.parent_mappings[symb][parent_values[symb]]
+                if symb in self.parent_mappings
+                else parent_values[symb]
+            )
+            for symb in symbols
+        }
+        # Evaluate the expression
+        evaluations = {}
+        for possible_category, eq in self.evaluation.items():
+            # Evaluate the expression
+            evaluated = eq.subs(substitutions).evalf()
+            assert evaluated.is_number, "Evaluation failed"
+            # Cover for "Possibly" imaginary numbers
+            evaluated = (
+                float(evaluated.as_real_imag()[0])
+                if not evaluated.is_real
+                else float(evaluated)
+            )
+            # Add noise to the evaluated value
+            noise = self.noise_distribution.generate(rs)
+            # Calculate the CDF for the evaluated value and category
+            evaluations[possible_category] = self.cdfs[possible_category](
+                evaluated + noise
+            )
+        # Normalize the evaluations
+        total = sum(evaluations.values())
+        evaluations = (
+            {cat: val / total for cat, val in evaluations.items()}
+            if total > 0
+            else {cat: 1 / len(evaluations) for cat in evaluations}
+        )
+        # Check if the evaluations are valid
+        assert (
+            all(0 <= val <= 1 for val in evaluations.values())
+            and len(evaluations) == len(self.domain)
+            and np.isclose(sum(evaluations.values()), 1.0)
+        ), "Evaluations are not valid probabilities"
+        # Sample from the categorical distribution
+        return rs.choice(list(evaluations.keys()), p=list(evaluations.values()))
+
+    def to_dict(self):
+        """
+        Converts the node to a dictionary representation.
+
+        Returns:
+            dict: Dictionary representation of the node.
+        """
+        # Serialize the random state.
+        state = self.random_state.get_state()
+
+        return {
+            "class": self.__class__.__name__,
+            "name": self.name,
+            "evaluation": {cat: sp.srepr(eq) for cat, eq in self.evaluation.items()},
+            "domain": self.domain,
+            "noise_distribution": self.noise_distribution.to_dict(),
+            "parents": self.parents,
+            "parent_mappings": self.parent_mappings,
+            "cdfs": {cat: self.cdfs[cat].to_list() for cat in self.cdfs},
+            "domain_distribution": self.domain_noise_distribution,
+            "random_state": {
+                "state": state[0],
+                "keys": state[1].tolist(),
+                "pos": state[2],
+                "has_gauss": state[3],
+                "cached_gaussian": state[4],
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        """
+        Deserializes the node from a dictionary representation.
+
+        Args:
+            data (Dict): Dictionary containing node data.
+
+        Returns:
+            EquationBasedCategoricalSCMNode: An instance of the node.
+        """
+        # Reconstruct the equation from the serialized string.
+        safe_dict = {
+            "Symbol": sp.Symbol,
+            "Integer": sp.Integer,
+            "Float": sp.Float,
+            "Add": sp.Add,
+            "Mul": sp.Mul,
+            "Pow": sp.Pow,
+            "Max": sp.Max,
+            "Min": sp.Min,
+            "re": sp.re,
+            "np": np,
+            "im": sp.im,
+        }
+        # For categorical nodes, reconstruct the equation dictionary.
+        evaluation = {k: eval(v, safe_dict) for k, v in data["evaluation"].items()}
+        # Reconstruct the CDF mappings from step points.
+        cdfs = {
+            cat: SerializableCDF.from_list(points)
+            for cat, points in data["cdfs"].items()
+        }
+        # Deserialize the noise distribution
+        noise_distribution = data["noise_distribution"]
+        if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
+            noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
+        elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
+            noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
+        else:
+            raise ValueError(
+                f"Unknown noise distribution class: {noise_distribution['class']}"
+            )
+        # Reconstruct the random state.
+        random_state = np.random.RandomState()
+        random_state.set_state(
+            (
+                str(data["random_state"]["state"]),
+                np.array(data["random_state"]["keys"], dtype=np.uint32),
+                int(data["random_state"]["pos"]),
+                int(data["random_state"]["has_gauss"]),
+                float(data["random_state"]["cached_gaussian"]),
+            )
+        )
+        # Create the node
+        new_class = cls(
+            name=data["name"],
+            evaluation=evaluation,
+            domain=data["domain"],
+            noise_distribution=noise_distribution,
+            cdfs=cdfs,
+            parents=data.get("parents"),
+            parent_mappings=data.get("parent_mappings"),
+            domain_distribution=data.get("domain_distribution"),
+        )
+        # Set the random state
+        new_class.random_state = random_state
+
+        # Return the new class
+        return new_class
+
+
+class FullyCategoricalSCMNode(BaseSCMNode):
+    def generate_value(
+        self,
+        parent_values: Dict[str, float | str | int],
+        random_state: Optional[np.random.RandomState] = np.random.RandomState(911),
+    ):
+        # Define random state
+        rs = random_state if random_state else self.random_state
+        # No need to check for parents since the self.evaluation has the probability distribution
+        # Get the evaluation symbols for evaluation
+        symbols = [
+            str(symb) for symb in self.evaluation.free_symbols
+        ]  # Parsed for easier comparison
+        # Check if the parent values are provided
+        assert set(symbols).issubset(
+            parent_values.keys()
+        ), "Parent values do not match the expected symbols"
+        # Evaluate the expression
+        distribution = self.evaluation(parent_values)
+        # Check if the distribution is valid
+        assert np.isclose(sum(distribution), 1.0), "Distribution does not sum to 1"
+        # Return the final value
+        return rs.choice(list(distribution.keys()), p=list(distribution.values()))
+
+    def to_dict(self):
+        """
+        Converts the node to a dictionary representation.
+
+        Returns:
+            dict: Dictionary representation of the node.
+        """
+        return {
+            "name": self.name,
+            "evaluation": self.evaluation.to_list(),
+            "domain": self.domain,
+            "noise": self.noise_distribution.to_dict(),
+            "parents": self.parents,
+            "parent_mappings": self.parent_mappings,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        """
+        Deserializes the node from a dictionary representation.
+
+        Args:
+            data (Dict): Dictionary containing node data.
+
+        Returns:
+            FullyCategoricalSCMNode: An instance of the node.
+        """
+        # Deserialize the noise distribution
+        noise_distribution = BaseNoiseDistribution.from_dict(data["noise"])
+        # Create the node
+        return cls(
+            name=data["name"],
+            evaluation=SerializableCDF.from_list(data["evaluation"]),
+            domain=data["domain"],
+            noise_distribution=noise_distribution,
+            parents=data.get("parents"),
+            parent_mappings=data.get("parent_mappings"),
+        )
 
 
 class SerializableCDF:
