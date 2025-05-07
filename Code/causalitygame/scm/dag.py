@@ -36,11 +36,28 @@ class DAG(BaseDAG):
         super().__init__(graph)
 
     def to_dict(self) -> dict:
-        return json_graph.node_link_data(self.graph, edges="edges")
+        dag = json_graph.node_link_data(self.graph, edges="edges")
+        
+        # simplify node and edge encoding for shorter format
+        return {
+            "nodes": [x["id"] for x in dag["nodes"]],
+            "edges": [[e["source"], e["target"]] for e in dag["edges"]],
+        }
 
     @classmethod
     def from_dict(cls, data: dict) -> "DAG":
-        dag_graph = json_graph.node_link_graph(data, edges="edges")
+        dag_description_for_nx = {
+            "directed": True,
+            "multigraph": False,
+            "graph": {},
+        }
+
+        # recover description as required by nx from simplified format
+        dag_description_for_nx.update({
+            "nodes": [{"id": x} for x in data["nodes"]],
+            "edges": [{"source": e[0], "target": e[1]} for e in data["edges"]],
+        })
+        dag_graph = json_graph.node_link_graph(dag_description_for_nx, edges="edges")
         return cls(dag_graph)
 
     def plot(self, title="", spacing_factor: float = 2.0) -> None:
