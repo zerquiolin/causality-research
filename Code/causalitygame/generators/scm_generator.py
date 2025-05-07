@@ -6,6 +6,7 @@ import sympy as sp
 import networkx as nx
 
 # SCM
+from causalitygame.scm.base import ACCESSIBILITY_CONTROLLABLE
 from causalitygame.scm.scm import SCM
 from causalitygame.scm.nodes import (
     EquationBasedNumericalSCMNode,
@@ -40,6 +41,8 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         allowed_functions: List[Callable[[sp.Expr], sp.Expr]],
         noise_distributions: List[BaseNoiseDistribution],
         random_state: np.random.RandomState = np.random.RandomState(911),
+        num_samples_for_cdf_generation: int = 1000,
+        logger: logging.Logger = None
     ):
         """
         Initializes the SCMGenerator with the DAG and configuration for generating node equations.
@@ -61,7 +64,9 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         self.allowed_operations = allowed_operations
         self.allowed_functions = allowed_functions
         self.noise_distributions = noise_distributions
+        self.num_samples_for_cdf_generation = num_samples_for_cdf_generation
         self.random_state = random_state
+        self.logger = logging if logger is None else logger
 
     def _generate_equation(self, input_vars: List[sp.Expr]) -> sp.Expr:
         """
@@ -80,7 +85,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         )
 
         for var in input_vars:
-            coeff = self.random_state.uniform(-5, 5)
+            coeff = np.round(self.random_state.uniform(-5, 5), 8)  # higher precisions can cause problems in the serialization since not supported by str
             term = coeff * var
 
             if allow_non_linear:
@@ -116,7 +121,13 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         Returns:
             SCM: An instance of the SCM with generated nodes.
         """
+
+        self.logger.info("Generating new SCM.")
+
+        # get topological sorting
+        self.logger.debug("Generating topologically sorting of nodes")
         topological_order = list(nx.topological_sort(self.dag.graph))
+        self.logger.debug(f"Done, ordering is {topological_order}")
         nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode] = (
             []
         )
@@ -140,7 +151,9 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             generator = type_generators.get(node_type)
             # Check for existence of the generator
             assert generator, f"Unsupported variable type: {node_type}"
+            
             # Generate the node
+            self.logger.debug(f"Generating node {node_name} of type {node_type} with parents {parents}")
             node = generator(
                 node_name=node_name,
                 parents=parents,
@@ -148,8 +161,12 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                 nodes=nodes,
             )
             nodes.append(node)
-
-        return SCM(self.dag, nodes, self.random_state)
+            self.logger.debug(f"added node {node_name}")
+        
+        self.logger.debug("Creating SCM object")
+        scm = SCM(self.dag, nodes, self.random_state)
+        self.logger.info(f"SCM with {len(nodes)} variables generated.")
+        return scm
 
     def _generate_numerical_node(
         self,
@@ -175,6 +192,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         if not parents:  # Root node
             return EquationBasedNumericalSCMNode(
                 name=node_name,
+                accessibility=ACCESSIBILITY_CONTROLLABLE,
                 evaluation=None,
                 domain=self.variable_domains[node_name],
                 noise_distribution=noise_distribution,
@@ -189,6 +207,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         # Create the node
         return EquationBasedNumericalSCMNode(
             name=node_name,
+            accessibility=ACCESSIBILITY_CONTROLLABLE,
             evaluation=equation,
             domain=self.variable_domains[node_name],
             noise_distribution=noise_distribution,
@@ -217,6 +236,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         """
         # Select a random noise distribution from the available options.
         noise_distribution = self.random_state.choice(self.noise_distributions)
+
         # Check if the variable has parents
         if not parents:
             return EquationBasedCategoricalSCMNode(
@@ -231,10 +251,13 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             )
         # Define an equation for each possible variable in the domain
         equations = {}
+
         # Define the CDFs for each possible variable in the domain
         cdf_mappings = {}
+
         # Format parent names as symbols for the equation
         input_vars = [sp.Symbol(p) for p in parents]
+
         # Iterate over each possible variable in the domain
         for category in self.variable_domains[node_name]:
             # Generate the equation for the node
@@ -242,9 +265,10 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             equations[category] = equation
 
             # Generate CDF: sample at least 1000 datapoints.
+            self.logger.debug(f"Generating {self.num_samples_for_cdf_generation} samples for the case {node_name}={category}")
             samples = []
-            # Generate 1000 samples
-            for i in range(1000):
+            for _ in range(self.num_samples_for_cdf_generation):
+
                 # Values for the evaluated nodes
                 node_values = {}
                 # Iterate over the already generated nodes
@@ -264,20 +288,22 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                     ).evalf()
                     samples.append(float(val))
                 except Exception:
-                    logging.error(
+                    self.logger.error(
                         f"Error evaluating equation for {node_name} with parents {parents}: {equation}"
                     )
-                    logging.error(f"Node values: {node_values}")
-                    logging.error(f"Equation: {equation}")
+                    self.logger.error(f"Node values: {node_values}")
+                    self.logger.error(f"Equation: {equation}")
                     raise ValueError(
                         f"Error evaluating equation for {node_name} with parents {parents}: {equation}"
                     )
             sorted_samples = np.sort(samples)
+            self.logger.debug("Creating CDF from sample data.")
             cdf_mappings[category] = SerializableCDF(sorted_samples)
 
         # Create the node
         node = EquationBasedCategoricalSCMNode(
             name=node_name,
+            accessibility=ACCESSIBILITY_CONTROLLABLE,
             evaluation=equations,
             domain=self.variable_domains[node_name],
             noise_distribution=noise_distribution,

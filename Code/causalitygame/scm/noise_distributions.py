@@ -4,6 +4,33 @@ from .base import BaseNoiseDistribution
 # Distributions
 from scipy.stats import norm, uniform
 
+class DiracNoiseDistribution(BaseNoiseDistribution):
+
+    def __init__(self, val):
+        super().__init__()
+        self.val = val
+
+    def generate(self, rs) -> float:
+        """
+        Always provides the same value
+
+        Returns:
+            float: the constant value
+        """
+        return self.val
+
+    def to_dict(self):
+        """
+        Serializes the noise object into a dictionary format.
+
+        Returns:
+            Dict: The dictionary representation of the noise object.
+        """
+        return {"val": self.val}
+
+    def from_dict(cls, data):
+        return DiracNoiseDistribution(**data)
+
 
 class GaussianNoiseDistribution(BaseNoiseDistribution):
     def __init__(self, mean: float = 0.0, std: float = 1.0):

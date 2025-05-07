@@ -33,6 +33,7 @@ class SCM:
         dag: DAG,
         nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode],
         random_state: np.random.RandomState,
+        name=None
     ):
         """
         Initializes the SCM with a DAG, a list of nodes, and a random number generator.
@@ -41,10 +42,12 @@ class SCM:
             dag (DAG): The DAG representing the causal structure.
             nodes (List[SCMNode]): List of SCMNode instances in topological order.
             random_state (np.random.RandomState): NumPy random number generator.
+            name (str): Name of the SCM
         """
         self.dag = dag
         self.nodes = {node.name: node for node in nodes}
         self.random_state = random_state
+        self.name = name
 
     def get_random_state(self) -> np.random.RandomState:
         """
@@ -116,9 +119,7 @@ class SCM:
             Dict: A dictionary representing the SCM's structure and state.
         """
         # Serialize nodes and their parameters
-        nodes_data = {name: node.to_dict() for name, node in self.nodes.items()}
-
-        print("nodes_data", nodes_data)
+        nodes_data = [node.to_dict() for node in self.nodes.values()]
 
         # Serialize the random state
         state = self.random_state.get_state()
@@ -131,8 +132,8 @@ class SCM:
         }
 
         return {
-            "nodes": nodes_data,
-            "dag": self.dag.to_dict(),
+            "vars": nodes_data,
+            "edges": self.dag.to_dict()["edges"],
             "random_state": state_dict,
         }
 
@@ -148,33 +149,37 @@ class SCM:
             SCM: A new SCM instance.
         """
         # Reconstruct the DAG from the dictionary
-        dag = DAG.from_dict(data["dag"])
+        nodes = [v["name"] for v in data["vars"]]
+        edges = data["edges"]
+        dag = DAG.from_dict({
+            "nodes": nodes,
+            "edges": edges
+        })
 
         # Ensure nodes are sorted in topological order
         topological_order = list(nx.topological_sort(dag.graph))
         nodes = []
 
         # Create nodes in topological order
-        for node_name in topological_order:
-            node_data = data["nodes"][node_name]
-            print("node_data", node_data)
-            if node_data["class"] == EquationBasedNumericalSCMNode.__name__:
-                node = EquationBasedNumericalSCMNode.from_dict(node_data)
-            elif node_data["class"] == EquationBasedCategoricalSCMNode.__name__:
-                node = EquationBasedCategoricalSCMNode.from_dict(node_data)
+        for node_as_dict in sorted(data["vars"], key=lambda n: topological_order.index(n["name"])):
+            if node_as_dict["class"] == EquationBasedNumericalSCMNode.__name__:
+                node = EquationBasedNumericalSCMNode.from_dict(node_as_dict)
+            elif node_as_dict["class"] == EquationBasedCategoricalSCMNode.__name__:
+                node = EquationBasedCategoricalSCMNode.from_dict(node_as_dict)
             else:
-                raise ValueError(f"Unknown node class: {node_data['class']}")
+                raise ValueError(f"Unknown node class: {node_as_dict['class']}")
             nodes.append(node)
 
         # Reconstruct the random state
-        state_tuple = (
-            str(data["random_state"]["state"]),
-            np.array(data["random_state"]["keys"], dtype=np.uint32),
-            int(data["random_state"]["pos"]),
-            int(data["random_state"]["has_gauss"]),
-            float(data["random_state"]["cached_gaussian"]),
-        )
         random_state = np.random.RandomState()
-        random_state.set_state(state_tuple)
+        if "random_state" in data:
+            state_tuple = (
+                str(data["random_state"]["state"]),
+                np.array(data["random_state"]["keys"], dtype=np.uint32),
+                int(data["random_state"]["pos"]),
+                int(data["random_state"]["has_gauss"]),
+                float(data["random_state"]["cached_gaussian"]),
+            )
+            random_state.set_state(state_tuple)
 
         return cls(dag, nodes, random_state)

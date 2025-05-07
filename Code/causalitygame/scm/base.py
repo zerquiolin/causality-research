@@ -6,6 +6,10 @@ import numpy as np
 # DAG
 import networkx as nx
 
+ACCESSIBILITY_LATENT = "latent"
+ACCESSIBILITY_OBSERVABLE = "observable"
+ACCESSIBILITY_CONTROLLABLE = "controllable"
+
 
 class BaseDAG(ABC):
     """
@@ -177,6 +181,7 @@ class BaseSCMNode(ABC):
     def __init__(
         self,
         name: str,
+        accessibility: str,
         evaluation: Optional[Callable],
         domain: List[float | str],
         noise_distribution: BaseNoiseDistribution,
@@ -191,14 +196,18 @@ class BaseSCMNode(ABC):
 
         Args:
             name (str): The name of the node.
+            accessibility (str): accessibility of this variable by the agent (latent, observable, or controllable)
             evaluation (Callable): A function to evaluate the node's value based on its parents.
             domain (List[float | str]): The domain of possible values for the node.
             parents (List[str]): A list of parent node names.
             random_state (np.random.RandomState): Random state for generating random values.
         """
         self.name = name
+        self.accessibility = accessibility
         self.evaluation = evaluation
         self.domain = domain
+        if not isinstance(domain, list):
+            self.domain = list(self.domain)
         self.noise_distribution = noise_distribution
         self.parents = parents
         self.parent_mappings = parent_mappings

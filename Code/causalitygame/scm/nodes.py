@@ -5,10 +5,11 @@ import sympy as sp
 from causalitygame.scm.noise_distributions import (
     GaussianNoiseDistribution,
     UniformNoiseDistribution,
+    DiracNoiseDistribution
 )
 
 # Abstract Base Class
-from .base import BaseNoiseDistribution, BaseSCMNode
+from .base import BaseNoiseDistribution, BaseSCMNode, ACCESSIBILITY_OBSERVABLE
 
 # Types
 from typing import Callable, Dict, List, Optional
@@ -69,12 +70,12 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
         Returns:
             dict: Dictionary representation of the node.
         """
-        print(type(self.random_state))
         state = self.random_state.get_state()
         return {
             "class": self.__class__.__name__,
             "name": self.name,
-            "evaluation": sp.srepr(self.evaluation),
+            "accessibility": self.accessibility,
+            "equation": str(self.evaluation),
             "domain": self.domain,
             "noise_distribution": self.noise_distribution.to_dict(),
             "parents": self.parents,
@@ -99,45 +100,51 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
         Returns:
             EquationBasedNumericalSCMNode: An instance of the node.
         """
-        # Reconstruct the equation from the serialized string.
-        safe_dict = {
-            "Symbol": sp.Symbol,
-            "Integer": sp.Integer,
-            "Float": sp.Float,
-            "Add": sp.Add,
-            "Mul": sp.Mul,
-            "Pow": sp.Pow,
-            "Max": sp.Max,
-            "Min": sp.Min,
-            "re": sp.re,
-            "np": np,
-            "im": sp.im,
-        }
-        evaluation = eval(data["evaluation"], safe_dict)
+        evaluation = sp.sympify(data["equation"]) if "equation" in data else None
+        if evaluation is not None:
+            assert str(evaluation) == data["equation"], f"Evaluation structure {data['equation']} could not parsed properly. Recovered {str(evaluation)}"
+
         # Deserialize the noise distribution
-        noise_distribution = data["noise_distribution"]
-        if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
-            noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
-        elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
-            noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
+        if "noise_distribution" in data:
+            noise_distribution = data["noise_distribution"]
+            if type(noise_distribution) == dict:
+                if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
+                    noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
+                elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
+                    noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
+                elif noise_distribution["class"] == DiracNoiseDistribution.__name__:
+                    noise_distribution = DiracNoiseDistribution.from_dict(noise_distribution)
+                else:
+                    raise ValueError(
+                        f"Unknown noise distribution class: {noise_distribution['class']}"
+                    )
+            elif type(noise_distribution) in [float, int, np.float64, np.int64]:
+                noise_distribution = DiracNoiseDistribution(val=noise_distribution)
+            else:
+                raise ValueError(
+                    f"Unknown noise distribution type: {type(noise_distribution)}"
+                )
         else:
-            raise ValueError(
-                f"Unknown noise distribution class: {noise_distribution['class']}"
-            )
+            noise_distribution = UniformNoiseDistribution(low=data["domain"][0], high=data["domain"][1])
+
+        
         # Deserailize the random staet
         random_state = np.random.RandomState()
-        random_state.set_state(
-            (
-                str(data["random_state"]["state"]),
-                np.array(data["random_state"]["keys"], dtype=np.uint32),
-                int(data["random_state"]["pos"]),
-                int(data["random_state"]["has_gauss"]),
-                float(data["random_state"]["cached_gaussian"]),
+        if "random_state" in data:
+            random_state.set_state(
+                (
+                    str(data["random_state"]["state"]),
+                    np.array(data["random_state"]["keys"], dtype=np.uint32),
+                    int(data["random_state"]["pos"]),
+                    int(data["random_state"]["has_gauss"]),
+                    float(data["random_state"]["cached_gaussian"]),
+                )
             )
-        )
+        
         # Create the node
         new_class = cls(
             name=data["name"],
+            accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
             evaluation=evaluation,
             domain=data["domain"],
             noise_distribution=noise_distribution,
@@ -154,6 +161,7 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
     def __init__(
         self,
         name: str,
+        accessibility: str,
         evaluation: Optional[Callable],
         domain: List[float | str],
         noise_distribution: BaseNoiseDistribution,
@@ -166,6 +174,7 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         # Superclass constructor
         super().__init__(
             name=name,
+            accessibility=accessibility,
             evaluation=evaluation,
             domain=domain,
             noise_distribution=noise_distribution,
@@ -290,7 +299,8 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         return {
             "class": self.__class__.__name__,
             "name": self.name,
-            "evaluation": {cat: sp.srepr(eq) for cat, eq in self.evaluation.items()},
+            "accessibility": self.accessibility,
+            "equation": {cat: str(eq) for cat, eq in self.evaluation.items()},
             "domain": self.domain,
             "noise_distribution": self.noise_distribution.to_dict(),
             "parents": self.parents,
@@ -317,22 +327,9 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         Returns:
             EquationBasedCategoricalSCMNode: An instance of the node.
         """
-        # Reconstruct the equation from the serialized string.
-        safe_dict = {
-            "Symbol": sp.Symbol,
-            "Integer": sp.Integer,
-            "Float": sp.Float,
-            "Add": sp.Add,
-            "Mul": sp.Mul,
-            "Pow": sp.Pow,
-            "Max": sp.Max,
-            "Min": sp.Min,
-            "re": sp.re,
-            "np": np,
-            "im": sp.im,
-        }
         # For categorical nodes, reconstruct the equation dictionary.
-        evaluation = {k: eval(v, safe_dict) for k, v in data["evaluation"].items()}
+        evaluation = {k: sp.sympify(v) for k, v in data["equation"].items()} if "equation" in data else None
+
         # Reconstruct the CDF mappings from step points.
         cdfs = {
             cat: SerializableCDF.from_list(points)
@@ -362,6 +359,7 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         # Create the node
         new_class = cls(
             name=data["name"],
+            accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
             evaluation=evaluation,
             domain=data["domain"],
             noise_distribution=noise_distribution,
@@ -410,7 +408,8 @@ class FullyCategoricalSCMNode(BaseSCMNode):
         """
         return {
             "name": self.name,
-            "evaluation": self.evaluation.to_list(),
+            "accessibility": self.accessibility,
+            "equation": self.evaluation.to_list(),
             "domain": self.domain,
             "noise": self.noise_distribution.to_dict(),
             "parents": self.parents,
@@ -433,7 +432,8 @@ class FullyCategoricalSCMNode(BaseSCMNode):
         # Create the node
         return cls(
             name=data["name"],
-            evaluation=SerializableCDF.from_list(data["evaluation"]),
+            accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
+            evaluation=SerializableCDF.from_list(data["equation"]),
             domain=data["domain"],
             noise_distribution=noise_distribution,
             parents=data.get("parents"),
