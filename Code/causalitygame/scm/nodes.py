@@ -456,3 +456,65 @@ class SerializableCDF:
     @classmethod
     def from_list(cls, data):
         return cls(np.array(data))
+
+
+class BayesianNetworkSCMNode:
+    def __init__(
+        self,
+        name: str,
+        parents: list,
+        values: list,
+        probability_distribution: dict | list,
+    ):
+        self.name = name
+        self.parents = parents
+        self.values = values
+        self.probability_distribution = probability_distribution
+
+    def get_distribution(self, parent_values: dict) -> list:
+        if not self.parents:
+            # Flatten the possibly nested list
+            return [
+                p
+                for sub in self.probability_distribution
+                for p in (sub if isinstance(sub, list) else [sub])
+            ]
+
+        key_ordered = [parent_values[parent] for parent in self.parents]
+        key = ",".join(key_ordered)
+        # Flatten the possibly nested list for conditional distributions
+        return [
+            p
+            for sub in self.probability_distribution[key]
+            for p in (sub if isinstance(sub, list) else [sub])
+        ]
+
+    def get_value_distribution(self, parent_values: dict) -> list:
+        """
+        Given a dictionary of parent values, returns the probability distribution
+        over this node's values.
+
+        Args:
+            parent_values (dict): A dictionary mapping parent names to their values.
+
+        Returns:
+            list: The probability distribution over the node's values.
+        """
+        return self.get_distribution(parent_values)
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "parents": self.parents,
+            "values": self.values,
+            "probability_distribution": self.probability_distribution,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "BayesianNetworkSCMNode":
+        return cls(
+            name=data["name"],
+            parents=data["parents"],
+            values=data["values"],
+            probability_distribution=data["probability_distribution"],
+        )
