@@ -182,7 +182,7 @@ class BaseSCMNode(ABC):
         noise_distribution: BaseNoiseDistribution,
         parents: Optional[List[str]] = None,
         parent_mappings: Optional[Dict[str, int | float]] = None,
-        random_state: int = 911,
+        random_state: np.random.RandomState = np.random.RandomState(911),
     ):
         """
         SCMNode is class representing a node in a Structural Causal Model (SCM).
@@ -194,7 +194,7 @@ class BaseSCMNode(ABC):
             evaluation (Callable): A function to evaluate the node's value based on its parents.
             domain (List[float | str]): The domain of possible values for the node.
             parents (List[str]): A list of parent node names.
-            random_state (int): Seed for random number generation.
+            random_state (np.random.RandomState): Random state for generating random values.
         """
         self.name = name
         self.evaluation = evaluation
@@ -202,17 +202,18 @@ class BaseSCMNode(ABC):
         self.noise_distribution = noise_distribution
         self.parents = parents
         self.parent_mappings = parent_mappings
-        self.random_state_seed = random_state
-        self.random_state = np.random.RandomState(random_state)
+        self.random_state = random_state
 
     @abstractmethod
-    def generate_value(self, parent_values: dict, random_state: int) -> float | str:
+    def generate_value(
+        self, parent_values: dict, random_state: np.random.RandomState
+    ) -> float | str:
         """
         Generates a value for the node based on its parents and noise.
 
         Args:
             parent_values (dict): A dictionary of parent node values.
-            random_state (int): Seed for random number generation.
+            random_state (np.random.RandomState): Random state for generating random values.
 
         Returns:
             float | str: The generated value for the node.

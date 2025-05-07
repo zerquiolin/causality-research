@@ -95,7 +95,7 @@ class GameInstanceCreator:
 
         # SCM generation.
         scm_gen = EquationBasedSCMGenerator(
-            dag=dag, **self.scm_generator_params, random_state=self.random_state_seed
+            dag=dag, **self.scm_generator_params, random_state=random_state
         )
         scm = scm_gen.generate()
 

@@ -59,7 +59,7 @@ def test_scm_generator(dag, num_nodes):
             GaussianNoiseDistribution(mean=0, std=1),
             UniformNoiseDistribution(low=-1, high=1),
         ],
-        random_state=42,
+        random_state=np.random.RandomState(42),
     )
 
     scm = scm_generator.generate()
@@ -81,7 +81,6 @@ def test_scm_reproducibility(dag, num_nodes, seed):
     """
     Test if SCMGenerator is reproducible with the same seed.
     """
-
     variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
     variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
 
@@ -96,7 +95,7 @@ def test_scm_reproducibility(dag, num_nodes, seed):
             GaussianNoiseDistribution(mean=0, std=1),
             UniformNoiseDistribution(low=-1, high=1),
         ],
-        random_state=seed,
+        random_state=np.random.RandomState(seed),
     )
     scm_a = scm_generator_a.generate()
 
@@ -111,7 +110,7 @@ def test_scm_reproducibility(dag, num_nodes, seed):
             GaussianNoiseDistribution(mean=0, std=1),
             UniformNoiseDistribution(low=-1, high=1),
         ],
-        random_state=seed,
+        random_state=np.random.RandomState(seed),
     )
     scm_b = scm_generator_b.generate()
 
@@ -133,7 +132,6 @@ def test_scm_variability(dag, num_nodes, seed1, seed2):
     """
     Test if SCMGenerator is reproducible with the same seed.
     """
-
     variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
     variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
 
@@ -148,7 +146,7 @@ def test_scm_variability(dag, num_nodes, seed1, seed2):
             GaussianNoiseDistribution(mean=0, std=1),
             UniformNoiseDistribution(low=-1, high=1),
         ],
-        random_state=seed1,
+        random_state=np.random.RandomState(seed1),
     )
     scm_a = scm_generator_a.generate()
 
@@ -163,7 +161,7 @@ def test_scm_variability(dag, num_nodes, seed1, seed2):
             GaussianNoiseDistribution(mean=0, std=1),
             UniformNoiseDistribution(low=-1, high=1),
         ],
-        random_state=seed2,
+        random_state=np.random.RandomState(seed2),
     )
     scm_b = scm_generator_b.generate()
 
@@ -202,7 +200,7 @@ def test_scm_serialization(dag, num_nodes, seed):
             GaussianNoiseDistribution(mean=0, std=1),
             UniformNoiseDistribution(low=-1, high=1),
         ],
-        random_state=seed,
+        random_state=np.random.RandomState(seed),
     )
     scm = scm_generator.generate()
 
@@ -248,7 +246,7 @@ def test_scm_deserialization(dag, num_nodes, seed):
             GaussianNoiseDistribution(mean=0, std=1),
             UniformNoiseDistribution(low=-1, high=1),
         ],
-        random_state=seed,
+        random_state=np.random.RandomState(seed),
     )
     scm = scm_generator.generate()
 
@@ -332,7 +330,7 @@ def test_scm_samples_reproducibility(dag, num_nodes, num_samples, seed):
             GaussianNoiseDistribution(mean=0, std=1),
             UniformNoiseDistribution(low=-1, high=1),
         ],
-        random_state=seed,
+        random_state=np.random.RandomState(seed),
     )
     scm = scm_generator.generate()
     scm_generator = EquationBasedSCMGenerator(
@@ -346,7 +344,7 @@ def test_scm_samples_reproducibility(dag, num_nodes, num_samples, seed):
             GaussianNoiseDistribution(mean=0, std=1),
             UniformNoiseDistribution(low=-1, high=1),
         ],
-        random_state=seed,
+        random_state=np.random.RandomState(seed),
     )
     scm_b = scm_generator.generate()
 

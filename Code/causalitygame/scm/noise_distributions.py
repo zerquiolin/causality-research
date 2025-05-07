@@ -36,10 +36,14 @@ class GaussianNoiseDistribution(BaseNoiseDistribution):
         Returns:
             dict: The dictionary representation of the Gaussian noise object.
         """
-        return {"type": "Gaussian", "mean": self.mean, "std": self.std}
+        return {
+            "class": GaussianNoiseDistribution.__name__,
+            "mean": self.mean,
+            "std": self.std,
+        }
 
-    @staticmethod
-    def from_dict(data: dict) -> "GaussianNoiseDistribution":
+    @classmethod
+    def from_dict(cls, data: dict) -> "GaussianNoiseDistribution":
         """
         Deserializes the Gaussian noise object from a dictionary representation.
 
@@ -49,7 +53,7 @@ class GaussianNoiseDistribution(BaseNoiseDistribution):
         Returns:
             GaussianNoiseDistribution: An instance of Gaussian noise distribution.
         """
-        return GaussianNoiseDistribution(mean=data["mean"], std=data["std"])
+        return cls(mean=data["mean"], std=data["std"])
 
 
 class UniformNoiseDistribution(BaseNoiseDistribution):
@@ -85,10 +89,14 @@ class UniformNoiseDistribution(BaseNoiseDistribution):
         Returns:
             dict: The dictionary representation of the Uniform noise object.
         """
-        return {"type": "Uniform", "low": self.low, "high": self.high}
+        return {
+            "class": UniformNoiseDistribution.__name__,
+            "low": self.low,
+            "high": self.high,
+        }
 
-    @staticmethod
-    def from_dict(data: dict) -> "UniformNoiseDistribution":
+    @classmethod
+    def from_dict(cls, data: dict) -> "UniformNoiseDistribution":
         """
         Deserializes the Uniform noise object from a dictionary representation.
 
@@ -98,4 +106,4 @@ class UniformNoiseDistribution(BaseNoiseDistribution):
         Returns:
             UniformNoiseDistribution: An instance of Uniform noise distribution.
         """
-        return UniformNoiseDistribution(low=data["low"], high=data["high"])
+        return cls(low=data["low"], high=data["high"])

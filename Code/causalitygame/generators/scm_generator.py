@@ -39,7 +39,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         ],  # Currently unused; consider removal or integration.
         allowed_functions: List[Callable[[sp.Expr], sp.Expr]],
         noise_distributions: List[BaseNoiseDistribution],
-        random_state: int,
+        random_state: np.random.RandomState = np.random.RandomState(911),
     ):
         """
         Initializes the SCMGenerator with the DAG and configuration for generating node equations.
@@ -61,8 +61,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         self.allowed_operations = allowed_operations
         self.allowed_functions = allowed_functions
         self.noise_distributions = noise_distributions
-        self.random_state_seed = random_state
-        self.random_state = np.random.RandomState(random_state)
+        self.random_state = random_state
 
     def _generate_equation(self, input_vars: List[sp.Expr]) -> sp.Expr:
         """
@@ -150,7 +149,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             )
             nodes.append(node)
 
-        return SCM(self.dag, nodes, self.random_state_seed)
+        return SCM(self.dag, nodes, self.random_state)
 
     def _generate_numerical_node(
         self,
@@ -181,7 +180,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                 noise_distribution=noise_distribution,
                 parents=None,
                 parent_mappings=None,
-                random_state=self.random_state_seed,
+                random_state=self.random_state,
             )
         # Format parent names as symbols for the equation
         input_vars = [sp.Symbol(p) for p in parents]
@@ -195,7 +194,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             noise_distribution=noise_distribution,
             parents=parents,
             parent_mappings=parent_mappings,
-            random_state=self.random_state_seed,
+            random_state=self.random_state,
         )
 
     def _generate_categorical_node(
@@ -228,7 +227,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                 cdfs=None,
                 parents=None,
                 parent_mappings=None,
-                random_state=self.random_state_seed,
+                random_state=self.random_state,
             )
         # Define an equation for each possible variable in the domain
         equations = {}
@@ -252,8 +251,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                 for n in nodes:
                     # Generate values for the current node n
                     node_values[n.name] = n.generate_value(
-                        parent_values=node_values,
-                        random_state=self.random_state_seed + i,
+                        parent_values=node_values, random_state=self.random_state
                     )
                 # Substitute parent values into the equation.
                 try:
@@ -286,7 +284,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             cdfs=cdf_mappings,
             parents=parents,
             parent_mappings=parent_mappings,
-            random_state=self.random_state_seed,
+            random_state=self.random_state,
         )
 
         return node

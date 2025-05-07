@@ -2,6 +2,11 @@
 import numpy as np
 import sympy as sp
 
+from causalitygame.scm.noise_distributions import (
+    GaussianNoiseDistribution,
+    UniformNoiseDistribution,
+)
+
 # Abstract Base Class
 from .base import BaseNoiseDistribution, BaseSCMNode
 
@@ -17,10 +22,10 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
     def generate_value(
         self,
         parent_values: Dict[str, float | str | int],
-        random_state: Optional[int] = None,
+        random_state: Optional[np.random.RandomState] = None,
     ):
         # Define random state
-        rs = self.random_state if random_state else np.random.RandomState(random_state)
+        rs = random_state if random_state else self.random_state
         # Check if the node has parents
         if not self.parents:
             return self.noise_distribution.generate(rs)
@@ -64,6 +69,7 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
         Returns:
             dict: Dictionary representation of the node.
         """
+        print(type(self.random_state))
         state = self.random_state.get_state()
         return {
             "class": self.__class__.__name__,
@@ -73,7 +79,6 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
             "noise_distribution": self.noise_distribution.to_dict(),
             "parents": self.parents,
             "parent_mappings": self.parent_mappings,
-            "random_state_seed": self.random_state.seed,
             "random_state": {
                 "state": state[0],
                 "keys": state[1].tolist(),
@@ -83,7 +88,7 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
             },
         }
 
-    @staticmethod
+    @classmethod
     def from_dict(cls, data: Dict):
         """
         Deserializes the node from a dictionary representation.
@@ -108,9 +113,17 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
             "np": np,
             "im": sp.im,
         }
-        evaluation = eval(data["equation"], safe_dict)
+        evaluation = eval(data["evaluation"], safe_dict)
         # Deserialize the noise distribution
-        noise_distribution = BaseNoiseDistribution.from_dict(data["noise_distribution"])
+        noise_distribution = data["noise_distribution"]
+        if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
+            noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
+        elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
+            noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
+        else:
+            raise ValueError(
+                f"Unknown noise distribution class: {noise_distribution['class']}"
+            )
         # Deserailize the random staet
         random_state = np.random.RandomState()
         random_state.set_state(
@@ -130,7 +143,6 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
             noise_distribution=noise_distribution,
             parents=data.get("parents"),
             parent_mappings=data.get("parent_mappings"),
-            random_state=data["random_state_seed"],
         )
         # Set the random state
         new_class.random_state = random_state
@@ -149,7 +161,7 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         parents: Optional[List[str]] = None,
         parent_mappings: Optional[Dict[str, int | float]] = None,
         domain_distribution: Optional[Dict[str, float]] = None,
-        random_state: int = 911,
+        random_state: np.random.RandomState = np.random.RandomState(911),
     ):
         # Superclass constructor
         super().__init__(
@@ -202,10 +214,10 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
     def generate_value(
         self,
         parent_values: Dict[str, float | str | int],
-        random_state: Optional[int] = None,
+        random_state: Optional[np.random.RandomState] = np.random.RandomState(911),
     ):
         # Define random state
-        rs = self.random_state if random_state else np.random.RandomState(random_state)
+        rs = random_state if random_state else self.random_state
         # Check if the node has parents
         if not self.parents:
             return rs.choice(
@@ -285,7 +297,6 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
             "parent_mappings": self.parent_mappings,
             "cdfs": {cat: self.cdfs[cat].to_list() for cat in self.cdfs},
             "domain_distribution": self.domain_noise_distribution,
-            "random_state_seed": self.random_state_seed,
             "random_state": {
                 "state": state[0],
                 "keys": state[1].tolist(),
@@ -295,7 +306,7 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
             },
         }
 
-    @staticmethod
+    @classmethod
     def from_dict(cls, data: Dict):
         """
         Deserializes the node from a dictionary representation.
@@ -328,7 +339,15 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
             for cat, points in data["cdfs"].items()
         }
         # Deserialize the noise distribution
-        noise_distribution = BaseNoiseDistribution.from_dict(data["noise_distribution"])
+        noise_distribution = data["noise_distribution"]
+        if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
+            noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
+        elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
+            noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
+        else:
+            raise ValueError(
+                f"Unknown noise distribution class: {noise_distribution['class']}"
+            )
         # Reconstruct the random state.
         random_state = np.random.RandomState()
         random_state.set_state(
@@ -350,7 +369,6 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
             parents=data.get("parents"),
             parent_mappings=data.get("parent_mappings"),
             domain_distribution=data.get("domain_distribution"),
-            random_state=data["random_state_seed"],
         )
         # Set the random state
         new_class.random_state = random_state
@@ -363,10 +381,10 @@ class FullyCategoricalSCMNode(BaseSCMNode):
     def generate_value(
         self,
         parent_values: Dict[str, float | str | int],
-        random_state: Optional[int] = None,
+        random_state: Optional[np.random.RandomState] = np.random.RandomState(911),
     ):
         # Define random state
-        rs = self.random_state if random_state else np.random.RandomState(random_state)
+        rs = random_state if random_state else self.random_state
         # No need to check for parents since the self.evaluation has the probability distribution
         # Get the evaluation symbols for evaluation
         symbols = [
@@ -381,7 +399,7 @@ class FullyCategoricalSCMNode(BaseSCMNode):
         # Check if the distribution is valid
         assert np.isclose(sum(distribution), 1.0), "Distribution does not sum to 1"
         # Return the final value
-        return self.rs.choice(list(distribution.keys()), p=list(distribution.values()))
+        return rs.choice(list(distribution.keys()), p=list(distribution.values()))
 
     def to_dict(self):
         """
@@ -399,7 +417,7 @@ class FullyCategoricalSCMNode(BaseSCMNode):
             "parent_mappings": self.parent_mappings,
         }
 
-    @staticmethod
+    @classmethod
     def from_dict(cls, data: Dict):
         """
         Deserializes the node from a dictionary representation.

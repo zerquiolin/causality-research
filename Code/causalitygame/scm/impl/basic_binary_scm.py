@@ -52,9 +52,7 @@ def gen_binary_scm(random_state: int = 42):
 
     # Generate the SCM
     # scm_gen = SCMGenerator(dag, **scm_constraints, random_state=scm_random_state)
-    scm_gen = EquationBasedSCMGenerator(
-        dag, **scm_constraints, random_state=random_state
-    )
+    scm_gen = EquationBasedSCMGenerator(dag, **scm_constraints, random_state=rs)
     scm = scm_gen.generate()
 
     return dag, scm
