@@ -7,7 +7,7 @@ import networkx as nx
 
 # SCM
 from causalitygame.scm.scm import SCM
-from causalitygame.scm.new_nodes import (
+from causalitygame.scm.nodes import (
     EquationBasedNumericalSCMNode,
     EquationBasedCategoricalSCMNode,
     SerializableCDF,

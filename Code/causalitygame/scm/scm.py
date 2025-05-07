@@ -8,7 +8,7 @@ import networkx as nx
 from .dag import DAG
 
 # Nodes
-from .new_nodes import EquationBasedNumericalSCMNode, EquationBasedCategoricalSCMNode
+from causalitygame.scm import EquationBasedNumericalSCMNode, EquationBasedCategoricalSCMNode
 
 # Typing
 from typing import List, Dict, Optional
