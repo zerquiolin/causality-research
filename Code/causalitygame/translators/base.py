@@ -28,12 +28,6 @@ class BayesianNetworkGraph:
         edges (list): A list of directed edges (parent, child).
         distributions (Dict): Probability distribution data for each variable.
 
-    Example:
-    nodes = ['A', 'B', 'C']
-    edges = [('A', 'B'), ('A', 'C')]
-
-
-
     """
 
     def __init__(self, nodes: Dict, edges: list, distributions: Dict):

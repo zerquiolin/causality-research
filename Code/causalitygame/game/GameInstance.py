@@ -56,7 +56,9 @@ class GameInstance:
             os.makedirs(directory, exist_ok=True)
 
         # Write the JSON file
-        joblib.dump(self.to_dict(), filename)
+        # joblib.dump(self.to_dict(), filename)
+        with open(filename, "w") as f:
+            json.dump(self.to_dict(), f, indent=4)
 
     @classmethod
     def load(cls, filename):

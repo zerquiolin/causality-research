@@ -5,7 +5,7 @@ import sympy as sp
 from causalitygame.scm.noise_distributions import (
     GaussianNoiseDistribution,
     UniformNoiseDistribution,
-    DiracNoiseDistribution
+    DiracNoiseDistribution,
 )
 
 # Abstract Base Class
@@ -102,18 +102,26 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
         """
         evaluation = sp.sympify(data["equation"]) if "equation" in data else None
         if evaluation is not None:
-            assert str(evaluation) == data["equation"], f"Evaluation structure {data['equation']} could not parsed properly. Recovered {str(evaluation)}"
+            assert (
+                str(evaluation) == data["equation"]
+            ), f"Evaluation structure {data['equation']} could not parsed properly. Recovered {str(evaluation)}"
 
         # Deserialize the noise distribution
         if "noise_distribution" in data:
             noise_distribution = data["noise_distribution"]
             if type(noise_distribution) == dict:
                 if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
-                    noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
+                    noise_distribution = GaussianNoiseDistribution.from_dict(
+                        noise_distribution
+                    )
                 elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
-                    noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
+                    noise_distribution = UniformNoiseDistribution.from_dict(
+                        noise_distribution
+                    )
                 elif noise_distribution["class"] == DiracNoiseDistribution.__name__:
-                    noise_distribution = DiracNoiseDistribution.from_dict(noise_distribution)
+                    noise_distribution = DiracNoiseDistribution.from_dict(
+                        noise_distribution
+                    )
                 else:
                     raise ValueError(
                         f"Unknown noise distribution class: {noise_distribution['class']}"
@@ -125,9 +133,10 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
                     f"Unknown noise distribution type: {type(noise_distribution)}"
                 )
         else:
-            noise_distribution = UniformNoiseDistribution(low=data["domain"][0], high=data["domain"][1])
+            noise_distribution = UniformNoiseDistribution(
+                low=data["domain"][0], high=data["domain"][1]
+            )
 
-        
         # Deserailize the random staet
         random_state = np.random.RandomState()
         if "random_state" in data:
@@ -140,7 +149,7 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
                     float(data["random_state"]["cached_gaussian"]),
                 )
             )
-        
+
         # Create the node
         new_class = cls(
             name=data["name"],
@@ -328,7 +337,11 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
             EquationBasedCategoricalSCMNode: An instance of the node.
         """
         # For categorical nodes, reconstruct the equation dictionary.
-        evaluation = {k: sp.sympify(v) for k, v in data["equation"].items()} if "equation" in data else None
+        evaluation = (
+            {k: sp.sympify(v) for k, v in data["equation"].items()}
+            if "equation" in data
+            else None
+        )
 
         # Reconstruct the CDF mappings from step points.
         cdfs = {
@@ -468,8 +481,21 @@ class BayesianNetworkSCMNode:
     ):
         self.name = name
         self.parents = parents
-        self.values = values
+        self.domain = values
         self.probability_distribution = probability_distribution
+
+    def generate_value(self, parent_values: dict, random_state) -> str:
+        """
+        Given a dictionary of parent values, returns a sampled value from the node's distribution.
+
+        Args:
+            parent_values (dict): A dictionary mapping parent names to their values.
+
+        Returns:
+            str: A sampled value from the node's distribution.
+        """
+        distribution = self.get_distribution(parent_values)
+        return random_state.choice(self.domain, p=distribution)
 
     def get_distribution(self, parent_values: dict) -> list:
         if not self.parents:
@@ -504,9 +530,10 @@ class BayesianNetworkSCMNode:
 
     def to_dict(self) -> dict:
         return {
+            "class": self.__class__.__name__,
             "name": self.name,
             "parents": self.parents,
-            "values": self.values,
+            "values": self.domain,
             "probability_distribution": self.probability_distribution,
         }
 

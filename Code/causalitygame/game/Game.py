@@ -1,4 +1,5 @@
 # Environment
+import json
 from causalitygame.game.Environment import Environment
 
 # Game Instance
@@ -56,7 +57,9 @@ class Game:
 
     def _make_env(self, agent):
         # Read the game instance from the JSON file
-        game_instance = joblib.load(self.game_spec)
+        with open(self.game_spec, "r") as f:
+            game_instance_data = f.read()
+        game_instance = json.loads(game_instance_data)
         # Create a game instance
         game_instance = GameInstance.from_dict(game_instance)
 

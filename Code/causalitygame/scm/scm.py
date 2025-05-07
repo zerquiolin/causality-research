@@ -4,12 +4,21 @@ import numpy as np
 # Graph
 import networkx as nx
 
+from causalitygame.scm.nodes import BayesianNetworkSCMNode
+
 # DAG
 from .dag import DAG
 
 # Nodes
-from causalitygame.scm import EquationBasedNumericalSCMNode, EquationBasedCategoricalSCMNode
-from causalitygame.scm.base import ACCESSIBILITY_CONTROLLABLE, ACCESSIBILITY_LATENT, ACCESSIBILITY_OBSERVABLE
+from causalitygame.scm import (
+    EquationBasedNumericalSCMNode,
+    EquationBasedCategoricalSCMNode,
+)
+from causalitygame.scm.base import (
+    ACCESSIBILITY_CONTROLLABLE,
+    ACCESSIBILITY_LATENT,
+    ACCESSIBILITY_OBSERVABLE,
+)
 
 # Typing
 from typing import List, Dict, Optional
@@ -34,7 +43,7 @@ class SCM:
         dag: DAG,
         nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode],
         random_state: np.random.RandomState,
-        name=None
+        name=None,
     ):
         """
         Initializes the SCM with a DAG, a list of nodes, and a random number generator.
@@ -49,22 +58,34 @@ class SCM:
         self.nodes = {node.name: node for node in nodes}
         self.random_state = random_state
         self.name = name
-    
+
     @property
     def vars(self):
         return sorted(self.nodes.keys())
-    
+
     @property
     def controllable_vars(self):
-        return [n.name for n in self.nodes.values() if n.accessibility == ACCESSIBILITY_CONTROLLABLE]
-    
+        return [
+            n.name
+            for n in self.nodes.values()
+            if n.accessibility == ACCESSIBILITY_CONTROLLABLE
+        ]
+
     @property
     def observable_vars(self):
-        return [n.name for n in self.nodes.values() if n.accessibility in [ACCESSIBILITY_OBSERVABLE, ACCESSIBILITY_CONTROLLABLE]]
-    
+        return [
+            n.name
+            for n in self.nodes.values()
+            if n.accessibility in [ACCESSIBILITY_OBSERVABLE, ACCESSIBILITY_CONTROLLABLE]
+        ]
+
     @property
     def latent_vars(self):
-        return [n.name for n in self.nodes.values() if n.accessibility == ACCESSIBILITY_LATENT]
+        return [
+            n.name
+            for n in self.nodes.values()
+            if n.accessibility == ACCESSIBILITY_LATENT
+        ]
 
     def get_random_state(self) -> np.random.RandomState:
         """
@@ -168,21 +189,22 @@ class SCM:
         # Reconstruct the DAG from the dictionary
         nodes = [v["name"] for v in data["vars"]]
         edges = data["edges"]
-        dag = DAG.from_dict({
-            "nodes": nodes,
-            "edges": edges
-        })
+        dag = DAG.from_dict({"nodes": nodes, "edges": edges})
 
         # Ensure nodes are sorted in topological order
         topological_order = list(nx.topological_sort(dag.graph))
         nodes = []
 
         # Create nodes in topological order
-        for node_as_dict in sorted(data["vars"], key=lambda n: topological_order.index(n["name"])):
+        for node_as_dict in sorted(
+            data["vars"], key=lambda n: topological_order.index(n["name"])
+        ):
             if node_as_dict["class"] == EquationBasedNumericalSCMNode.__name__:
                 node = EquationBasedNumericalSCMNode.from_dict(node_as_dict)
             elif node_as_dict["class"] == EquationBasedCategoricalSCMNode.__name__:
                 node = EquationBasedCategoricalSCMNode.from_dict(node_as_dict)
+            elif node_as_dict["class"] == BayesianNetworkSCMNode.__name__:
+                node = BayesianNetworkSCMNode.from_dict(node_as_dict)
             else:
                 raise ValueError(f"Unknown node class: {node_as_dict['class']}")
             nodes.append(node)

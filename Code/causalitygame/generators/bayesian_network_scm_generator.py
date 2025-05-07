@@ -1,5 +1,9 @@
+import numpy as np
 from causalitygame.translators.base import BaseBayesianNetworkTranslator
 from causalitygame.scm.nodes import BayesianNetworkSCMNode
+import networkx as nx
+from causalitygame.scm.dag import DAG
+from causalitygame.scm.scm import SCM
 
 
 class BayesianNetworkBasedSCMGenerator:
@@ -14,7 +18,7 @@ class BayesianNetworkBasedSCMGenerator:
         self.translator = translator
         self.graph = translator.translate(file_path)
 
-    def generate_nodes(self):
+    def _generate_nodes(self):
         """
         Create a list of BayesianNetworkSCMNode instances from the graph.
 
@@ -31,3 +35,19 @@ class BayesianNetworkBasedSCMGenerator:
             )
             nodes.append(node)
         return nodes
+
+    def generate(self) -> SCM:
+        """
+        Generate a Structural Causal Model (SCM) from the Bayesian network.
+
+        Returns:
+            SCM: The generated SCM.
+        """
+        nodes = self._generate_nodes()
+        graph = nx.DiGraph()
+        graph.add_edges_from(self.graph.edges)
+        dag = DAG(graph)
+
+        random_state = np.random.RandomState(42)
+
+        return SCM(dag=dag, nodes=nodes, random_state=random_state)
