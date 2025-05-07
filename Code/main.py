@@ -23,7 +23,7 @@ import numpy as np
 base_seed = 42
 agents = []
 
-for i in range(1, 6):
+for i in range(1, 2):
     rs = np.random.RandomState(base_seed + i)
     stop_prob = rs.beta(a=0.5, b=10)  # typically small values
     exp_upper = rs.poisson(lam=10)

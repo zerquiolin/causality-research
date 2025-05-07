@@ -269,9 +269,7 @@ class SCMNode:
             equation = {k: eval(v, safe_dict) for k, v in data["equation"].items()}
             # Reconstruct the CDF mappings from step points.
             cdf_mappings = {
-                # todo: check if this is correct
                 cat: SerializableCDF.from_list(points)
-                # cat: cls._create_cdf_lambda(np.array(points))
                 for cat, points in data["cdf_mappings"].items()
             }
 

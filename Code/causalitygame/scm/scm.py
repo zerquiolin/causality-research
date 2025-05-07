@@ -8,7 +8,7 @@ import networkx as nx
 from .dag import DAG
 
 # Nodes
-from .nodes import SCMNode
+from .new_nodes import EquationBasedNumericalSCMNode, EquationBasedCategoricalSCMNode
 
 # Typing
 from typing import List, Dict, Optional
@@ -24,12 +24,15 @@ class SCM:
 
     Attributes:
         dag (DAG): The underlying directed acyclic graph defining variable dependencies.
-        nodes (Dict[str, SCMNode]): Dictionary of variable nodes by name.
+        nodes (List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode]): List of nodes in topological order.
         random_state (np.random.RandomState): Random number generator for reproducibility.
     """
 
     def __init__(
-        self, dag: DAG, nodes: List[SCMNode], random_state: np.random.RandomState
+        self,
+        dag: DAG,
+        nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode],
+        random_state: np.random.RandomState,
     ):
         """
         Initializes the SCM with a DAG, a list of nodes, and a random number generator.
@@ -115,6 +118,8 @@ class SCM:
         # Serialize nodes and their parameters
         nodes_data = {name: node.to_dict() for name, node in self.nodes.items()}
 
+        print("nodes_data", nodes_data)
+
         # Serialize the random state
         state = self.random_state.get_state()
         state_dict = {
@@ -152,7 +157,13 @@ class SCM:
         # Create nodes in topological order
         for node_name in topological_order:
             node_data = data["nodes"][node_name]
-            node = SCMNode.from_dict(node_data)
+            print("node_data", node_data)
+            if node_data["class"] == EquationBasedNumericalSCMNode.__name__:
+                node = EquationBasedNumericalSCMNode.from_dict(node_data)
+            elif node_data["class"] == EquationBasedCategoricalSCMNode.__name__:
+                node = EquationBasedCategoricalSCMNode.from_dict(node_data)
+            else:
+                raise ValueError(f"Unknown node class: {node_data['class']}")
             nodes.append(node)
 
         # Reconstruct the random state

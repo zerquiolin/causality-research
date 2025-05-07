@@ -1,12 +1,17 @@
+import os
 import json
 import pytest
 import joblib
-from causalitygame.generators.scm_generator import SCMGenerator
+from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.scm.scm import SCM
 from causalitygame.scm.dag import DAG
 from causalitygame.generators.dag_generator import DAGGenerator
 from scipy.stats import norm, uniform
 import numpy as np
+from causalitygame.scm.noise_distributions import (
+    GaussianNoiseDistribution,
+    UniformNoiseDistribution,
+)
 
 # Test DAGs
 test_dag_a = DAGGenerator(
@@ -43,17 +48,17 @@ def test_scm_generator(dag, num_nodes):
     variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
     variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
 
-    scm_generator = SCMGenerator(
+    scm_generator = EquationBasedSCMGenerator(
         dag=dag,
         variable_types=variable_types,
         variable_domains=variable_domains,
         user_constraints={"max_terms": 2},
         allowed_operations=["+", "*"],
         allowed_functions=[lambda x: x**2],
-        noise_distributions={
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        noise_distributions=[
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
         random_state=np.random.RandomState(42),
     )
 
@@ -76,36 +81,35 @@ def test_scm_reproducibility(dag, num_nodes, seed):
     """
     Test if SCMGenerator is reproducible with the same seed.
     """
-
     variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
     variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
 
-    scm_generator_a = SCMGenerator(
+    scm_generator_a = EquationBasedSCMGenerator(
         dag=dag,
         variable_types=variable_types,
         variable_domains=variable_domains,
         user_constraints={"max_terms": 2},
         allowed_operations=["+", "*"],
         allowed_functions=[lambda x: x**2],
-        noise_distributions={
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        noise_distributions=[
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
         random_state=np.random.RandomState(seed),
     )
     scm_a = scm_generator_a.generate()
 
-    scm_generator_b = SCMGenerator(
+    scm_generator_b = EquationBasedSCMGenerator(
         dag=dag,
         variable_types=variable_types,
         variable_domains=variable_domains,
         user_constraints={"max_terms": 2},
         allowed_operations=["+", "*"],
         allowed_functions=[lambda x: x**2],
-        noise_distributions={
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        noise_distributions=[
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
         random_state=np.random.RandomState(seed),
     )
     scm_b = scm_generator_b.generate()
@@ -128,36 +132,35 @@ def test_scm_variability(dag, num_nodes, seed1, seed2):
     """
     Test if SCMGenerator is reproducible with the same seed.
     """
-
     variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
     variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
 
-    scm_generator_a = SCMGenerator(
+    scm_generator_a = EquationBasedSCMGenerator(
         dag=dag,
         variable_types=variable_types,
         variable_domains=variable_domains,
         user_constraints={"max_terms": 2},
         allowed_operations=["+", "*"],
         allowed_functions=[lambda x: x**2],
-        noise_distributions={
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        noise_distributions=[
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
         random_state=np.random.RandomState(seed1),
     )
     scm_a = scm_generator_a.generate()
 
-    scm_generator_b = SCMGenerator(
+    scm_generator_b = EquationBasedSCMGenerator(
         dag=dag,
         variable_types=variable_types,
         variable_domains=variable_domains,
         user_constraints={"max_terms": 2},
         allowed_operations=["+", "*"],
         allowed_functions=[lambda x: x**2],
-        noise_distributions={
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        noise_distributions=[
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
         random_state=np.random.RandomState(seed2),
     )
     scm_b = scm_generator_b.generate()
@@ -181,20 +184,22 @@ def test_scm_serialization(dag, num_nodes, seed):
     Test if SCMGenerator is reproducible with the same seed.
     """
 
-    variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
-    variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
+    variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes)}
+    variable_types[f"X{num_nodes}"] = "categorical"
+    variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes)}
+    variable_domains[f"X{num_nodes}"] = ["A", "B", "C"]
 
-    scm_generator = SCMGenerator(
+    scm_generator = EquationBasedSCMGenerator(
         dag=dag,
         variable_types=variable_types,
         variable_domains=variable_domains,
         user_constraints={"max_terms": 2},
         allowed_operations=["+", "*"],
         allowed_functions=[lambda x: x**2],
-        noise_distributions={
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        noise_distributions=[
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
         random_state=np.random.RandomState(seed),
     )
     scm = scm_generator.generate()
@@ -229,20 +234,18 @@ def test_scm_deserialization(dag, num_nodes, seed):
     variable_types[f"X{num_nodes}"] = "categorical"
     variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes)}
     variable_domains[f"X{num_nodes}"] = ["A", "B", "C"]
-    # variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
-    # variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
 
-    scm_generator = SCMGenerator(
+    scm_generator = EquationBasedSCMGenerator(
         dag=dag,
         variable_types=variable_types,
         variable_domains=variable_domains,
         user_constraints={"max_terms": 2},
         allowed_operations=["+", "*"],
         allowed_functions=[lambda x: x**2],
-        noise_distributions={
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        noise_distributions=[
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
         random_state=np.random.RandomState(seed),
     )
     scm = scm_generator.generate()
@@ -295,8 +298,6 @@ def test_scm_deserialization(dag, num_nodes, seed):
     ), "Samples should be equal after serialization."
 
     # Delete the file after the test
-    import os
-
     if os.path.exists("scm_data.pkl"):
         os.remove("scm_data.pkl")
 
@@ -313,34 +314,36 @@ def test_scm_samples_reproducibility(dag, num_nodes, num_samples, seed):
     Test if SCMGenerator is reproducible with the same seed.
     """
 
-    variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes + 1)}
-    variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes + 1)}
+    variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes)}
+    variable_types[f"X{num_nodes}"] = "categorical"
+    variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes)}
+    variable_domains[f"X{num_nodes}"] = ["A", "B", "C"]
 
-    scm_generator = SCMGenerator(
+    scm_generator = EquationBasedSCMGenerator(
         dag=dag,
         variable_types=variable_types,
         variable_domains=variable_domains,
         user_constraints={"max_terms": 2},
         allowed_operations=["+", "*"],
         allowed_functions=[lambda x: x**2],
-        noise_distributions={
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        noise_distributions=[
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
         random_state=np.random.RandomState(seed),
     )
     scm = scm_generator.generate()
-    scm_generator = SCMGenerator(
+    scm_generator = EquationBasedSCMGenerator(
         dag=dag,
         variable_types=variable_types,
         variable_domains=variable_domains,
         user_constraints={"max_terms": 2},
         allowed_operations=["+", "*"],
         allowed_functions=[lambda x: x**2],
-        noise_distributions={
-            "gaussian": norm(loc=0, scale=0.1),
-            "uniform": uniform(loc=-0.1, scale=0.2),
-        },
+        noise_distributions=[
+            GaussianNoiseDistribution(mean=0, std=1),
+            UniformNoiseDistribution(low=-1, high=1),
+        ],
         random_state=np.random.RandomState(seed),
     )
     scm_b = scm_generator.generate()
