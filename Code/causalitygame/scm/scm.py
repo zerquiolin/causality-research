@@ -9,6 +9,7 @@ from .dag import DAG
 
 # Nodes
 from causalitygame.scm import EquationBasedNumericalSCMNode, EquationBasedCategoricalSCMNode
+from causalitygame.scm.base import ACCESSIBILITY_CONTROLLABLE, ACCESSIBILITY_LATENT, ACCESSIBILITY_OBSERVABLE
 
 # Typing
 from typing import List, Dict, Optional
@@ -48,6 +49,22 @@ class SCM:
         self.nodes = {node.name: node for node in nodes}
         self.random_state = random_state
         self.name = name
+    
+    @property
+    def vars(self):
+        return sorted(self.nodes.keys())
+    
+    @property
+    def controllable_vars(self):
+        return [n.name for n in self.nodes.values() if n.accessibility == ACCESSIBILITY_CONTROLLABLE]
+    
+    @property
+    def observable_vars(self):
+        return [n.name for n in self.nodes.values() if n.accessibility in [ACCESSIBILITY_OBSERVABLE, ACCESSIBILITY_CONTROLLABLE]]
+    
+    @property
+    def latent_vars(self):
+        return [n.name for n in self.nodes.values() if n.accessibility == ACCESSIBILITY_LATENT]
 
     def get_random_state(self) -> np.random.RandomState:
         """
