@@ -62,7 +62,7 @@ deliverable_metrics = [
 
 game = Game(
     agents=agents,
-    game_spec="/Users/sergioamortegui/Desktop/Business/Research/Causality/Code/instances/game_instance.pkl",
+    game_spec="/Users/sergioamortegui/Desktop/Business/Research/Causality/Code/instances/bn_game_instance.json",
     behavior_metrics=behavior_metrics,
     deliverable_metrics=deliverable_metrics,
     max_rounds=100,  # game spec
