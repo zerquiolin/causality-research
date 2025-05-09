@@ -21,27 +21,24 @@ import logging
 
 class EquationBasedSCMNode:
 
-    def __init__(self, name, evaluation, domain, noise_distribution, accessibility = ..., parents = None, parent_mappings = None, random_state = ...):
-
-        # necessary to not break the MRO chain
-        super().__init__()
+    def __init__(self):
 
         # check that equations and parents coincide and memorize required symbols per node
         def get_symbols_for_formula_while_checking_that_those_are_declared(formula):
             symbols = set([str(s) for s in formula.free_symbols])
-            assert not symbols or parents is not None, f"No parents are given (None) even though the formula has symbols: {symbols}"
-            undeclared_symbols = symbols.difference(parents)
+            assert not symbols or self.parents is not None, f"No parents are given (None) even though the formula has symbols: {symbols}"
+            undeclared_symbols = symbols.difference(self.parents)
             assert not undeclared_symbols, f"Formula {formula} has undeclared variables {undeclared_symbols} that occur in the formula but not in the parents, which are specified as {parents}."
             return symbols
 
-        if isinstance(evaluation, dict):
+        if isinstance(self.evaluation, dict):
             self.symbols_needed_for_evaluation = {
                 eq_name: get_symbols_for_formula_while_checking_that_those_are_declared(eq)
-                for eq_name, eq in evaluation.items()
+                for eq_name, eq in self.evaluation.items()
                 if eq is not None
             }
         else:
-            self.symbols_needed_for_evaluation = get_symbols_for_formula_while_checking_that_those_are_declared(evaluation) if evaluation is not None else None
+            self.symbols_needed_for_evaluation = get_symbols_for_formula_while_checking_that_those_are_declared(self.evaluation) if self.evaluation is not None else None
 
 class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
     def generate_value(
@@ -190,7 +187,7 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
         return new_class
 
 
-class EquationBasedCategoricalSCMNode(EquationBasedSCMNode, BaseCategoricSCMNode):
+class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode):
     def __init__(
         self,
         name: str,

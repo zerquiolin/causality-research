@@ -213,6 +213,9 @@ class BaseSCMNode(ABC):
         self.parent_mappings = parent_mappings
         self.random_state = random_state
 
+        # this is just to not break the MRO
+        super().__init__()
+
     @abstractmethod
     def generate_value(
         self, parent_values: dict, random_state: np.random.RandomState
