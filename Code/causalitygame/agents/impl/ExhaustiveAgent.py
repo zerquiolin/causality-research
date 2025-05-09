@@ -9,6 +9,18 @@ from causalitygame.lib.scripts.pc import learn as learn_dag
 class ExhaustiveAgent(BaseAgent):
     _is_first_round = True
 
+    def inform(self, goal: str, behavior_metric: str, deliverable_metric: str):
+        """
+        Inform the agent about the goal, behavior metric, and deliverable.
+        """
+        # Store the goal, behavior metric, and deliverable
+        self._goal = goal
+        self._behavior_metric = behavior_metric
+        self._deliverable_metric = deliverable_metric
+
+        # Initialize the learned graph
+        self._learned_graph = None
+
     def choose_action(self, samples, actions, num_rounds):
         # Check if this is the first round
         if self._is_first_round:

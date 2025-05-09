@@ -32,7 +32,6 @@ class Environment:
         game_instance (GameInstance): The instance containing the SCM and initial configuration.
         agent (BaseAgent): The agent that makes intervention decisions.
         random_state (np.random.RandomState): Random State for reproducibility.
-        max_rounds (int): Maximum number of rounds before termination.
         current_round (int): The current round number.
         state (Dict): Dictionary holding the current datasets and final answer.
         history (List): List of dictionaries logging (round, state, action, action_object).
@@ -45,7 +44,6 @@ class Environment:
         game_instance: GameInstance,
         agent: BaseAgent,
         random_state: np.random.RandomState,
-        max_rounds: int = 10,
     ) -> None:
         """
         Initializes the Environment.
@@ -54,12 +52,10 @@ class Environment:
             game_instance (GameInstance): The game instance containing the SCM.
             agent (BaseAgent): The agent controlling interventions.
             random_state (np.random.RandomState): Random State for reproducibility.
-            max_rounds (int, optional): Maximum rounds before forced termination. Defaults to 10.
         """
         self.random_state: np.random.Generator = random_state
         self.game_instance: GameInstance = game_instance
         self.agent: BaseAgent = agent
-        self.max_rounds: int = max_rounds
         self.current_round: int = 0
         self.state: Dict[str, Any] = self.initialize_state()
         self.history: List[Dict[str, Any]] = (
@@ -239,7 +235,7 @@ class Environment:
         Returns:
             Tuple[Dict[str, Any], List[Dict[str, Any]]]: The final state and the history of state-action pairs.
         """
-        while self.current_round < self.max_rounds:
+        while self.current_round < self.game_instance.max_rounds:
             state = self.get_state()
             samples = state["datasets"]
             # TODO: filter samples to show only measurable nodes

@@ -181,10 +181,10 @@ class BaseSCMNode(ABC):
     def __init__(
         self,
         name: str,
-        accessibility: str,
         evaluation: Optional[Callable],
         domain: List[float | str],
         noise_distribution: BaseNoiseDistribution,
+        accessibility: str = ACCESSIBILITY_CONTROLLABLE,
         parents: Optional[List[str]] = None,
         parent_mappings: Optional[Dict[str, int | float]] = None,
         random_state: np.random.RandomState = np.random.RandomState(911),

@@ -1,5 +1,6 @@
 # Environment
 import json
+from causalitygame.agents.base import BaseAgent
 from causalitygame.game.Environment import Environment
 
 # Game Instance
@@ -30,11 +31,10 @@ from typing import List, Tuple, Union, Callable, Dict, Any
 class Game:
     def __init__(
         self,
-        agents: List[Tuple[str, Any]],
+        agents: List[Tuple[str, BaseAgent]],
         game_spec: str,
         behavior_metrics: List[Any],
         deliverable_metrics: List[Any],
-        max_rounds: int = 100,
         plambda: float = 0.8,
         seed: int = 911,
     ):
@@ -48,7 +48,6 @@ class Game:
         self.game_spec = game_spec
         self.behavior_metrics = behavior_metrics
         self.deliverable_metrics = deliverable_metrics
-        self.max_rounds = max_rounds
         self.plambda = plambda
         self.seed = seed
 
@@ -60,6 +59,7 @@ class Game:
         with open(self.game_spec, "r") as f:
             game_instance_data = f.read()
         game_instance = json.loads(game_instance_data)
+        print(game_instance["mission"])
         # Create a game instance
         game_instance = GameInstance.from_dict(game_instance)
 
@@ -74,7 +74,6 @@ class Game:
         env = Environment(
             game_instance=game_instance,
             agent=agent,
-            max_rounds=self.max_rounds,
             random_state=np.random.RandomState(self.seed),
         )
 
@@ -87,9 +86,16 @@ class Game:
           - 'eval'    (raw Evaluator results)
           - 'behavior_score', 'deliverable_score'
         """
-        for name, agent in tqdm(self.agents):
+        for name, agent in self.agents:
             # 1) Build a fresh environment
             env = self._make_env(agent)
+
+            # 1.1) Inform the agent about the game instance
+            agent.inform(
+                goal=env.game_instance.mission.__class__.__name__,
+                behavior_metric=env.game_instance.mission.behavior_metric.__class__.name,
+                deliverable_metric=env.game_instance.mission.deliverable_metric.__class__.name,
+            )
 
             # 2) Play the game
             final_state, final_history = env.run_game()
@@ -123,6 +129,9 @@ class Game:
                 "raw": raw_results,
                 "behavior_score": behavior_score,
                 "deliverable_score": deliverable_score,
+                "mission": env.game_instance.mission.evaluate(
+                    env.game_instance.scm, final_history
+                ),
             }
 
         return self.results

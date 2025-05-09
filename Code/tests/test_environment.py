@@ -3,7 +3,7 @@ import json
 import pytest
 from causalitygame.game.Environment import Environment
 from causalitygame.game.GameInstance import GameInstance
-from causalitygame.generators.scm_generator import SCMGenerator
+from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.generators.dag_generator import DAGGenerator
 from scipy.stats import norm, uniform
 import sympy as sp
@@ -60,7 +60,9 @@ for node, vtype in scm_constraints["variable_types"].items():
         scm_constraints["variable_domains"][node] = categories
 # Generate the SCM
 scm_random_state = np.random.RandomState(911)
-scm_gen = SCMGenerator(dag, **scm_constraints, random_state=np.random.RandomState(911))
+scm_gen = EquationBasedSCMGenerator(
+    dag, **scm_constraints, random_state=np.random.RandomState(911)
+)
 scm = scm_gen.generate()
 
 # Test GameInstance

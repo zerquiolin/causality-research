@@ -22,6 +22,15 @@ class RandomAgent(BaseAgent):
             "empty": [],
         }
 
+    def inform(self, goal: str, behavior_metric: str, deliverable_metric: str):
+        """
+        Inform the agent about the goal, behavior metric, and deliverable.
+        """
+        # Store the goal, behavior metric, and deliverable
+        self._goal = goal
+        self._behavior_metric = behavior_metric
+        self._deliverable_metric = deliverable_metric
+
     def choose_action(self, samples, actions, num_rounds):
         # Save the samples for future analysis
         self._merge_data(samples)

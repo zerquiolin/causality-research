@@ -75,7 +75,7 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
             "class": self.__class__.__name__,
             "name": self.name,
             "accessibility": self.accessibility,
-            "equation": str(self.evaluation),
+            "equation": str(self.evaluation) if self.evaluation else None,
             "domain": self.domain,
             "noise_distribution": self.noise_distribution.to_dict(),
             "parents": self.parents,
@@ -157,8 +157,8 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
             evaluation=evaluation,
             domain=data["domain"],
             noise_distribution=noise_distribution,
-            parents=data.get("parents"),
-            parent_mappings=data.get("parent_mappings"),
+            parents=data.get("parents", None),
+            parent_mappings=data.get("parent_mappings", None),
         )
         # Set the random state
         new_class.random_state = random_state
@@ -170,11 +170,11 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
     def __init__(
         self,
         name: str,
-        accessibility: str,
         evaluation: Optional[Callable],
         domain: List[float | str],
         noise_distribution: BaseNoiseDistribution,
         cdfs: Optional[List[Callable]] = None,
+        accessibility: str = ACCESSIBILITY_OBSERVABLE,
         parents: Optional[List[str]] = None,
         parent_mappings: Optional[Dict[str, int | float]] = None,
         domain_distribution: Optional[Dict[str, float]] = None,
@@ -255,7 +255,7 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         # Map categorical parent values
         substitutions = {
             symb: (
-                self.parent_mappings[symb][parent_values[symb]]
+                self.parent_mappings[symb][str(parent_values[symb])]
                 if symb in self.parent_mappings
                 else parent_values[symb]
             )
@@ -309,12 +309,20 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
             "class": self.__class__.__name__,
             "name": self.name,
             "accessibility": self.accessibility,
-            "equation": {cat: str(eq) for cat, eq in self.evaluation.items()},
+            "equation": (
+                {cat: str(eq) for cat, eq in self.evaluation.items()}
+                if self.evaluation
+                else None
+            ),
             "domain": self.domain,
             "noise_distribution": self.noise_distribution.to_dict(),
             "parents": self.parents,
             "parent_mappings": self.parent_mappings,
-            "cdfs": {cat: self.cdfs[cat].to_list() for cat in self.cdfs},
+            "cdfs": (
+                {cat: self.cdfs[cat].to_list() for cat in self.cdfs}
+                if self.cdfs
+                else None
+            ),
             "domain_distribution": self.domain_noise_distribution,
             "random_state": {
                 "state": state[0],
@@ -339,15 +347,20 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         # For categorical nodes, reconstruct the equation dictionary.
         evaluation = (
             {k: sp.sympify(v) for k, v in data["equation"].items()}
-            if "equation" in data
+            if "equation" in data and data["equation"] != None
             else None
         )
 
         # Reconstruct the CDF mappings from step points.
-        cdfs = {
-            cat: SerializableCDF.from_list(points)
-            for cat, points in data["cdfs"].items()
-        }
+        cdfs = (
+            {
+                cat: SerializableCDF.from_list(points)
+                for cat, points in data["cdfs"].items()
+            }
+            if data.get("cdfs", None)
+            else None
+        )
+
         # Deserialize the noise distribution
         noise_distribution = data["noise_distribution"]
         if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
@@ -478,11 +491,15 @@ class BayesianNetworkSCMNode:
         parents: list,
         values: list,
         probability_distribution: dict | list,
+        accessibility: str = ACCESSIBILITY_OBSERVABLE,
+        random_state: np.random.RandomState = np.random.RandomState(911),
     ):
         self.name = name
         self.parents = parents
         self.domain = values
         self.probability_distribution = probability_distribution
+        self.accessibility = accessibility
+        self.random_state = random_state
 
     def generate_value(self, parent_values: dict, random_state) -> str:
         """
@@ -494,8 +511,9 @@ class BayesianNetworkSCMNode:
         Returns:
             str: A sampled value from the node's distribution.
         """
+        rs = random_state if random_state else self.random_state
         distribution = self.get_distribution(parent_values)
-        return random_state.choice(self.domain, p=distribution)
+        return rs.choice(self.domain, p=distribution)
 
     def get_distribution(self, parent_values: dict) -> list:
         if not self.parents:
@@ -529,19 +547,45 @@ class BayesianNetworkSCMNode:
         return self.get_distribution(parent_values)
 
     def to_dict(self) -> dict:
-        return {
+        data = {
             "class": self.__class__.__name__,
             "name": self.name,
             "parents": self.parents,
             "values": self.domain,
+            "accessibility": self.accessibility,
             "probability_distribution": self.probability_distribution,
         }
+        if self.random_state:
+            state = self.random_state.get_state()
+            data["random_state"] = {
+                "state": state[0],
+                "keys": state[1].tolist(),
+                "pos": state[2],
+                "has_gauss": state[3],
+                "cached_gaussian": state[4],
+            }
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "BayesianNetworkSCMNode":
+        # Reconstruct the random state.
+        random_state = None
+        if "random_state" in data:
+            random_state = np.random.RandomState()
+            random_state.set_state(
+                (
+                    str(data["random_state"]["state"]),
+                    np.array(data["random_state"]["keys"], dtype=np.uint32),
+                    int(data["random_state"]["pos"]),
+                    int(data["random_state"]["has_gauss"]),
+                    float(data["random_state"]["cached_gaussian"]),
+                )
+            )
         return cls(
             name=data["name"],
             parents=data["parents"],
             values=data["values"],
             probability_distribution=data["probability_distribution"],
+            accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
+            random_state=random_state,
         )
