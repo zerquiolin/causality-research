@@ -9,7 +9,7 @@ from causalitygame.scm.noise_distributions import (
 )
 
 # Abstract Base Class
-from .base import BaseNoiseDistribution, BaseSCMNode, ACCESSIBILITY_OBSERVABLE
+from .base import BaseNoiseDistribution, BaseNumericSCMNode, BaseCategoricSCMNode, ACCESSIBILITY_OBSERVABLE
 
 # Types
 from typing import Callable, Dict, List, Optional
@@ -19,7 +19,31 @@ from collections import Counter
 import logging
 
 
-class EquationBasedNumericalSCMNode(BaseSCMNode):
+class EquationBasedSCMNode:
+
+    def __init__(self, name, evaluation, domain, noise_distribution, accessibility = ..., parents = None, parent_mappings = None, random_state = ...):
+
+        # necessary to not break the MRO chain
+        super().__init__()
+
+        # check that equations and parents coincide and memorize required symbols per node
+        def get_symbols_for_formula_while_checking_that_those_are_declared(formula):
+            symbols = set([str(s) for s in formula.free_symbols])
+            assert not symbols or parents is not None, f"No parents are given (None) even though the formula has symbols: {symbols}"
+            undeclared_symbols = symbols.difference(parents)
+            assert not undeclared_symbols, f"Formula {formula} has undeclared variables {undeclared_symbols} that occur in the formula but not in the parents, which are specified as {parents}."
+            return symbols
+
+        if isinstance(evaluation, dict):
+            self.symbols_needed_for_evaluation = {
+                eq_name: get_symbols_for_formula_while_checking_that_those_are_declared(eq)
+                for eq_name, eq in evaluation.items()
+                if eq is not None
+            }
+        else:
+            self.symbols_needed_for_evaluation = get_symbols_for_formula_while_checking_that_those_are_declared(evaluation) if evaluation is not None else None
+
+class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
     def generate_value(
         self,
         parent_values: Dict[str, float | str | int],
@@ -42,7 +66,7 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
         substitutions = {
             symb: (
                 self.parent_mappings[symb]
-                if symb in self.parent_mappings
+                if self.parent_mappings is not None and symb in self.parent_mappings
                 else parent_values[symb]
             )
             for symb in symbols
@@ -166,7 +190,7 @@ class EquationBasedNumericalSCMNode(BaseSCMNode):
         return new_class
 
 
-class EquationBasedCategoricalSCMNode(BaseSCMNode):
+class EquationBasedCategoricalSCMNode(EquationBasedSCMNode, BaseCategoricSCMNode):
     def __init__(
         self,
         name: str,
@@ -234,30 +258,33 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         parent_values: Dict[str, float | str | int],
         random_state: Optional[np.random.RandomState] = np.random.RandomState(911),
     ):
+
         # Define random state
         rs = random_state if random_state else self.random_state
+
         # Check if the node has parents
         if not self.parents:
             return rs.choice(
                 list(self.domain_noise_distribution.keys()),
                 p=list(self.domain_noise_distribution.values()),
             )
-        # Get the evaluation symbols for evaluation
+        else:
+            missing_parents = set(self.parents).difference(set(parent_values.keys()))
+            assert not missing_parents, f"Cannot generate value for {self.name} as no values provided for some parents: {missing_parents}"
+        
+        # Check that all parent values are provided
         symbols = set()
-        for eq in self.evaluation.values():
-            symbols.update(eq.free_symbols)
-        symbols = [str(symb) for symb in symbols]  # Parsed for easier comparison
-        # Check if the parent values are provided
-        assert set(symbols).issubset(
-            parent_values.keys()
-        ), "Parent values do not match the expected symbols"
+        for eq_name, eq in self.evaluation.items():
+            missing_values = self.symbols_needed_for_evaluation[eq_name].difference(parent_values.keys())
+            assert not missing_values, f"Cannot evaluate formula {eq} of variable {self.name} because no values are provided for parent {missing_values}"
+            symbols.update(self.symbols_needed_for_evaluation[eq_name])
 
         # Map categorical parent values
         substitutions = {
             symb: (
-                self.parent_mappings.get(str(parent_values[symb]), None)
-                or self.parent_mappings.get(int(parent_values[symb]), None)
-                if symb not in self.parent_mappings
+                self.parent_mappings[symb].get(str(parent_values[symb]), None)
+                or self.parent_mappings[symb].get(int(parent_values[symb]), None)
+                if symb in self.parent_mappings
                 else parent_values[symb]
             )
             for symb in symbols
@@ -266,6 +293,7 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         # Evaluate the expression
         evaluations = {}
         for possible_category, eq in self.evaluation.items():
+
             # Evaluate the expression
             evaluated = eq.subs(substitutions).evalf()
             assert evaluated.is_number, "Evaluation failed"
@@ -403,7 +431,7 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         return new_class
 
 
-class FullyCategoricalSCMNode(BaseSCMNode):
+class FullyCategoricalSCMNode(BaseCategoricSCMNode):
     def generate_value(
         self,
         parent_values: Dict[str, float | str | int],
@@ -486,7 +514,7 @@ class SerializableCDF:
         return cls(np.array(data))
 
 
-class BayesianNetworkSCMNode:
+class BayesianNetworkSCMNode(BaseCategoricSCMNode):
     def __init__(
         self,
         name: str,
@@ -502,6 +530,21 @@ class BayesianNetworkSCMNode:
         self.probability_distribution = probability_distribution
         self.accessibility = accessibility
         self.random_state = random_state
+
+        # sanity check of given distribution
+        if isinstance(probability_distribution, list):
+            assert all([isinstance(v, (float, np.float64)) for v in probability_distribution]), f"invalid entries in distribution for {name}: {probability_distribution}"
+            s = np.sum(probability_distribution)
+            assert np.isclose(s, 1), f"Invalid distribution for leaf node {name}, which sum up to {sum(probability_distribution)}: {probability_distribution}"
+            if s != 1:
+                    self.probability_distribution /= s
+        else:
+            for parent_combo, distribution in probability_distribution.items():
+                assert all([isinstance(v, (float, np.float64)) for v in distribution]), f"invalid entries in distribution for {name}: {distribution}"
+                s = np.sum(distribution)
+                assert np.isclose(s, 1), f"Invalid distribution for parent combination {parent_combo} node {name}, which sum up to {sum(distribution)}: {distribution}"
+                if s != 1:
+                    probability_distribution[parent_combo] /= s
 
     def generate_value(self, parent_values: dict, random_state) -> str:
         """
@@ -587,7 +630,7 @@ class BayesianNetworkSCMNode:
             name=data["name"],
             parents=data["parents"],
             values=data["values"],
-            probability_distribution=data["probability_distribution"],
+            probability_distribution=data["probability_distribution"] if data["parents"] else [v[0] for v in data["probability_distribution"]],
             accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
             random_state=random_state,
         )

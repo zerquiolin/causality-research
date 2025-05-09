@@ -49,6 +49,7 @@ scm_generator = EquationBasedSCMGenerator(
         UniformNoiseDistribution(low=-1, high=1),
     ],
     random_state=np.random.RandomState(911),
+    num_samples_for_cdf_generation=10
 )
 scm = scm_generator.generate()
 

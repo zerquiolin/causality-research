@@ -13,7 +13,7 @@ from causalitygame.generators.dag_generator import DAGGenerator
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 
 
-def gen_binary_scm(random_state: int = 42):
+def gen_binary_scm(random_state: int = 42, num_samples_for_cdf_generation=10**3):
     rs = np.random.RandomState(random_state)
     # Generate a DAG
     dag_gen = DAGGenerator(
@@ -52,7 +52,7 @@ def gen_binary_scm(random_state: int = 42):
 
     # Generate the SCM
     # scm_gen = SCMGenerator(dag, **scm_constraints, random_state=scm_random_state)
-    scm_gen = EquationBasedSCMGenerator(dag, **scm_constraints, random_state=rs)
+    scm_gen = EquationBasedSCMGenerator(dag, **scm_constraints, random_state=rs, num_samples_for_cdf_generation=num_samples_for_cdf_generation)
     scm = scm_gen.generate()
 
     return dag, scm

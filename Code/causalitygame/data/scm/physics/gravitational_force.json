@@ -3,7 +3,7 @@
         {
             "name": "F",
             "equation": "G*m1*m2/r**2",
-            "domain": [0, 1e11],
+            "domain": [0, 1e100],
             "class": "EquationBasedNumericalSCMNode"
         },
         {

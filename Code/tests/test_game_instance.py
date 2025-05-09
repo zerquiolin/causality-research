@@ -30,7 +30,7 @@ logger.setLevel(logging.DEBUG)
     [
         (
             100,
-            *gen_binary_scm(42),
+            *gen_binary_scm(42, num_samples_for_cdf_generation=10),
             DAGInferenceMission(ExperimentsBehaviorMetric(), SHDDeliverableMetric()),
             42,
         )

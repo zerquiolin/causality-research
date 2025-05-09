@@ -237,3 +237,9 @@ class BaseSCMNode(ABC):
     @abstractmethod
     def from_dict(cls, data: dict) -> "BaseSCMNode":
         raise NotImplementedError("Subclasses must implement this method.")
+
+class BaseNumericSCMNode(BaseSCMNode):
+    pass
+
+class BaseCategoricSCMNode(BaseSCMNode):
+    pass

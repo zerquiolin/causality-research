@@ -3,7 +3,7 @@
         {
             "name": "F",
             "equation": "a*m",
-            "domain": [-1e11, 1e11],
+            "domain": [-1e11, 1e23],
             "class": "EquationBasedNumericalSCMNode"
         },
         {

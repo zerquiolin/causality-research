@@ -4,7 +4,7 @@
       {
         "name": "P",
         "equation": "R*T*n/V",
-        "domain": [0, 1e11],
+        "domain": [0, 1e100],
         "class": "EquationBasedNumericalSCMNode"
       },
       {

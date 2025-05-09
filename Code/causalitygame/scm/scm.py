@@ -199,6 +199,11 @@ class SCM:
         for node_as_dict in sorted(
             data["vars"], key=lambda n: topological_order.index(n["name"])
         ):
+            
+            # extract parents from edges if they are not explicitly given
+            if not "parents" in node_as_dict:
+                node_as_dict["parents"] = [e[0] for e in edges if e[1] == node_as_dict["name"]]
+
             if node_as_dict["class"] == EquationBasedNumericalSCMNode.__name__:
                 node = EquationBasedNumericalSCMNode.from_dict(node_as_dict)
             elif node_as_dict["class"] == EquationBasedCategoricalSCMNode.__name__:

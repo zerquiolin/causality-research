@@ -9,13 +9,13 @@
         {
             "name": "Vrms",
             "class": "EquationBasedNumericalSCMNode",
-            "domain": [0, 1e10],
+            "domain": [0, 1e5],
             "accessibility": "controllable"
         },
         {
             "name": "Irms",
             "class": "EquationBasedNumericalSCMNode",
-            "domain": [0, 1e10],
+            "domain": [0, 1e5],
             "accessibility": "controllable"
         },
         {

@@ -3,7 +3,7 @@
         {
             "name": "F",
             "equation": "-k*x",
-            "domain": [-1e11, 1e11],
+            "domain": [-1e11, 1e23],
             "class": "EquationBasedNumericalSCMNode"
         },
         {
@@ -18,5 +18,5 @@
             "accessibility": "controllable"
         }
     ],
-    "edges": [["k", "x"], ["k", "F"]]
+    "edges": [["x", "F"], ["k", "F"]]
 }
