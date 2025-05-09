@@ -255,12 +255,14 @@ class EquationBasedCategoricalSCMNode(BaseSCMNode):
         # Map categorical parent values
         substitutions = {
             symb: (
-                self.parent_mappings[symb][str(parent_values[symb])]
-                if symb in self.parent_mappings
+                self.parent_mappings.get(str(parent_values[symb]), None)
+                or self.parent_mappings.get(int(parent_values[symb]), None)
+                if symb not in self.parent_mappings
                 else parent_values[symb]
             )
             for symb in symbols
         }
+
         # Evaluate the expression
         evaluations = {}
         for possible_category, eq in self.evaluation.items():
