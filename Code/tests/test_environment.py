@@ -1,10 +1,17 @@
 from itertools import permutations
 import json
 import pytest
+from causalitygame.evaluators.impl.BehaviorMetrics import ExperimentsBehaviorMetric
+from causalitygame.evaluators.impl.DeliverableMetrics import SHDDeliverableMetric
 from causalitygame.game.Environment import Environment
 from causalitygame.game.GameInstance import GameInstance
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.generators.dag_generator import DAGGenerator
+from causalitygame.mission.impl.DAGInferenceMission import DAGInferenceMission
+from causalitygame.scm.noise_distributions import (
+    GaussianNoiseDistribution,
+    UniformNoiseDistribution,
+)
 from scipy.stats import norm, uniform
 import sympy as sp
 import numpy as np
@@ -24,50 +31,37 @@ dag = DAGGenerator(
 ).generate()
 
 # Test SCM
-scm_random_state = np.random.RandomState(911)
-scm_constraints = {
-    "variable_types": {
-        f"X{i}": "numerical" if scm_random_state.rand() < 0.8 else "categorical"
-        for i in range(1, 11)
-    },
-    "variable_domains": {},
-    "user_constraints": {
-        "max_terms": 3,
-        "allow_non_linearity": True,
-        "allow_variable_exponents": True,
-    },
-    "allowed_operations": ["+", "-", "*", "/"],
-    "allowed_functions": [sp.sin, sp.exp, sp.log],
-    "noise_distributions": {
-        "gaussian": norm(loc=0, scale=0.1),
-        "uniform": uniform(loc=-0.1, scale=0.2),
-    },
-}
-# Define variable domains
-for node, vtype in scm_constraints["variable_types"].items():
-    if vtype == "numerical":
-        # For numerical nodes, assign a random interval.
-        # Here, we choose lower bound between -10 and -1, and upper bound between 1 and 10.
-        lower = scm_random_state.randint(-10, -1)
-        upper = scm_random_state.randint(1, 10)
-        scm_constraints["variable_domains"][node] = (lower, upper)
-    else:
-        # For categorical nodes, assign a random list of categories.
-        # For example, generate between 2 and 4 categories using letters.
-        num_categories = scm_random_state.randint(2, 4)
-        # This will generate categories like ['A', 'B', 'C'].
-        categories = [chr(65 + i) for i in range(num_categories)]
-        scm_constraints["variable_domains"][node] = categories
-# Generate the SCM
-scm_random_state = np.random.RandomState(911)
-scm_gen = EquationBasedSCMGenerator(
-    dag, **scm_constraints, random_state=np.random.RandomState(911)
+num_nodes = 10
+variable_types = {f"X{i}": "numerical" for i in range(1, num_nodes)}
+variable_types[f"X{num_nodes}"] = "categorical"
+variable_domains = {f"X{i}": (-1, 1) for i in range(1, num_nodes)}
+variable_domains[f"X{num_nodes}"] = ["A", "B", "C"]
+
+scm_generator = EquationBasedSCMGenerator(
+    dag=dag,
+    variable_types=variable_types,
+    variable_domains=variable_domains,
+    user_constraints={"max_terms": 2},
+    allowed_operations=["+", "*"],
+    allowed_functions=[lambda x: x**2],
+    noise_distributions=[
+        GaussianNoiseDistribution(mean=0, std=1),
+        UniformNoiseDistribution(low=-1, high=1),
+    ],
+    random_state=np.random.RandomState(911),
 )
-scm = scm_gen.generate()
+scm = scm_generator.generate()
+
 
 # Test GameInstance
+# Generate a mission
+behavior_metric = ExperimentsBehaviorMetric()
+deliverable_metric = SHDDeliverableMetric()
+mission = DAGInferenceMission(
+    behavior_metric=behavior_metric, deliverable_metric=deliverable_metric
+)
 game_instance_random_state = np.random.RandomState(911)
-game_instance = GameInstance(scm, game_instance_random_state)
+game_instance = GameInstance(100, scm, mission, game_instance_random_state)
 
 
 @pytest.mark.parametrize(
