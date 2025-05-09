@@ -1,6 +1,6 @@
 import numpy as np
 from causalitygame.translators.base import BaseBayesianNetworkTranslator
-from causalitygame.scm.nodes import BayesianNetworkSCMNode
+from causalitygame.scm.node.nodes import BayesianNetworkSCMNode
 import networkx as nx
 from causalitygame.scm.dag import DAG
 from causalitygame.scm.scm import SCM

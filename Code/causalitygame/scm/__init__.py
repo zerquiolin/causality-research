@@ -1,2 +1,2 @@
-from causalitygame.scm.nodes import EquationBasedCategoricalSCMNode, EquationBasedNumericalSCMNode, FullyCategoricalSCMNode
-from causalitygame.scm.scm import SCM
+from causalitygame.scm.node.sympy import EquationBasedCategoricalSCMNode, EquationBasedNumericalSCMNode
+from causalitygame.scm.base import SCM

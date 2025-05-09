@@ -1,5 +1,6 @@
 from pathlib import Path
 from causalitygame.scm import SCM
+from causalitygame.scm.node.base import BaseNumericSCMNode, BaseCategoricSCMNode
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ def get_scm_overview(folder=None):
     
     # define folder
     if folder is None:
-        folder = "data/scm"
+        folder = f"{Path(__file__).parent}/../data/scm"
     
     # recursively read all JSON files in folder
     path = Path(folder)
@@ -25,24 +26,24 @@ def get_scm_overview(folder=None):
                 # initialize variables
                 num_nodes = None
                 num_edges = None
-                types_per_counts = None
+                num_numerical_nodes = None
+                num_categorical_nodes = None
                 out_degrees = None
                 in_degrees = None
 
                 try:
                     scm_json = json.load(h)
+                    scm = SCM.from_dict(scm_json)
 
-                    dag = scm_json["dag"]
-                    nodes = dag["nodes"]
-                    edges = dag["edges"]
-                    defs = scm_json["scm"]["vars"]
+                    dag = scm.dag
+                    nodes = dag.nodes
+                    edges = dag.edges
                     num_nodes = len(nodes)
                     num_edges = len(edges)
                     
                     # count number of nodes per data type
-                    types_per_counts = {}
-                    for dtype, cnt in zip(*np.unique([v["var_type"] for v in defs.values()], return_counts=True)):
-                        types_per_counts[str(dtype)] = int(cnt)
+                    num_numerical_nodes = len([1 for v in scm.nodes.values() if isinstance(v, BaseNumericSCMNode)])
+                    num_categorical_nodes = len([1 for v in scm.nodes.values() if isinstance(v, BaseCategoricSCMNode)])
                     
                     # check in-degrees and out-degrees of the variables
                     out_degrees = {v: len([1 for e in edges if e[0] == v]) for v in nodes}
@@ -62,8 +63,8 @@ def get_scm_overview(folder=None):
                     len([v for v, d in out_degrees.items() if d == 0]) if out_degrees is not None else None,
                     max(in_degrees.values()) if in_degrees is not None else None,
                     max(out_degrees.values()) if out_degrees is not None else None,
-                    types_per_counts.get("categorical", 0) if types_per_counts is not None else None,
-                    types_per_counts.get("numerical", 0) if types_per_counts is not None else None,
+                    num_categorical_nodes,
+                    num_numerical_nodes,
                     f
                 ])
     return pd.DataFrame(

@@ -1,14 +1,33 @@
-# Abstract
-from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Tuple
+# Math
 import numpy as np
 
-# DAG
+# Graph
 import networkx as nx
 
-ACCESSIBILITY_LATENT = "latent"
-ACCESSIBILITY_OBSERVABLE = "observable"
-ACCESSIBILITY_CONTROLLABLE = "controllable"
+# Nodes
+from causalitygame.scm.node.base import (
+    ACCESSIBILITY_CONTROLLABLE,
+    ACCESSIBILITY_LATENT,
+    ACCESSIBILITY_OBSERVABLE,
+    BaseSCMNode
+)
+
+# Typing
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+# Abstract
+from abc import ABC, abstractmethod
+
+# Imports
+import importlib
+
+
+def get_class(fqcn: str):
+    pos_of_last_point = fqcn.rindex(".")
+    module_name = fqcn[:pos_of_last_point]
+    class_name = fqcn[pos_of_last_point + 1:]
+    mod = importlib.import_module(module_name)
+    return getattr(mod, class_name)
 
 
 class BaseDAG(ABC):
@@ -116,133 +135,205 @@ class BaseDAG(ABC):
         raise NotImplementedError("Subclasses must implement this method.")
 
 
-class BaseSCM(ABC):
-    @abstractmethod
-    def get_random_state(self) -> np.random.RandomState:
-        pass
+class SCM:
+    """
+    Structural Causal Model (SCM) that represents a system of variables with causal dependencies.
 
-    @abstractmethod
+    It generates data samples according to a DAG and a collection of SCMNodes, where each node defines
+    a data generation function. The nodes are evaluated in topological order of the DAG, respecting
+    causal dependencies.
+
+    Attributes:
+        dag (DAG): The underlying directed acyclic graph defining variable dependencies.
+        nodes (List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode]): List of nodes in topological order.
+        random_state (np.random.RandomState): Random number generator for reproducibility.
+    """
+
+    def __init__(
+        self,
+        dag: BaseDAG,
+        nodes: List[BaseSCMNode],
+        random_state: np.random.RandomState,
+        name=None,
+    ):
+        """
+        Initializes the SCM with a DAG, a list of nodes, and a random number generator.
+
+        Args:
+            dag (DAG): The DAG representing the causal structure.
+            nodes (List[SCMNode]): List of SCMNode instances in topological order.
+            random_state (np.random.RandomState): NumPy random number generator.
+            name (str): Name of the SCM
+        """
+        self.dag = dag
+        self.nodes = {node.name: node for node in nodes}
+        self.random_state = random_state
+        self.name = name
+
+    @property
+    def vars(self):
+        return sorted(self.nodes.keys())
+
+    @property
+    def controllable_vars(self):
+        return [
+            n.name
+            for n in self.nodes.values()
+            if n.accessibility == ACCESSIBILITY_CONTROLLABLE
+        ]
+
+    @property
+    def observable_vars(self):
+        return [
+            n.name
+            for n in self.nodes.values()
+            if n.accessibility in [ACCESSIBILITY_OBSERVABLE, ACCESSIBILITY_CONTROLLABLE]
+        ]
+
+    @property
+    def latent_vars(self):
+        return [
+            n.name
+            for n in self.nodes.values()
+            if n.accessibility == ACCESSIBILITY_LATENT
+        ]
+
+    def get_random_state(self) -> np.random.RandomState:
+        """
+        Returns the SCM's random number generator.
+
+        Returns:
+            np.random.RandomState: The random generator used for sampling.
+        """
+        return self.random_state
+
+    def _generate_sample(
+        self,
+        interventions: Dict[str, float] = {},
+        random_state: Optional[np.random.RandomState] = None,
+    ) -> Dict[str, float]:
+        """
+        Generates a single sample from the SCM.
+
+        Args:
+            interventions (Dict[str, float], optional): A dictionary of variable names and values to intervene on.
+            random_state (np.random.RandomState, optional): A custom random generator. Defaults to self.random_state.
+
+        Returns:
+            Dict[str, float]: A dictionary mapping variable names to sampled values.
+        """
+        rs = random_state or self.random_state
+        sample = {}
+
+        for node_name, node in [
+            (node_name, self.nodes[node_name])
+            for node_name in list(nx.topological_sort(self.dag.graph))
+        ]:
+            if node_name in interventions:
+                sample[node_name] = interventions[node_name]
+            else:
+                value = node.generate_value(sample, random_state=rs)
+                sample[node_name] = value
+
+        return sample
+
     def generate_samples(
         self,
         interventions: Dict[str, float] = {},
         num_samples: int = 1,
         random_state: Optional[np.random.RandomState] = None,
     ) -> List[Dict[str, float]]:
-        pass
-
-    @abstractmethod
-    def to_dict(self) -> Dict:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def from_dict(cls, data: Dict) -> "BaseSCM":
-        pass
-
-
-class BaseNoiseDistribution(ABC):
-    def generate(self, random_state: Optional[int] = 911) -> float:
         """
-        Generates a noise value using the provided random state.
+        Generates multiple samples from the SCM.
 
         Args:
-            random_state (int, optional): Seed for random number generation. Defaults to 911.
+            interventions (Dict[str, float], optional): Interventions to apply to nodes.
+            num_samples (int): Number of samples to generate.
+            random_state (np.random.RandomState, optional): Optional random generator for reproducibility.
 
         Returns:
-            float: A generated noise value.
+            List[Dict[str, float]]: A list of sample dictionaries.
         """
-        return self.noise.rsv(random_state=random_state)
+        rs = random_state or self.random_state
+        return [
+            self._generate_sample(interventions, random_state=rs)
+            for _ in range(num_samples)
+        ]
 
-    @abstractmethod
     def to_dict(self) -> Dict:
         """
-        Serializes the noise object into a dictionary format.
+        Serializes the SCM to a dictionary format.
 
         Returns:
-            Dict: The dictionary representation of the noise object.
+            Dict: A dictionary representing the SCM's structure and state.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
+        # Serialize nodes and their parameters
+        nodes_data = [node.to_dict() for node in self.nodes.values()]
 
-    @abstractmethod
-    def from_dict(cls, data: Dict) -> "BaseNoiseDistribution":
-        """
-        Deserializes the noise object from a dictionary representation.
+        # Serialize the random state
+        state = self.random_state.get_state()
+        state_dict = {
+            "state": state[0],
+            "keys": state[1].tolist(),
+            "pos": state[2],
+            "has_gauss": state[3],
+            "cached_gaussian": state[4],
+        }
 
-        Args:
-            data (Dict): The dictionary containing noise data.
-
-        Returns:
-            BaseNoise: An instance of a noise object reconstructed from the data.
-        """
-        raise NotImplementedError("Subclasses must implement this method.")
-
-
-class BaseSCMNode(ABC):
-    def __init__(
-        self,
-        name: str,
-        evaluation: Optional[Callable],
-        domain: List[float | str],
-        noise_distribution: BaseNoiseDistribution,
-        accessibility: str = ACCESSIBILITY_CONTROLLABLE,
-        parents: Optional[List[str]] = None,
-        parent_mappings: Optional[Dict[str, int | float]] = None,
-        random_state: np.random.RandomState = np.random.RandomState(911),
-    ):
-        """
-        SCMNode is class representing a node in a Structural Causal Model (SCM).
-        It encapsulates the node's name, evaluation function, domain of possible values,
-        parent nodes, and a random state for generating random values.
-
-        Args:
-            name (str): The name of the node.
-            accessibility (str): accessibility of this variable by the agent (latent, observable, or controllable)
-            evaluation (Callable): A function to evaluate the node's value based on its parents.
-            domain (List[float | str]): The domain of possible values for the node.
-            parents (List[str]): A list of parent node names.
-            random_state (np.random.RandomState): Random state for generating random values.
-        """
-        self.name = name
-        self.accessibility = accessibility
-        self.evaluation = evaluation
-        self.domain = domain
-        if not isinstance(domain, list):
-            self.domain = list(self.domain)
-        self.noise_distribution = noise_distribution
-        self.parents = parents
-        self.parent_mappings = parent_mappings
-        self.random_state = random_state
-
-        # this is just to not break the MRO
-        super().__init__()
-
-    @abstractmethod
-    def generate_value(
-        self, parent_values: dict, random_state: np.random.RandomState
-    ) -> float | str:
-        """
-        Generates a value for the node based on its parents and noise.
-
-        Args:
-            parent_values (dict): A dictionary of parent node values.
-            random_state (np.random.RandomState): Random state for generating random values.
-
-        Returns:
-            float | str: The generated value for the node.
-        """
-        raise NotImplementedError("Subclasses must implement this method.")
-
-    @abstractmethod
-    def to_dict(self) -> dict:
-        raise NotImplementedError("Subclasses must implement this method.")
+        return {
+            "vars": nodes_data,
+            "edges": self.dag.to_dict()["edges"],
+            "random_state": state_dict,
+        }
 
     @classmethod
-    @abstractmethod
-    def from_dict(cls, data: dict) -> "BaseSCMNode":
-        raise NotImplementedError("Subclasses must implement this method.")
+    def from_dict(cls, data: Dict) -> "SCM":
+        """
+        Deserializes an SCM instance from a dictionary.
 
-class BaseNumericSCMNode(BaseSCMNode):
-    pass
+        Args:
+            data (Dict): Dictionary containing SCM structure and state.
 
-class BaseCategoricSCMNode(BaseSCMNode):
-    pass
+        Returns:
+            SCM: A new SCM instance.
+        """
+
+        from causalitygame.scm.dag import DAG  # TODO
+
+        # Reconstruct the DAG from the dictionary
+        nodes = [v["name"] for v in data["vars"]]
+        edges = data["edges"]
+        dag = DAG.from_dict({"nodes": nodes, "edges": edges})
+
+        # Ensure nodes are sorted in topological order
+        topological_order = list(nx.topological_sort(dag.graph))
+        nodes = []
+
+        # Create nodes in topological order
+        for node_as_dict in sorted(
+            data["vars"], key=lambda n: topological_order.index(n["name"])
+        ):
+            
+            # extract parents from edges if they are not explicitly given
+            if not "parents" in node_as_dict:
+                node_as_dict["parents"] = [e[0] for e in edges if e[1] == node_as_dict["name"]]
+
+            # get node object
+            fully_qualified_class_name = node_as_dict["class"] if "." in node_as_dict["class"] else f"causalitygame.scm.node.{node_as_dict["class"]}"
+            node_class = get_class(fully_qualified_class_name)
+            node = node_class.from_dict(node_as_dict)
+            nodes.append(node)
+
+        # Reconstruct the random state
+        random_state = np.random.RandomState(911)
+        if "random_state" in data:
+            state_tuple = (
+                str(data["random_state"]["state"]),
+                np.array(data["random_state"]["keys"], dtype=np.uint32),
+                int(data["random_state"]["pos"]),
+                int(data["random_state"]["has_gauss"]),
+                float(data["random_state"]["cached_gaussian"]),
+            )
+            random_state.set_state(state_tuple)
+
+        return cls(dag, nodes, random_state)

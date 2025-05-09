@@ -6,9 +6,12 @@ import sympy as sp
 import networkx as nx
 
 # SCM
-from causalitygame.scm.base import ACCESSIBILITY_CONTROLLABLE
-from causalitygame.scm.scm import SCM
-from causalitygame.scm.nodes import (
+from causalitygame.scm.node.base import (
+    ACCESSIBILITY_CONTROLLABLE,
+    BaseNoiseDistribution
+)
+from causalitygame.scm.base import SCM
+from causalitygame.scm.node.sympy import (
     EquationBasedNumericalSCMNode,
     EquationBasedCategoricalSCMNode,
     SerializableCDF,
@@ -16,9 +19,6 @@ from causalitygame.scm.nodes import (
 
 # DAG
 from causalitygame.scm.dag import DAG
-
-# Types
-from causalitygame.scm.base import BaseNoiseDistribution
 
 # Abstract
 from typing import Dict, Any, List, Tuple, Callable
