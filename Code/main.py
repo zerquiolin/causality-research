@@ -60,12 +60,14 @@ deliverable_metrics = [
     EdgeAccuracyDeliverableMetric(),
 ]
 
+bayesian_network_instance = "/Users/sergioamortegui/Desktop/Business/Research/Causality/Code/instances/bn_game_instance.json"
+equation_based_instance = "/Users/sergioamortegui/Desktop/Business/Research/Causality/Code/instances/game_instance.json"
+
 game = Game(
     agents=agents,
-    game_spec="/Users/sergioamortegui/Desktop/Business/Research/Causality/Code/instances/bn_game_instance.json",
+    game_spec=equation_based_instance,
     behavior_metrics=behavior_metrics,
     deliverable_metrics=deliverable_metrics,
-    max_rounds=100,  # game spec
     plambda=0.8,
     seed=911,
 )

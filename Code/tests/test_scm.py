@@ -16,7 +16,7 @@ import logging
 
 # define stream handler
 ch = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 ch.setFormatter(formatter)
 ch.setLevel(logging.DEBUG)
 
@@ -51,6 +51,7 @@ test_dag_b = DAGGenerator(
     random_state=np.random.RandomState(42),
 ).generate()
 
+
 def assert_dicts_equal(d1, d2, path="", msg="", atol=None):
     for key in d1:
         assert key in d2, f"Key '{path + key}' missing in second dict"
@@ -58,12 +59,15 @@ def assert_dicts_equal(d1, d2, path="", msg="", atol=None):
             assert_dicts_equal(d1[key], d2[key], path=path + key + ".", msg=msg)
         else:
             if type(d1[key]) in [float, np.float64] and atol is not None:
-                assert np.isclose(d1[key], d2[key], atol=atol), f"{msg}\nValue mismatch at '{path + key}': {d1[key]} != {d2[key]}"
+                assert np.isclose(
+                    d1[key], d2[key], atol=atol
+                ), f"{msg}\nValue mismatch at '{path + key}': {d1[key]} != {d2[key]}"
             else:
-                assert d1[key] == d2[key], f"{msg}\nValue mismatch at '{path + key}': {d1[key]} != {d2[key]}"
+                assert (
+                    d1[key] == d2[key]
+                ), f"{msg}\nValue mismatch at '{path + key}': {d1[key]} != {d2[key]}"
     for key in d2:
         assert key in d1, f"{msg}\nKey '{path + key}' missing in first dict"
-
 
 
 @pytest.mark.parametrize(
@@ -230,7 +234,7 @@ def test_scm_serialization(dag, num_nodes, seed):
         ],
         random_state=np.random.RandomState(seed),
         num_samples_for_cdf_generation=10,
-        logger=logger
+        logger=logger,
     )
     scm = scm_generator.generate()
 
@@ -278,9 +282,9 @@ def test_scm_deserialization(dag, num_nodes, seed):
         ],
         random_state=np.random.RandomState(seed),
         num_samples_for_cdf_generation=10,
-        logger=logger
+        logger=logger,
     )
-    
+
     logger.debug("Generating SCM")
     scm = scm_generator.generate()
 
@@ -291,7 +295,7 @@ def test_scm_deserialization(dag, num_nodes, seed):
     # Deserialize the SCM
     logger.debug("Recovering SCM from dictionary")
     scm_deserialized = SCM.from_dict(scm_data)
-    
+
     # simulate JSON serialization
     logger.debug("Marshalling and unmarshalling dictionary to json")
     scm_deserialized_json = SCM.from_dict(json.loads(json.dumps(scm_data)))
@@ -300,14 +304,22 @@ def test_scm_deserialization(dag, num_nodes, seed):
     for node_a, node_b, node_c in zip(
         sorted(scm.nodes.values(), key=lambda n: n.name),
         sorted(scm_deserialized.nodes.values(), key=lambda n: n.name),
-        sorted(scm_deserialized_json.nodes.values(), key=lambda n: n.name)
+        sorted(scm_deserialized_json.nodes.values(), key=lambda n: n.name),
     ):
         assert node_a.name == node_b.name
         assert node_a.name == node_c.name
         assert node_a.accessibility == node_b.accessibility
         assert node_a.accessibility == node_c.accessibility
-        assert_dicts_equal(node_a.to_dict(), node_b.to_dict(), msg=f"SCM node {node_a.name} ({type(node_a)}) is not the same after recovering via to_dict and from_dict.")
-        assert_dicts_equal(node_b.to_dict(), node_c.to_dict(), msg=f"SCM node {node_a.name} ({type(node_a)}) is not the same after recovering via json.dumps and json.loads.")
+        assert_dicts_equal(
+            node_a.to_dict(),
+            node_b.to_dict(),
+            msg=f"SCM node {node_a.name} ({type(node_a)}) is not the same after recovering via to_dict and from_dict.",
+        )
+        assert_dicts_equal(
+            node_b.to_dict(),
+            node_c.to_dict(),
+            msg=f"SCM node {node_a.name} ({type(node_a)}) is not the same after recovering via json.dumps and json.loads.",
+        )
 
     # Check if the random states are equal
     state_a = scm.get_random_state().get_state()
@@ -326,10 +338,18 @@ def test_scm_deserialization(dag, num_nodes, seed):
     for sample_a, sample_b, sample_c in zip(
         scm.generate_samples(num_samples=10),
         scm_deserialized.generate_samples(num_samples=10),
-        scm_deserialized_json.generate_samples(num_samples=10)
+        scm_deserialized_json.generate_samples(num_samples=10),
     ):
-        assert_dicts_equal(sample_a, sample_b, msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.\n\t{sample_a}\n\t{sample_b}")
-        assert_dicts_equal(sample_a, sample_c, msg=f"Sample of original SCM and SCM via json.dumps and json.loads is not the same.\n\t{sample_a}\n\t{sample_c}")
+        assert_dicts_equal(
+            sample_a,
+            sample_b,
+            msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.\n\t{sample_a}\n\t{sample_b}",
+        )
+        assert_dicts_equal(
+            sample_a,
+            sample_c,
+            msg=f"Sample of original SCM and SCM via json.dumps and json.loads is not the same.\n\t{sample_a}\n\t{sample_c}",
+        )
 
 
 @pytest.mark.parametrize(
@@ -361,7 +381,7 @@ def test_scm_samples_reproducibility(dag, num_nodes, num_samples, seed):
             UniformNoiseDistribution(low=-1, high=1),
         ],
         random_state=np.random.RandomState(seed),
-        num_samples_for_cdf_generation=10
+        num_samples_for_cdf_generation=10,
     )
     scm = scm_generator.generate()
     scm_generator = EquationBasedSCMGenerator(
@@ -376,7 +396,7 @@ def test_scm_samples_reproducibility(dag, num_nodes, num_samples, seed):
             UniformNoiseDistribution(low=-1, high=1),
         ],
         random_state=np.random.RandomState(seed),
-        num_samples_for_cdf_generation=10
+        num_samples_for_cdf_generation=10,
     )
     scm_b = scm_generator.generate()
 
@@ -387,7 +407,63 @@ def test_scm_samples_reproducibility(dag, num_nodes, num_samples, seed):
     assert samples_a == samples_b, "Samples should be equal with the same seed."
 
 
-# - scm sobre los grafos generados anteriormente y comparar si los samples son iguales.
-# - scm sobre los grafos generados anteriormente y comparar si los samples son diferentes.
-# - SCM de verdad son SCMs.
-# - No solo a nivel de objectos que sean iguales, pero que la serializacion sera la misma.
+@pytest.mark.parametrize(
+    "network_path",
+    [
+        ("causalitygame/data/scm/literature_cases/small/cancer.json"),
+        ("causalitygame/data/scm/literature_cases/small/earthquake.json"),
+    ],
+)
+def test_bayesian_network_scm_deserialization(network_path):
+    """
+    Test if SCMGenerator is reproducible with the same seed.
+    """
+    logger.debug("Recoverin SCM from JSON file")
+    # Load the JSON file
+    with open(network_path, "r") as f:
+        scm_data = json.load(f)
+
+    logger.debug("Recovering SCM (A) from JSON file")
+    scm_deserialized_a = SCM.from_dict(scm_data)
+
+    # simulate JSON serialization
+    logger.debug("Recovering SCM (B) from JSON file")
+    scm_deserialized_b = SCM.from_dict(scm_data)
+
+    # Check if the SCMs are not equal
+    for node_a, node_b in zip(
+        sorted(scm_deserialized_a.nodes.values(), key=lambda n: n.name),
+        sorted(scm_deserialized_b.nodes.values(), key=lambda n: n.name),
+    ):
+        assert node_a.name == node_b.name
+        assert node_a.accessibility == node_b.accessibility
+        assert_dicts_equal(
+            node_a.to_dict(),
+            node_b.to_dict(),
+            msg=f"SCM node {node_a.name} ({type(node_a)}) is not the same after recovering via to_dict and from_dict.",
+        )
+
+    logger.debug("Checking if the random states are equal")
+    # Check if the random states are equal
+    state_a = scm_deserialized_a.get_random_state().get_state()
+    state_b = scm_deserialized_b.get_random_state().get_state()
+
+    for a, b in zip(state_a, state_b):
+        if isinstance(a, np.ndarray):
+            assert np.array_equal(
+                a, b
+            ), "Random state arrays should be equal after serialization."
+        else:
+            assert a == b, "Random states should be equal after serialization."
+
+    logger.debug("Checking if the samples are equal")
+    # Generate samples
+    for sample_a, sample_b in zip(
+        scm_deserialized_a.generate_samples(num_samples=10),
+        scm_deserialized_b.generate_samples(num_samples=10),
+    ):
+        assert_dicts_equal(
+            sample_a,
+            sample_b,
+            msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.\n\t{sample_a}\n\t{sample_b}",
+        )

@@ -210,7 +210,7 @@ class SCM:
             nodes.append(node)
 
         # Reconstruct the random state
-        random_state = np.random.RandomState()
+        random_state = np.random.RandomState(911)
         if "random_state" in data:
             state_tuple = (
                 str(data["random_state"]["state"]),

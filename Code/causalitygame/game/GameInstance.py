@@ -5,14 +5,25 @@ import joblib
 from networkx.readwrite import json_graph
 
 from causalitygame.generators.dag_generator import DAGGenerator
+from causalitygame.mission.base import BaseMission
 from causalitygame.scm.dag import DAG
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.scm.scm import SCM
 
+from causalitygame.mission.impl.DAGInferenceMission import DAGInferenceMission
+
 
 class GameInstance:
-    def __init__(self, scm: SCM, random_state):
+    def __init__(
+        self,
+        max_rounds: int,
+        scm: SCM,
+        mission: BaseMission,
+        random_state: np.random.RandomState,
+    ):
+        self.max_rounds = max_rounds
         self.scm = scm
+        self.mission = mission
         self.random_state = random_state
 
     def to_dict(self):
@@ -28,10 +39,24 @@ class GameInstance:
             "has_gauss": self.random_state.get_state()[3],
             "cached_gaussian": self.random_state.get_state()[4],
         }
-        return {"scm": scm_data, "random_state": state_dict}
+        return {
+            "max_rounds": self.max_rounds,
+            "scm": scm_data,
+            "mission": self.mission.to_dict(),
+            "random_state": state_dict,
+        }
 
     @classmethod
     def from_dict(cls, data):
+        mission_mapping = {m.__name__: m for m in [DAGInferenceMission]}
+        print(data["mission"])
+        mission = mission_mapping[data["mission"]["class"]].from_dict(data["mission"])
+        assert isinstance(
+            mission, BaseMission
+        ), "Invalid mission type. Expected a subclass of BaseMission."
+
+        max_rounds = data["max_rounds"]
+        scm = SCM.from_dict(data["scm"])
         random_state_config = (
             str(data["random_state"]["state"]),  # Ensure it's a string ('MT19937')
             np.array(
@@ -43,8 +68,7 @@ class GameInstance:
         )
         random_state = np.random.RandomState()
         random_state.set_state(random_state_config)
-        scm = SCM.from_dict(data["scm"])
-        return cls(scm, random_state)
+        return cls(max_rounds, scm, mission, random_state)
 
     def save(self, filename):
         """Ensure the directory exists and save the game instance as a JSON file."""
@@ -56,7 +80,6 @@ class GameInstance:
             os.makedirs(directory, exist_ok=True)
 
         # Write the JSON file
-        # joblib.dump(self.to_dict(), filename)
         with open(filename, "w") as f:
             json.dump(self.to_dict(), f, indent=4)
 

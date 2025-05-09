@@ -8,13 +8,51 @@ from causalitygame.generators.bayesian_network_scm_generator import (
 )
 from causalitygame.game.GameInstance import GameInstance
 
+import os
+import shutil
 
-path = "survey.bif"
-translator = BifTranslator()
-by_gen = BayesianNetworkBasedSCMGenerator(translator, path)
-scm = by_gen.generate()
-gameInstance = GameInstance(scm=scm, random_state=np.random.RandomState(42))
-gameInstance.save(filename="./instances/bn_game_instance.json")
+# Define your source and target folders
+SOURCE_DIR = "./bif_files"
+TARGET_DIR = "./causalitygame/data/scm/literature_cases"
+
+# Walk through all files and folders in SOURCE_DIR
+for root, dirs, files in os.walk(SOURCE_DIR):
+    for file in files:
+        # Full path to the source file
+        source_path = os.path.join(root, file)
+        print(f"Source path: {source_path}")
+
+        # Compute the relative path from the source root
+        relative_path = os.path.relpath(source_path, SOURCE_DIR)
+        print(f"Relative path: {relative_path}")
+
+        # Compute the folder structure
+        folder_structure = os.path.dirname(relative_path)
+        print(f"Folder structure: {folder_structure}")
+
+        # Compute the name of the file without the extension
+        file_name = os.path.splitext(file)[0]
+        print(f"File name without extension: {file_name}")
+
+        # Compute the new file name
+        new_file_name = f"{file_name}.json"
+        print(f"New file name: {new_file_name}")
+
+        # Create the corresponding target path
+        target_path = os.path.join(TARGET_DIR, folder_structure, new_file_name)
+        print(f"Target path: {target_path}")
+
+        # Compute the scm object
+        translator = BifTranslator()
+        by_gen = BayesianNetworkBasedSCMGenerator(translator, source_path)
+        scm = by_gen.generate()
+        scm_dict = scm.to_dict()
+        del scm_dict["random_state"]  # remove the random state from the dictionary
+
+        # Save the JSON file to the target path
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+        with open(target_path, "w") as json_file:
+            json.dump(scm_dict, json_file, indent=2)
 
 # agents = []
 
