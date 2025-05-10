@@ -76,33 +76,6 @@ class DatabaseSCM(SCM):
             for c in self._controllable_columns
         ])))
 
-        """
-        mask_fact = df["factual"]
-        df_fact = df[mask_fact]
-        df_counterfact = df[~mask_fact]
-
-        # check that we have factual and counterfactual data for all covariates
-        for cov, df_cov_fact in df_fact.groupby(self._covariate_columns):
-
-            # check for which counterfactual entries these covariates apply
-            cov_mask_in_counter_factuals = np.ones(len(df_counterfact)).astype(bool)
-            for covariate_name, covariate_val in zip(self._covariate_columns, cov):
-                cov_mask_in_counter_factuals &= df_counterfact[covariate_name] == covariate_val
-            
-            # for every factual treatment, make sure that we also have counter-factual treatments
-            for treatment, df_treatment in df_cov_fact.groupby(self._controllable_columns):
-                num_instances_with_these_covariates_and_this_factual_treatment = len(df_treatment)
-
-                # check for all other treatments
-                for alternative_treatment in possible_treatments:
-                    if alternative_treatment != treatment:
-                        mask_for_alternative_treatment = np.ones(len(df_counterfact)).astype(bool)
-                        for treatment_var, treatment_val in zip(self._controllable_columns, alternative_treatment):
-                            mask_for_alternative_treatment &= df_counterfact[treatment_var] == treatment_val
-                        num_instances_with_these_covariates_and_this_counterfactual_treatment = np.count_nonzero(mask_for_alternative_treatment & cov_mask_in_counter_factuals)
-                        assert num_instances_with_these_covariates_and_this_counterfactual_treatment == num_instances_with_these_covariates_and_this_factual_treatment, f"Expected to see {num_instances_with_these_covariates_and_this_factual_treatment} with alternative treatment {alternative_treatment} in covariate {cov} but saw {num_instances_with_these_covariates_and_this_counterfactual_treatment}"
-        """
-
         # check that we have all covariate-treatment combinations covered
         for cov, df_cov_fact in df.groupby(self._covariate_columns):
             lookup_table = df_cov_fact[self._controllable_columns].values
