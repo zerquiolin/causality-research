@@ -82,8 +82,7 @@ class DatabaseDefinedSCMNode(BaseCategoricSCMNode):
             "name": self.name,
             "parents": self.parents,
             "values": self.domain,
-            "accessibility": self.accessibility,
-            "probability_distribution": self.probability_distribution,
+            "accessibility": self.accessibility
         }
         if self.random_state:
             state = self.random_state.get_state()

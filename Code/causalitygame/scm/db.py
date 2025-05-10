@@ -44,12 +44,16 @@ class DatabaseSCM(SCM):
         """
 
         # check that both dataframes have the same columns
-        assert "factual" in df.columns, "No column called `factual` found"
+        assert "revealed" in df.columns, "No column called `revealed` found"
+        df["revealed"] = df["revealed"].astype(bool)
+
+        special_cols = ["revealed", "factual_covariate_treatment_combination"]
+
         self._controllable_columns = []
         self._output_columns = []
         self._covariate_columns = []
         for c in df.columns:
-            if c != "factual":
+            if c not in special_cols:
                 if c.startswith("t:"):
                     self._controllable_columns.append(c)
                 elif c.startswith("c:"):
@@ -64,15 +68,15 @@ class DatabaseSCM(SCM):
             col_list = self._covariate_columns + self._controllable_columns + self._output_columns
         else:
             col_list = self._controllable_columns + self._covariate_columns + self._output_columns
-        df = df[["factual"] + col_list]
-        df["factual"] = df["factual"].astype(bool)
+        df = df[[c for c in special_cols if c in df.columns] + col_list]
         
         # determine all possible treatments
-        possible_treatments = list(it.product(*[
+        possible_treatments = np.array(list(it.product(*[
             sorted(pd.unique(df[c]))
             for c in self._controllable_columns
-        ]))
+        ])))
 
+        """
         mask_fact = df["factual"]
         df_fact = df[mask_fact]
         df_counterfact = df[~mask_fact]
@@ -97,17 +101,24 @@ class DatabaseSCM(SCM):
                             mask_for_alternative_treatment &= df_counterfact[treatment_var] == treatment_val
                         num_instances_with_these_covariates_and_this_counterfactual_treatment = np.count_nonzero(mask_for_alternative_treatment & cov_mask_in_counter_factuals)
                         assert num_instances_with_these_covariates_and_this_counterfactual_treatment == num_instances_with_these_covariates_and_this_factual_treatment, f"Expected to see {num_instances_with_these_covariates_and_this_factual_treatment} with alternative treatment {alternative_treatment} in covariate {cov} but saw {num_instances_with_these_covariates_and_this_counterfactual_treatment}"
-        
+        """
+
+        # check that we have all covariate-treatment combinations covered
+        for cov, df_cov_fact in df.groupby(self._covariate_columns):
+            lookup_table = df_cov_fact[self._controllable_columns].values
+            for treatment in possible_treatments:
+                assert np.any(np.all(lookup_table == treatment, axis=1)), f"Incomplete dataset. No outcome for covariate {cov} with treatment {treatment}"
+
         # create DAG
         if only_factual_outcomes:
-            df = df[df["factual"]]
+            df = df[df["factual_covariate_treatment_combination"]]
         self.df = df
-        df_without_factual_col = df.drop(columns="factual")
+        df_without_factual_col = df.drop(columns=[c for c in special_cols if c in df.columns])
         self.var_names = list(df_without_factual_col.columns)
         nodes = [
             DatabaseDefinedSCMNode(
                 name=name,
-                df=df_without_factual_col,
+                df=df[df["revealed"]].drop(columns=[c for c in special_cols if c in df.columns]),
                 accessibility=ACCESSIBILITY_CONTROLLABLE if name in self._controllable_columns else ACCESSIBILITY_OBSERVABLE,
                 random_state=random_state
             )

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from causalitygame.generators.db_generator import DatabaseDrivenSCMGenerator
 from causalitygame.scm.db import DatabaseSCM
 import pytest
 
@@ -19,25 +20,25 @@ logger.addHandler(ch)
 logger.setLevel(logging.DEBUG)
 
 @pytest.mark.parametrize(
-    "df", [
+    "factual_df", [
         (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
     ])
-def test_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(df):
+def test_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(factual_df):
 
+    scm = DatabaseDrivenSCMGenerator(
+        factual_df=factual_df,
+        covariates_before_intervention=True,
+        reveal_only_outcomes_of_originally_factual_covariates=False,
+        random_state=np.random.RandomState(0),
+        overwrite_factual_outcomes=False,
+        outcome_generator=lambda x: [2] # always create a value of 2
+    ).generate()
 
     # identify controlled vars
-    treatment_vars = [c for c in df.columns if c.startswith("t:")]
-    df_without_factual_column = df.drop(columns="factual")
-
-    # define SCM
-    scm = DatabaseSCM(
-        df=df,
-        covariates_before_intervention=True,
-        only_factual_outcomes=False
-    )
+    treatment_vars = [c for c in factual_df.columns if c.startswith("t:")]
 
     # check that topological ordering is correct
-    assert len(scm.dag.nodes) == df_without_factual_column.shape[1]
+    assert len(scm.dag.nodes) == factual_df.shape[1]
     seen_treatments = []
     seen_outputs = []
     for n in nx.topological_sort(scm.dag.graph):
@@ -53,32 +54,41 @@ def test_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(df):
     assert treatment_vars == scm.controllable_vars
 
     # check whether all data points are contained in the original database
+    num_factuals = 0
+    num_counter_factuals = 0
     for s in scm.generate_samples(num_samples=10**1):
         row = np.array([s[v] for v in scm.var_names])
-        assert np.any([np.all(row == orig_row) for orig_row in df_without_factual_column[scm.var_names].values])
+        is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
+        if is_factual:
+            num_factuals += 1
+        else:
+            num_counter_factuals += 1
+
+    # check that we have both factual entries (from the original data) and counter-factual entries
+    assert num_counter_factuals >= 3, "There should be at least 3 counterfactual entries even though factuals are not overwritten."
+    assert num_factuals >= 3, "There should be at least 3 factual entries since original entries are preserved."
 
 
 @pytest.mark.parametrize(
-    "df", [
+    "factual_df", [
         (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
     ])
-def test_db_scm_with_pre_treatment_covariates_prohibiting_counterfactuals(df):
+def test_db_scm_with_pre_treatment_covariates_prohibiting_counterfactuals(factual_df):
 
+    scm = DatabaseDrivenSCMGenerator(
+        factual_df=factual_df,
+        covariates_before_intervention=True,
+        reveal_only_outcomes_of_originally_factual_covariates=True,
+        random_state=np.random.RandomState(0),
+        overwrite_factual_outcomes=False,
+        outcome_generator=lambda x: [2] # always create a value of 2
+    ).generate()
 
     # identify controlled vars
-    treatment_vars = [c for c in df.columns if c.startswith("t:")]
-    df["factual"] = df["factual"].astype(bool)
-    df_without_factual_column = df.drop(columns="factual")
-
-    # define SCM
-    scm = DatabaseSCM(
-        df=df,
-        covariates_before_intervention=True,
-        only_factual_outcomes=True
-    )
+    treatment_vars = [c for c in factual_df.columns if c.startswith("t:")]
 
     # check that topological ordering is correct
-    assert len(scm.dag.nodes) == df_without_factual_column.shape[1]
+    assert len(scm.dag.nodes) == factual_df.shape[1]
     seen_treatments = []
     seen_outputs = []
     for n in nx.topological_sort(scm.dag.graph):
@@ -93,30 +103,42 @@ def test_db_scm_with_pre_treatment_covariates_prohibiting_counterfactuals(df):
     # check that the controllable variable is indeed controllable
     assert treatment_vars == scm.controllable_vars
 
-    # check that all samples are really part of the original FACTUAL dataset
-    for s in scm.generate_samples(num_samples=10**1):
+    # check whether all data points are contained in the original database
+    num_factuals = 0
+    num_counter_factuals = 0
+    num_samples = 10**1
+    for s in scm.generate_samples(num_samples=num_samples):
         row = np.array([s[v] for v in scm.var_names])
-        assert np.any([np.all(row == orig_row) for orig_row in df[df["factual"]].drop(columns="factual")[scm.var_names].values]), f"Record {row} was not found in original dataframe"
+        is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
+        if is_factual:
+            num_factuals += 1
+        else:
+            num_counter_factuals += 1
+
+    # check that we have both factual entries (from the original data) and counter-factual entries
+    assert num_counter_factuals == 0, "There should be no counterfactuals in the training data, since these have been forbidden."
+    assert num_factuals == num_samples, "All data points should be contained in the sampled data."
 
 @pytest.mark.parametrize(
-    "df", [
+    "factual_df", [
         (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
     ])
-def test_db_scm_with_post_treatment_covariates_allowing_counterfactuals(df):
+def test_db_scm_with_post_treatment_covariates_allowing_counterfactuals(factual_df):
+
+    scm = DatabaseDrivenSCMGenerator(
+        factual_df=factual_df,
+        covariates_before_intervention=False,
+        reveal_only_outcomes_of_originally_factual_covariates=False,
+        random_state=np.random.RandomState(0),
+        overwrite_factual_outcomes=False,
+        outcome_generator=lambda x: [2] # always create a value of 2
+    ).generate()
 
     # identify controlled vars
-    treatment_vars = [c for c in df.columns if c.startswith("t:")]
-    df_without_factual_column = df.drop(columns="factual")
-
-    # define SCM
-    scm = DatabaseSCM(
-        df=df,
-        covariates_before_intervention=False,
-        only_factual_outcomes=False
-    )
+    treatment_vars = [c for c in factual_df.columns if c.startswith("t:")]
 
     # check that topological ordering is correct
-    assert len(scm.dag.nodes) == df_without_factual_column.shape[1]
+    assert len(scm.dag.nodes) == factual_df.shape[1]
     seen_covariates = []
     seen_outputs = []
     for n in nx.topological_sort(scm.dag.graph):
@@ -131,32 +153,42 @@ def test_db_scm_with_post_treatment_covariates_allowing_counterfactuals(df):
     # check that the controllable variable is indeed controllable
     assert treatment_vars == scm.controllable_vars
 
-    # check that all samples are really part of the original dataset
+    # check whether all data points are contained in the original database
+    num_factuals = 0
+    num_counter_factuals = 0
     for s in scm.generate_samples(num_samples=10**1):
         row = np.array([s[v] for v in scm.var_names])
-        assert np.any([np.all(row == orig_row) for orig_row in df_without_factual_column[scm.var_names].values]), f"Record {row} was not found in original dataframe"
+        is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
+        if is_factual:
+            num_factuals += 1
+        else:
+            num_counter_factuals += 1
 
+    # check that we have both factual entries (from the original data) and counter-factual entries
+    assert num_counter_factuals >= 3, "There should be at least 3 counterfactual entries even though factuals are not overwritten."
+    assert num_factuals >= 3, "There should be at least 3 factual entries since original entries are preserved."
 
 @pytest.mark.parametrize(
-    "df", [
+    "factual_df", [
         (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
     ])
-def test_db_scm_with_post_treatment_covariates_prohibiting_counterfactuals(df):
+def test_db_scm_with_post_treatment_covariates_prohibiting_counterfactuals(factual_df):
+
+    
+    scm = DatabaseDrivenSCMGenerator(
+        factual_df=factual_df,
+        covariates_before_intervention=False,
+        reveal_only_outcomes_of_originally_factual_covariates=True,
+        random_state=np.random.RandomState(0),
+        overwrite_factual_outcomes=False,
+        outcome_generator=lambda x: [2] # always create a value of 2
+    ).generate()
 
     # identify controlled vars
-    treatment_vars = [c for c in df.columns if c.startswith("t:")]
-    df["factual"] = df["factual"].astype(bool)
-    df_without_factual_column = df.drop(columns="factual")
-
-    # define SCM
-    scm = DatabaseSCM(
-        df=df,
-        covariates_before_intervention=False,
-        only_factual_outcomes=True
-    )
+    treatment_vars = [c for c in factual_df.columns if c.startswith("t:")]
 
     # check that topological ordering is correct
-    assert len(scm.dag.nodes) == df_without_factual_column.shape[1]
+    assert len(scm.dag.nodes) == factual_df.shape[1]
     seen_covariates = []
     seen_outputs = []
     for n in nx.topological_sort(scm.dag.graph):
@@ -171,7 +203,18 @@ def test_db_scm_with_post_treatment_covariates_prohibiting_counterfactuals(df):
     # check that the controllable variable is indeed controllable
     assert treatment_vars == scm.controllable_vars
 
-    # check that all samples are really part of the original FACTUAL dataset
-    for s in scm.generate_samples(num_samples=10**1):
+    # check whether all data points are contained in the original database
+    num_factuals = 0
+    num_counter_factuals = 0
+    num_samples = 10**1
+    for s in scm.generate_samples(num_samples=num_samples):
         row = np.array([s[v] for v in scm.var_names])
-        assert np.any([np.all(row == orig_row) for orig_row in df[df["factual"]].drop(columns="factual")[scm.var_names].values]), f"Record {row} was not found in original dataframe"
+        is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
+        if is_factual:
+            num_factuals += 1
+        else:
+            num_counter_factuals += 1
+
+    # check that we have both factual entries (from the original data) and counter-factual entries
+    assert num_counter_factuals == 0, "There should be no counterfactuals in the training data, since these have been forbidden."
+    assert num_factuals == num_samples, "All data points should be contained in the sampled data."
