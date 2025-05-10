@@ -22,7 +22,6 @@ class DatabaseSCM(SCM):
         self,
         df: pd.DataFrame,
         covariates_before_intervention: bool,
-        only_factual_outcomes: bool,
         random_state: np.random.RandomState = np.random.RandomState(42),
         name=None
     ):
@@ -36,7 +35,6 @@ class DatabaseSCM(SCM):
             covariates_before_intervention (bool): whether the covariate values are fixed before intervention.
                 If so, the player can assign alternative actual treatments to the instances that were not observed in the original data.
                 If this is not desired, the value should be set to False, which
-            only_factual_outcomes (bool): states whether all data sampled from this SCM must be factual (this can only be guaranteed if covariates come after treatment)
             random_state (np.random.RandomState, optional): _description_. Defaults to np.random.RandomState(42).
             name (_type_, optional): _description_. Defaults to None.
 
@@ -45,7 +43,7 @@ class DatabaseSCM(SCM):
 
         # check that both dataframes have the same columns
         assert "revealed" in df.columns, "No column called `revealed` found"
-        df["revealed"] = df["revealed"].astype(bool)
+        assert df["revealed"].dtype == bool
 
         special_cols = ["revealed", "factual_covariate_treatment_combination"]
 
@@ -64,6 +62,7 @@ class DatabaseSCM(SCM):
                     assert False, f"Column {c} doesn't start with t:, c:, or o:"
         
         # sort columns
+        self.covariates_before_intervention = covariates_before_intervention
         if covariates_before_intervention:
             col_list = self._covariate_columns + self._controllable_columns + self._output_columns
         else:
@@ -83,15 +82,14 @@ class DatabaseSCM(SCM):
                 assert np.any(np.all(lookup_table == treatment, axis=1)), f"Incomplete dataset. No outcome for covariate {cov} with treatment {treatment}"
 
         # create DAG
-        if only_factual_outcomes:
-            df = df[df["factual_covariate_treatment_combination"]]
         self.df = df
         df_without_factual_col = df.drop(columns=[c for c in special_cols if c in df.columns])
         self.var_names = list(df_without_factual_col.columns)
         nodes = [
             DatabaseDefinedSCMNode(
                 name=name,
-                df=df[df["revealed"]].drop(columns=[c for c in special_cols if c in df.columns]),
+                df=df.drop(columns=[c for c in special_cols if c in df.columns]),
+                revealed_to_agent=df["revealed"],
                 accessibility=ACCESSIBILITY_CONTROLLABLE if name in self._controllable_columns else ACCESSIBILITY_OBSERVABLE,
                 random_state=random_state
             )
@@ -108,5 +106,55 @@ class DatabaseSCM(SCM):
         # create the SCM
         super().__init__(dag=DAG(dag), nodes=nodes, name=name, random_state=random_state)
 
-        # store the dataframe
-        self.df = df
+    def to_dict(self) -> Dict:
+        """
+        Serializes the SCM to a dictionary format.
+
+        Returns:
+            Dict: A dictionary representing the SCM's structure and state.
+        """
+
+        # Serialize the random state
+        state = self.random_state.get_state()
+        state_dict = {
+            "state": state[0],
+            "keys": state[1].tolist(),
+            "pos": state[2],
+            "has_gauss": state[3],
+            "cached_gaussian": state[4],
+        }
+
+        return {
+            "class": f"{__class__.__module__}.{__class__.__name__}",
+            "data": self.df.to_json(orient="records", double_precision=15),
+            "covariates_before_intervention": self.covariates_before_intervention,
+            "random_state": state_dict,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "SCM":
+        """
+        Deserializes an SCM instance from a dictionary.
+
+        Args:
+            data (Dict): Dictionary containing SCM structure and state.
+
+        Returns:
+            SCM: A new SCM instance.
+        """
+        df = pd.read_json(data["data"], orient="records", precise_float=True)
+        covariates_before_intervention = data["covariates_before_intervention"]
+
+        # Reconstruct the random state
+        random_state = np.random.RandomState(911)
+        if "random_state" in data:
+            state_tuple = (
+                str(data["random_state"]["state"]),
+                np.array(data["random_state"]["keys"], dtype=np.uint32),
+                int(data["random_state"]["pos"]),
+                int(data["random_state"]["has_gauss"]),
+                float(data["random_state"]["cached_gaussian"]),
+            )
+            random_state.set_state(state_tuple)
+
+        return cls(df, covariates_before_intervention, random_state)

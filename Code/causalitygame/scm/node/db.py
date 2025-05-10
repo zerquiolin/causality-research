@@ -14,16 +14,25 @@ class DatabaseDefinedSCMNode(BaseCategoricSCMNode):
         self,
         name: str,
         df: pd.DataFrame,
+        revealed_to_agent: list,
         accessibility: str = ACCESSIBILITY_OBSERVABLE,
         random_state: np.random.RandomState = np.random.RandomState(911),
     ):
         self.name = name
         cols = list(df.columns)
         self.df = df
+        self.revealed_to_agent = revealed_to_agent
         self.parents = cols[:cols.index(name)] # all predecessor columns are parents
         self.domain = sorted(pd.unique(df[name]))
         self.accessibility = accessibility
         self.random_state = random_state
+        self.eval_mode = False
+    
+    def enable_eval_mode(self):
+        self.eval_mode = True  # enables access to the unrevealed instances
+    
+    def disable_eval_mode(self):
+        self.eval_mode = False
 
     def generate_value(
         self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
@@ -35,6 +44,8 @@ class DatabaseDefinedSCMNode(BaseCategoricSCMNode):
         
         # Filter the dataset for rows matching parent values
         filtered = self.df
+        if not self.eval_mode:
+            filtered = filtered[self.revealed_to_agent]
         for parent in self.parents:
             if parent in parent_values:
                 filtered = filtered[filtered[parent] == parent_values[parent]]
@@ -96,7 +107,8 @@ class DatabaseDefinedSCMNode(BaseCategoricSCMNode):
         return data
 
     @classmethod
-    def from_dict(cls, data: dict) -> "BayesianNetworkSCMNode":
+    def from_dict(cls, data: dict) -> "DatabaseDefinedSCMNode":
+
         # Reconstruct the random state.
         random_state = None
         if "random_state" in data:
@@ -112,9 +124,10 @@ class DatabaseDefinedSCMNode(BaseCategoricSCMNode):
             )
         return cls(
             name=data["name"],
+            df=data["df"],
+            revealed_to_agent=data["revealed_to_agent"],
             parents=data["parents"],
             values=data["values"],
-            probability_distribution=data["probability_distribution"] if data["parents"] else [v[0] for v in data["probability_distribution"]],
             accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
             random_state=random_state,
         )

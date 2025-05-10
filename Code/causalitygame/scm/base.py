@@ -298,6 +298,9 @@ class SCM:
             SCM: A new SCM instance.
         """
 
+        if "class" in data and data["class"] not in [__class__.__name__]:
+            return get_class(data["class"]).from_dict(data)
+
         from causalitygame.scm.dag import DAG  # TODO
 
         # Reconstruct the DAG from the dictionary

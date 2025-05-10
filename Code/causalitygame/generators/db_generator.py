@@ -83,12 +83,5 @@ class DatabaseDrivenSCMGenerator(AbstractSCMGenerator):
         df.loc[train_indices, "revealed"] = True
         return DatabaseSCM(
             df,
-            covariates_before_intervention=self.covariates_before_intervention,
-            only_factual_outcomes=self.reveal_only_outcomes_of_originally_factual_covariates
+            covariates_before_intervention=self.covariates_before_intervention
         )
-
-
-print(DatabaseDrivenSCMGenerator(
-    factual_df=pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"),
-    outcome_generator=lambda x: [1]
-).generate().to_dict())
