@@ -1,6 +1,6 @@
 from causalitygame.repository._base import get_scm_overview
 from causalitygame.scm import SCM
-from causalitygame.scm.base import BaseNumericSCMNode, BaseCategoricSCMNode
+from causalitygame.scm.node.base import BaseNumericSCMNode, BaseCategoricSCMNode
 import logging
 import json
 import pytest

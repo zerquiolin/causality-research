@@ -1,5 +1,5 @@
 # Abstract
-from .base import BaseNoiseDistribution
+from causalitygame.scm.node.base import BaseNoiseDistribution
 
 # Distributions
 from scipy.stats import norm, uniform

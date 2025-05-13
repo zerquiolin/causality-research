@@ -1,6 +1,15 @@
-# Math
-import numpy as np
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import sympy as sp
+import numpy as np
+
+from causalitygame.scm.node.base import (
+    ACCESSIBILITY_CONTROLLABLE,
+    ACCESSIBILITY_LATENT,
+    ACCESSIBILITY_OBSERVABLE,
+    BaseNoiseDistribution,
+    BaseNumericSCMNode,
+    BaseCategoricSCMNode
+)
 
 from causalitygame.scm.noise_distributions import (
     GaussianNoiseDistribution,
@@ -8,16 +17,7 @@ from causalitygame.scm.noise_distributions import (
     DiracNoiseDistribution,
 )
 
-# Abstract Base Class
-from .base import BaseNoiseDistribution, BaseNumericSCMNode, BaseCategoricSCMNode, ACCESSIBILITY_OBSERVABLE
-
-# Types
-from typing import Callable, Dict, List, Optional
-
-# Utils
 from collections import Counter
-import logging
-
 
 class EquationBasedSCMNode:
 
@@ -28,7 +28,7 @@ class EquationBasedSCMNode:
             symbols = set([str(s) for s in formula.free_symbols])
             assert not symbols or self.parents is not None, f"No parents are given (None) even though the formula has symbols: {symbols}"
             undeclared_symbols = symbols.difference(self.parents)
-            assert not undeclared_symbols, f"Formula {formula} has undeclared variables {undeclared_symbols} that occur in the formula but not in the parents, which are specified as {parents}."
+            assert not undeclared_symbols, f"Formula {formula} has undeclared variables {undeclared_symbols} that occur in the formula but not in the parents, which are specified as {self.parents}."
             return symbols
 
         if isinstance(self.evaluation, dict):
@@ -428,72 +428,6 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
         return new_class
 
 
-class FullyCategoricalSCMNode(BaseCategoricSCMNode):
-    def generate_value(
-        self,
-        parent_values: Dict[str, float | str | int],
-        random_state: Optional[np.random.RandomState] = np.random.RandomState(911),
-    ):
-        # Define random state
-        rs = random_state if random_state else self.random_state
-        # No need to check for parents since the self.evaluation has the probability distribution
-        # Get the evaluation symbols for evaluation
-        symbols = [
-            str(symb) for symb in self.evaluation.free_symbols
-        ]  # Parsed for easier comparison
-        # Check if the parent values are provided
-        assert set(symbols).issubset(
-            parent_values.keys()
-        ), "Parent values do not match the expected symbols"
-        # Evaluate the expression
-        distribution = self.evaluation(parent_values)
-        # Check if the distribution is valid
-        assert np.isclose(sum(distribution), 1.0), "Distribution does not sum to 1"
-        # Return the final value
-        return rs.choice(list(distribution.keys()), p=list(distribution.values()))
-
-    def to_dict(self):
-        """
-        Converts the node to a dictionary representation.
-
-        Returns:
-            dict: Dictionary representation of the node.
-        """
-        return {
-            "name": self.name,
-            "accessibility": self.accessibility,
-            "equation": self.evaluation.to_list(),
-            "domain": self.domain,
-            "noise": self.noise_distribution.to_dict(),
-            "parents": self.parents,
-            "parent_mappings": self.parent_mappings,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict):
-        """
-        Deserializes the node from a dictionary representation.
-
-        Args:
-            data (Dict): Dictionary containing node data.
-
-        Returns:
-            FullyCategoricalSCMNode: An instance of the node.
-        """
-        # Deserialize the noise distribution
-        noise_distribution = BaseNoiseDistribution.from_dict(data["noise"])
-        # Create the node
-        return cls(
-            name=data["name"],
-            accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
-            evaluation=SerializableCDF.from_list(data["equation"]),
-            domain=data["domain"],
-            noise_distribution=noise_distribution,
-            parents=data.get("parents"),
-            parent_mappings=data.get("parent_mappings"),
-        )
-
-
 class SerializableCDF:
     def __init__(self, sorted_samples):
         self.sorted_samples = np.array(sorted_samples)
@@ -509,125 +443,3 @@ class SerializableCDF:
     @classmethod
     def from_list(cls, data):
         return cls(np.array(data))
-
-
-class BayesianNetworkSCMNode(BaseCategoricSCMNode):
-    def __init__(
-        self,
-        name: str,
-        parents: list,
-        values: list,
-        probability_distribution: dict | list,
-        accessibility: str = ACCESSIBILITY_OBSERVABLE,
-        random_state: np.random.RandomState = np.random.RandomState(911),
-    ):
-        self.name = name
-        self.parents = parents
-        self.domain = values
-        self.probability_distribution = probability_distribution
-        self.accessibility = accessibility
-        self.random_state = random_state
-
-        # sanity check of given distribution
-        if isinstance(probability_distribution, list):
-            assert all([isinstance(v, (float, np.float64)) for v in probability_distribution]), f"invalid entries in distribution for {name}: {probability_distribution}"
-            s = np.sum(probability_distribution)
-            assert np.isclose(s, 1), f"Invalid distribution for leaf node {name}, which sum up to {sum(probability_distribution)}: {probability_distribution}"
-            if s != 1:
-                    self.probability_distribution /= s
-        else:
-            for parent_combo, distribution in probability_distribution.items():
-                assert all([isinstance(v, (float, np.float64)) for v in distribution]), f"invalid entries in distribution for {name}: {distribution}"
-                s = np.sum(distribution)
-                assert np.isclose(s, 1), f"Invalid distribution for parent combination {parent_combo} node {name}, which sum up to {sum(distribution)}: {distribution}"
-                if s != 1:
-                    probability_distribution[parent_combo] /= s
-
-    def generate_value(self, parent_values: dict, random_state) -> str:
-        """
-        Given a dictionary of parent values, returns a sampled value from the node's distribution.
-
-        Args:
-            parent_values (dict): A dictionary mapping parent names to their values.
-
-        Returns:
-            str: A sampled value from the node's distribution.
-        """
-        rs = random_state if random_state else self.random_state
-        distribution = self.get_distribution(parent_values)
-        return rs.choice(self.domain, p=distribution)
-
-    def get_distribution(self, parent_values: dict) -> list:
-        if not self.parents:
-            # Flatten the possibly nested list
-            return [
-                p
-                for sub in self.probability_distribution
-                for p in (sub if isinstance(sub, list) else [sub])
-            ]
-
-        key_ordered = [parent_values[parent] for parent in self.parents]
-        key = ",".join(key_ordered)
-        # Flatten the possibly nested list for conditional distributions
-        return [
-            p
-            for sub in self.probability_distribution[key]
-            for p in (sub if isinstance(sub, list) else [sub])
-        ]
-
-    def get_value_distribution(self, parent_values: dict) -> list:
-        """
-        Given a dictionary of parent values, returns the probability distribution
-        over this node's values.
-
-        Args:
-            parent_values (dict): A dictionary mapping parent names to their values.
-
-        Returns:
-            list: The probability distribution over the node's values.
-        """
-        return self.get_distribution(parent_values)
-
-    def to_dict(self) -> dict:
-        data = {
-            "class": self.__class__.__name__,
-            "name": self.name,
-            "parents": self.parents,
-            "values": self.domain,
-            "accessibility": self.accessibility,
-            "probability_distribution": self.probability_distribution,
-        }
-        if self.random_state:
-            state = self.random_state.get_state()
-            data["random_state"] = {
-                "state": state[0],
-                "keys": state[1].tolist(),
-                "pos": state[2],
-                "has_gauss": state[3],
-                "cached_gaussian": state[4],
-            }
-        return data
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "BayesianNetworkSCMNode":
-        # Reconstruct the random state.
-        random_state = None
-        if "random_state" in data:
-            random_state = np.random.RandomState()
-            random_state.set_state(
-                (
-                    str(data["random_state"]["state"]),
-                    np.array(data["random_state"]["keys"], dtype=np.uint32),
-                    int(data["random_state"]["pos"]),
-                    int(data["random_state"]["has_gauss"]),
-                    float(data["random_state"]["cached_gaussian"]),
-                )
-            )
-        return cls(
-            name=data["name"],
-            parents=data["parents"],
-            values=data["values"],
-            probability_distribution=data["probability_distribution"] if data["parents"] else [v[0] for v in data["probability_distribution"]],
-            accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
-            random_state=random_state,
-        )

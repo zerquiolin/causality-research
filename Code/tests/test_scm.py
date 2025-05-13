@@ -1,7 +1,7 @@
 import json
 import pytest
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
-from causalitygame.scm.scm import SCM
+from causalitygame.scm.base import SCM
 from causalitygame.scm.dag import DAG
 from causalitygame.generators.dag_generator import DAGGenerator
 from scipy.stats import norm, uniform

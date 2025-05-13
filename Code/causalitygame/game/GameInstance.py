@@ -8,7 +8,7 @@ from causalitygame.generators.dag_generator import DAGGenerator
 from causalitygame.mission.base import BaseMission
 from causalitygame.scm.dag import DAG
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
-from causalitygame.scm.scm import SCM
+from causalitygame.scm.base import SCM
 
 from causalitygame.mission.impl.DAGInferenceMission import DAGInferenceMission
 
