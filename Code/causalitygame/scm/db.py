@@ -21,7 +21,7 @@ class DatabaseSCM(SCM):
     def __init__(
         self,
         df: pd.DataFrame,
-        covariates_before_intervention: bool,
+        outcome_generators: dict,
         random_state: np.random.RandomState = np.random.RandomState(42),
         name=None
     ):
@@ -30,56 +30,35 @@ class DatabaseSCM(SCM):
         Args:
             df (pd.DataFrame):
                 the dataset that contains all factual and counter-factual observations.
-                It must contain a boolean column `factual` the indicates whether the observation is factual or counter-factural.
-                By convention, every column except `factual` must either start with `t:`, `c:`, or `o:` to indicate treatment, covariate, and output variables, respectively.
-            covariates_before_intervention (bool): whether the covariate values are fixed before intervention.
-                If so, the player can assign alternative actual treatments to the instances that were not observed in the original data.
-                If this is not desired, the value should be set to False, which
+                
             random_state (np.random.RandomState, optional): _description_. Defaults to np.random.RandomState(42).
             name (_type_, optional): _description_. Defaults to None.
-
-            For any covariate combination, there must be *exactly* one observation with `factual` being `True`.
         """
 
         # check that both dataframes have the same columns
         assert "revealed" in df.columns, "No column called `revealed` found"
+        assert "outcomes" in df.columns, "No column called `outcomes` found"
         assert df["revealed"].dtype == bool
 
-        special_cols = ["revealed", "factual_covariate_treatment_combination"]
+        special_cols = ["revealed", "outcomes"]
 
-        self._controllable_columns = []
-        self._output_columns = []
-        self._covariate_columns = []
-        for c in df.columns:
-            if c not in special_cols:
-                if c.startswith("t:"):
-                    self._controllable_columns.append(c)
-                elif c.startswith("c:"):
-                    self._covariate_columns.append(c)
-                elif c.startswith("o:"):
-                    self._output_columns.append(c)
-                else: 
-                    assert False, f"Column {c} doesn't start with t:, c:, or o:"
-        
-        # sort columns
-        self.covariates_before_intervention = covariates_before_intervention
-        if covariates_before_intervention:
-            col_list = self._covariate_columns + self._controllable_columns + self._output_columns
-        else:
-            col_list = self._controllable_columns + self._covariate_columns + self._output_columns
-        df = df[[c for c in special_cols if c in df.columns] + col_list]
+        # extract controllable variables and outcome variables
+        self._controllable_vars = list(df.iloc[0]["outcomes"][0]["t"].keys())  # the treatments are the keys in the t dictionary
+        self._outcome_vars = list(df.iloc[0]["outcomes"][0]["o"].keys())  # the outcomes are the keys in the o dictionary
+        self._covariates = [c for c in df.columns if c not in special_cols]
+
+        # extract treatment domains
         
         # determine all possible treatments
         possible_treatments = np.array(list(it.product(*[
             sorted(pd.unique(df[c]))
-            for c in self._controllable_columns
+            for c in self._controllable_vars
         ])))
 
         # check that we have all covariate-treatment combinations covered
-        for cov, df_cov_fact in df.groupby(self._covariate_columns):
-            lookup_table = df_cov_fact[self._controllable_columns].values
+        for ind, df_ind in df.groupby("individual"):
             for treatment in possible_treatments:
-                assert np.any(np.all(lookup_table == treatment, axis=1)), f"Incomplete dataset. No outcome for covariate {cov} with treatment {treatment}"
+                assert np.any(np.all(df_ind == treatment, axis=1)), f"Incomplete dataset. No treatment {treatment} for individual {ind}"
 
         # create DAG
         self.df = df
@@ -90,7 +69,7 @@ class DatabaseSCM(SCM):
                 name=name,
                 df=df.drop(columns=[c for c in special_cols if c in df.columns]),
                 revealed_to_agent=df["revealed"],
-                accessibility=ACCESSIBILITY_CONTROLLABLE if name in self._controllable_columns else ACCESSIBILITY_OBSERVABLE,
+                accessibility=ACCESSIBILITY_CONTROLLABLE if name in self._controllable_vars else ACCESSIBILITY_OBSERVABLE,
                 random_state=random_state
             )
             for name in self.var_names

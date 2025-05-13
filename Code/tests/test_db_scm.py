@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import json
-from causalitygame.generators.db_generator import DatabaseDrivenSCMGenerator
+from causalitygame.generators.db_generator import FactualDatabaseDrivenSCMGenerator
 from causalitygame.scm.db import DatabaseSCM
 import pytest
 
@@ -26,7 +26,7 @@ logger.setLevel(logging.DEBUG)
     ])
 def test_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(factual_df):
 
-    scm = DatabaseDrivenSCMGenerator(
+    scm = FactualDatabaseDrivenSCMGenerator(
         factual_df=factual_df,
         covariates_before_intervention=True,
         reveal_only_outcomes_of_originally_factual_covariates=False,
@@ -76,7 +76,7 @@ def test_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(factual_d
     ])
 def test_db_scm_with_pre_treatment_covariates_prohibiting_counterfactuals(factual_df):
 
-    scm = DatabaseDrivenSCMGenerator(
+    scm = FactualDatabaseDrivenSCMGenerator(
         factual_df=factual_df,
         covariates_before_intervention=True,
         reveal_only_outcomes_of_originally_factual_covariates=True,
@@ -126,7 +126,7 @@ def test_db_scm_with_pre_treatment_covariates_prohibiting_counterfactuals(factua
     ])
 def test_db_scm_with_post_treatment_covariates_allowing_counterfactuals(factual_df):
 
-    scm = DatabaseDrivenSCMGenerator(
+    scm = FactualDatabaseDrivenSCMGenerator(
         factual_df=factual_df,
         covariates_before_intervention=False,
         reveal_only_outcomes_of_originally_factual_covariates=False,
@@ -176,7 +176,7 @@ def test_db_scm_with_post_treatment_covariates_allowing_counterfactuals(factual_
 def test_db_scm_with_post_treatment_covariates_prohibiting_counterfactuals(factual_df):
 
     
-    scm = DatabaseDrivenSCMGenerator(
+    scm = FactualDatabaseDrivenSCMGenerator(
         factual_df=factual_df,
         covariates_before_intervention=False,
         reveal_only_outcomes_of_originally_factual_covariates=True,
@@ -227,7 +227,7 @@ def test_db_scm_with_post_treatment_covariates_prohibiting_counterfactuals(factu
     ])
 def test_that_only_instances_marked_as_revealed_are_shown_to_the_agent(factual_df):
 
-    scm = DatabaseDrivenSCMGenerator(
+    scm = FactualDatabaseDrivenSCMGenerator(
         factual_df=factual_df,
         covariates_before_intervention=True,
         reveal_only_outcomes_of_originally_factual_covariates=False,
@@ -269,7 +269,7 @@ def test_that_only_instances_marked_as_revealed_are_shown_to_the_agent(factual_d
     ])
 def test_serializability_of_scm(factual_df):
 
-    scm = DatabaseDrivenSCMGenerator(
+    scm = FactualDatabaseDrivenSCMGenerator(
         factual_df=factual_df,
         covariates_before_intervention=True,
         reveal_only_outcomes_of_originally_factual_covariates=False,
@@ -312,7 +312,7 @@ def test_serializability_of_scm(factual_df):
             assert scm.controllable_vars == other.controllable_vars
             assert scm.latent_vars == other.latent_vars
             assert scm.observable_vars == other.observable_vars
-            assert scm._output_columns == other._output_columns
+            assert scm._outcome_vars == other._output_columns
             assert scm.covariates_before_intervention == other.covariates_before_intervention
             assert list(nx.topological_sort(scm.dag.graph)) == list(nx.topological_sort(other.dag.graph))
 
