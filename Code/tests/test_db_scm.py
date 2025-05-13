@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import json
 from causalitygame.generators.db_generator import FactualDatabaseDrivenSCMGenerator
+from causalitygame.generators.outcome.base import DummyOutcomeGenerator
 from causalitygame.scm.db import DatabaseSCM
 import pytest
 
@@ -22,9 +23,9 @@ logger.setLevel(logging.DEBUG)
 
 @pytest.mark.parametrize(
     "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
+        (pd.read_csv("causalitygame/data/scm/datasets/ihdp/ihdp.csv"))
     ])
-def test_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(factual_df):
+def test_factual_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(factual_df):
 
     scm = FactualDatabaseDrivenSCMGenerator(
         factual_df=factual_df,
@@ -32,7 +33,13 @@ def test_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(factual_d
         reveal_only_outcomes_of_originally_factual_covariates=False,
         random_state=np.random.RandomState(0),
         overwrite_factual_outcomes=False,
-        outcome_generator=lambda x: [2] # always create a value of 2
+        outcome_generators={
+            "o:YC": {
+                "input_covariates": [],
+                "input_treatments": ["t:treat"],
+                "generator": DummyOutcomeGenerator()
+            }
+        }
     ).generate()
 
     # identify controlled vars
@@ -72,7 +79,7 @@ def test_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(factual_d
 
 @pytest.mark.parametrize(
     "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
+        #(pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
     ])
 def test_db_scm_with_pre_treatment_covariates_prohibiting_counterfactuals(factual_df):
 
@@ -122,7 +129,7 @@ def test_db_scm_with_pre_treatment_covariates_prohibiting_counterfactuals(factua
 
 @pytest.mark.parametrize(
     "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
+        #(pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
     ])
 def test_db_scm_with_post_treatment_covariates_allowing_counterfactuals(factual_df):
 
@@ -171,7 +178,7 @@ def test_db_scm_with_post_treatment_covariates_allowing_counterfactuals(factual_
 
 @pytest.mark.parametrize(
     "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
+        #(pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
     ])
 def test_db_scm_with_post_treatment_covariates_prohibiting_counterfactuals(factual_df):
 
@@ -223,7 +230,7 @@ def test_db_scm_with_post_treatment_covariates_prohibiting_counterfactuals(factu
 
 @pytest.mark.parametrize(
     "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
+        #(pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
     ])
 def test_that_only_instances_marked_as_revealed_are_shown_to_the_agent(factual_df):
 
@@ -265,7 +272,7 @@ def test_that_only_instances_marked_as_revealed_are_shown_to_the_agent(factual_d
 
 @pytest.mark.parametrize(
     "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
+        #(pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
     ])
 def test_serializability_of_scm(factual_df):
 

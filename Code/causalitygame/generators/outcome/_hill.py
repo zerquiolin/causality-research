@@ -6,21 +6,13 @@ class HillOutcomeGenerator(OutcomeGenerator):
 
     def __init__(
             self,
-            outcome_variable,
-            required_covariates,
-            required_treatments,
             coefficient_domain=[0, 1, 2, 3, 4],
             coefficient_probabilities=[0.5, 0.2, 0.15, 0.1, 0.05],
             noise_std=1,
             random_state=None
         ):
 
-        super().__init__(
-            outcome_variable,
-            required_covariates,
-            required_treatments,
-            random_state=random_state
-        )
+        super().__init__(random_state=random_state)
 
         # configuration
         self.coefficient_domain = coefficient_domain
@@ -55,9 +47,6 @@ class SetupAOutcomeGenerator(HillOutcomeGenerator):
 
     def __init__(
             self,
-            outcome_variable,
-            required_covariates,
-            required_treatments,
             coefficient_domain=[0, 1, 2, 3, 4],
             coefficient_probabilities=[0.5, 0.2, 0.15, 0.1, 0.05],
             noise_std=1,
@@ -65,9 +54,6 @@ class SetupAOutcomeGenerator(HillOutcomeGenerator):
             random_state=None
         ):
         super().__init__(
-            outcome_variable,
-            required_covariates,
-            required_treatments,
             coefficient_domain=coefficient_domain,
             coefficient_probabilities=coefficient_probabilities,
             noise_std=noise_std,
@@ -85,7 +71,6 @@ class SetupAOutcomeGenerator(HillOutcomeGenerator):
     def _to_dict(self):
         d = super()._to_dict()
         d.update({
-            "class": f"{self.__module__}.{self.__class__.__name__}",
             "offset": self.offset
         })
         return d
@@ -104,9 +89,6 @@ class SetupBOutcomeGenerator(HillOutcomeGenerator):
 
     def __init__(
             self,
-            outcome_variable,
-            required_covariates,
-            required_treatments,
             coefficient_domain=[0, 1, 2, 3, 4],
             coefficient_probabilities=[0.6, 0.1, 0.1, 0.1, 0.1],
             noise_std=1,
@@ -115,9 +97,6 @@ class SetupBOutcomeGenerator(HillOutcomeGenerator):
             random_state=None
         ):
         super().__init__(
-            outcome_variable,
-            required_covariates,
-            required_treatments,
             coefficient_domain=coefficient_domain,
             coefficient_probabilities=coefficient_probabilities,
             noise_std=noise_std,
@@ -137,7 +116,6 @@ class SetupBOutcomeGenerator(HillOutcomeGenerator):
     def _to_dict(self):
         d = super()._to_dict()
         d.update({
-            "class": f"{self.__module__}.{self.__class__.__name__}",
             "offset": self.offset,
             "omega": self.omega,
         })

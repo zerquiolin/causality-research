@@ -16,7 +16,7 @@ class FactualDatabaseDrivenSCMGenerator(AbstractSCMGenerator):
     def __init__(
             self,
             factual_df,
-            outcome_generator,
+            outcome_generators,
             random_state=None,
             overwrite_factual_outcomes: bool = True,
             covariates_before_intervention: bool = True,
@@ -26,7 +26,7 @@ class FactualDatabaseDrivenSCMGenerator(AbstractSCMGenerator):
         self._controllable_vars = [c for c in factual_df.columns if c.startswith("t:")]
         self._outcome_vars = [c for c in factual_df.columns if c.startswith("o:")]
         self._covariates = [c for c in factual_df.columns if c.startswith("c:")]
-        self.outcome_generator = outcome_generator  # must implement a mapping from covariates + treatment variables to output variables
+        self.outcome_generators = outcome_generators  # must implement a mapping from covariates + treatment variables to output variables
         self.random_state = np.random.RandomState() if random_state is None else random_state
         self.overwrite_factual_outcomes = overwrite_factual_outcomes
         self.covariates_before_intervention = covariates_before_intervention
@@ -44,19 +44,15 @@ class FactualDatabaseDrivenSCMGenerator(AbstractSCMGenerator):
         if self._full_dataframe_with_potential_outcomes is None:
 
             # fit the outcome generator on the factual data
-            self.outcome_generator.fit(
-                x=self.factual_df[self._covariates],
-                t=self.factual_df[self._controllable_vars],
-                y=self.factual_df[self._outcome_vars]
-            )
-
-            # determine all possible treatments
-            possible_treatments = list(it.product(*[
-                sorted(pd.unique(self.factual_df[c]))
-                for c in self._controllable_vars
-            ]))
-
+            for outcome_var, gen_descriptor in self.outcome_generators.items():
+                gen_descriptor["generator"].fit(
+                    x=self.factual_df[gen_descriptor["input_covariates"]],
+                    t=self.factual_df[gen_descriptor["input_treatments"]],
+                    y=self.factual_df[outcome_var]
+                )
+            
             # generate potential outcomes
+            """
             rows = []
             for cov, df_cov in self.factual_df.groupby(self._covariates):
         
@@ -76,20 +72,21 @@ class FactualDatabaseDrivenSCMGenerator(AbstractSCMGenerator):
             
             # create dataframe that is the basis for the Database SCM
             self._full_dataframe_with_potential_outcomes = pd.DataFrame(rows, columns=["factual_covariate_treatment_combination"] + self._covariates + self._controllable_vars + self._outcome_vars + ["revealable"])
+            """
         
         # generate random subset of revealed instances
-        population = np.where(self._full_dataframe_with_potential_outcomes["revealable"])[0]
+        population = np.where(self.factual_df["revealable"])[0]
         train_indices = self.random_state.choice(
             population,
             size=int(self.train_size * len(population)),
             replace=False
         )
-        df = self._full_dataframe_with_potential_outcomes.copy().drop(columns="revealable")
-        df["revealed"] = False
-        df.loc[train_indices, "revealed"] = True
+        #df = self._full_dataframe_with_potential_outcomes.copy().drop(columns="revealable")
+        #df["revealed"] = False
+        #df.loc[train_indices, "revealed"] = True
         return DatabaseSCM(
-            df,
-            covariates_before_intervention=self.covariates_before_intervention
+            self.factual_df[self._covariates],
+            outcome_generators=self.outcome_generators
         )
     
 class FullDatabaseDrivenSCMGenerator(AbstractSCMGenerator):

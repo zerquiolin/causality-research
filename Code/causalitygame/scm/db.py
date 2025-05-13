@@ -22,6 +22,7 @@ class DatabaseSCM(SCM):
         self,
         df: pd.DataFrame,
         outcome_generators: dict,
+        controllable_variables_with_domains: dict,
         random_state: np.random.RandomState = np.random.RandomState(42),
         name=None
     ):
@@ -29,7 +30,10 @@ class DatabaseSCM(SCM):
 
         Args:
             df (pd.DataFrame):
-                the dataset that contains all factual and counter-factual observations.
+                the dataset that contains all covariate values.
+            
+            outcome_generators (dict):
+                a dictionary that contains outcome generators, one for each outcome variable
                 
             random_state (np.random.RandomState, optional): _description_. Defaults to np.random.RandomState(42).
             name (_type_, optional): _description_. Defaults to None.
@@ -37,14 +41,22 @@ class DatabaseSCM(SCM):
 
         # check that both dataframes have the same columns
         assert "revealed" in df.columns, "No column called `revealed` found"
-        assert "outcomes" in df.columns, "No column called `outcomes` found"
         assert df["revealed"].dtype == bool
 
-        special_cols = ["revealed", "outcomes"]
+        special_cols = ["revealed"]
+
+        # get union of all controllable variables
+
 
         # extract controllable variables and outcome variables
-        self._controllable_vars = list(df.iloc[0]["outcomes"][0]["t"].keys())  # the treatments are the keys in the t dictionary
-        self._outcome_vars = list(df.iloc[0]["outcomes"][0]["o"].keys())  # the outcomes are the keys in the o dictionary
+        self._controllable_vars = set()
+        self._outcome_vars = []
+        for outcome_variable, outcome_generator in outcome_generators.items():
+            self._outcome_vars.append(outcome_variable)
+            self._controllable_vars.update(set(outcome_generator.required_treatments))
+        print(self._controllable_vars)
+
+        
         self._covariates = [c for c in df.columns if c not in special_cols]
 
         # extract treatment domains

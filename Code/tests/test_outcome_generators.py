@@ -1,4 +1,4 @@
-from causalitygame.generators.outcome.base import OutcomeGenerator
+from causalitygame.generators.outcome.base import OutcomeGenerator, ComplementaryOutcomeGenerator
 from causalitygame.generators.outcome._hill import SetupAOutcomeGenerator, SetupBOutcomeGenerator
 
 import numpy as np
@@ -12,18 +12,20 @@ treatments = ["t"]
 
 
 @pytest.mark.parametrize(
-        "generator", [
-            SetupAOutcomeGenerator(outcome_variable=outcome_variable, required_covariates=covs, required_treatments=treatments),
-            SetupBOutcomeGenerator(outcome_variable=outcome_variable, required_covariates=covs, required_treatments=treatments)
-        ]
+    "generator", [
+        SetupAOutcomeGenerator(random_state=0),
+        SetupBOutcomeGenerator(random_state=0),
+        ComplementaryOutcomeGenerator(base_outcome_generator=SetupAOutcomeGenerator(random_state=0))
+    ]
 )
 def test_core_functionality(generator):
 
     # fit model (only based on shapes actually)
+    rs = np.random.RandomState(0)
     n = 42
-    x = np.ones((n, len(covs)))
-    t = np.ones((n, len(treatments)))
-    y = np.ones(n)
+    x = rs.random(size=(n, len(covs)))
+    t = rs.random(size=(n, len(treatments)))
+    y = rs.random(size=n)
     generator.fit(x, t, y)
 
     # generate data
@@ -36,8 +38,9 @@ def test_core_functionality(generator):
 
 @pytest.mark.parametrize(
     "generator", [
-        SetupAOutcomeGenerator(outcome_variable=outcome_variable, required_covariates=covs, required_treatments=treatments, random_state=0),
-        SetupBOutcomeGenerator(outcome_variable=outcome_variable, required_covariates=covs, required_treatments=treatments, random_state=0)
+        SetupAOutcomeGenerator(random_state=0),
+        SetupBOutcomeGenerator(random_state=0),
+        ComplementaryOutcomeGenerator(base_outcome_generator=SetupAOutcomeGenerator(random_state=0))
     ]
 )
 def test_serializability_before_fit(generator):
@@ -63,8 +66,9 @@ def test_serializability_before_fit(generator):
 
 @pytest.mark.parametrize(
     "generator", [
-        SetupAOutcomeGenerator(outcome_variable=outcome_variable, required_covariates=covs, required_treatments=treatments, random_state=0),
-        SetupBOutcomeGenerator(outcome_variable=outcome_variable, required_covariates=covs, required_treatments=treatments, random_state=0)
+        SetupAOutcomeGenerator(random_state=0),
+        SetupBOutcomeGenerator(random_state=0),
+        ComplementaryOutcomeGenerator(base_outcome_generator=SetupAOutcomeGenerator(random_state=0))
     ]
 )
 def test_serializability_after_fit(generator):
@@ -84,3 +88,33 @@ def test_serializability_after_fit(generator):
     for sample_a, sample_b, sample_c in zip(generator.generate(x, t), generator_recovered_internally.generate(x, t), generator_recovered_json.generate(x, t)):
         assert sample_a == sample_b
         assert sample_a == sample_c
+
+
+def test_complementary_outcome_generator():
+
+    base_gen = SetupAOutcomeGenerator()
+    gen = ComplementaryOutcomeGenerator(
+        base_outcome_generator=base_gen
+    )
+    
+    # fit generators
+    rs = np.random.RandomState(0)
+    n = 10
+    x = rs.random(size=(n, len(covs)))
+    t = rs.random(size=(n, len(treatments)))
+    y = rs.random(size=n)
+    gen.fit(x, t, y)
+
+    # check that all values are correctly memorized
+    assert np.all(gen.x == x)
+    assert np.all(gen.y == y)
+    assert np.all(gen.t == t)
+
+    # check that known outcomes are not over-written
+    y_gen = gen.generate(x, t)
+    assert np.all(y_gen == y)
+
+    # check that we can generate outcomes for other data
+    xp = x**2
+    y_gen = gen.generate(xp, t)
+    assert len(y_gen) == len(xp)
