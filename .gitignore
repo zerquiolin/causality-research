@@ -2,3 +2,4 @@ __pycache__/
 output/ 
 *.egg-info
 .vscode
+Code/dist/causalitygame-0.1.0.tar.gz
