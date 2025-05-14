@@ -84,30 +84,16 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
         # Return the final value
         return evaluated + noise
 
-    def to_dict(self):
+    def _to_dict(self):
         """
         Converts the node to a dictionary representation.
 
         Returns:
             dict: Dictionary representation of the node.
         """
-        state = self.random_state.get_state()
         return {
-            "class": self.__class__.__name__,
-            "name": self.name,
-            "accessibility": self.accessibility,
             "equation": str(self.evaluation) if self.evaluation else None,
-            "domain": self.domain,
-            "noise_distribution": self.noise_distribution.to_dict(),
-            "parents": self.parents,
-            "parent_mappings": self.parent_mappings,
-            "random_state": {
-                "state": state[0],
-                "keys": state[1].tolist(),
-                "pos": state[2],
-                "has_gauss": state[3],
-                "cached_gaussian": state[4],
-            },
+            "noise_distribution": self.noise_distribution.to_dict()
         }
 
     @classmethod
@@ -158,19 +144,6 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
                 low=data["domain"][0], high=data["domain"][1]
             )
 
-        # Deserailize the random staet
-        random_state = np.random.RandomState()
-        if "random_state" in data:
-            random_state.set_state(
-                (
-                    str(data["random_state"]["state"]),
-                    np.array(data["random_state"]["keys"], dtype=np.uint32),
-                    int(data["random_state"]["pos"]),
-                    int(data["random_state"]["has_gauss"]),
-                    float(data["random_state"]["cached_gaussian"]),
-                )
-            )
-
         # Create the node
         new_class = cls(
             name=data["name"],
@@ -180,9 +153,9 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
             noise_distribution=noise_distribution,
             parents=data.get("parents", None),
             parent_mappings=data.get("parent_mappings", None),
+            random_state=data["random_state"]
         )
-        # Set the random state
-        new_class.random_state = random_state
+        
         # Return the new class
         return new_class
 
@@ -322,42 +295,26 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
         # Sample from the categorical distribution
         return rs.choice(list(evaluations.keys()), p=list(evaluations.values()))
 
-    def to_dict(self):
+    def _to_dict(self):
         """
         Converts the node to a dictionary representation.
 
         Returns:
             dict: Dictionary representation of the node.
         """
-        # Serialize the random state.
-        state = self.random_state.get_state()
-
         return {
-            "class": self.__class__.__name__,
-            "name": self.name,
-            "accessibility": self.accessibility,
             "equation": (
                 {cat: str(eq) for cat, eq in self.evaluation.items()}
                 if self.evaluation
                 else None
             ),
-            "domain": self.domain,
-            "noise_distribution": self.noise_distribution.to_dict(),
-            "parents": self.parents,
-            "parent_mappings": self.parent_mappings,
             "cdfs": (
                 {cat: self.cdfs[cat].to_list() for cat in self.cdfs}
                 if self.cdfs
                 else None
             ),
             "domain_distribution": self.domain_noise_distribution,
-            "random_state": {
-                "state": state[0],
-                "keys": state[1].tolist(),
-                "pos": state[2],
-                "has_gauss": state[3],
-                "cached_gaussian": state[4],
-            },
+            "noise_distribution": self.noise_distribution.to_dict()
         }
 
     @classmethod
@@ -399,16 +356,7 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
                 f"Unknown noise distribution class: {noise_distribution['class']}"
             )
         # Reconstruct the random state.
-        random_state = np.random.RandomState()
-        random_state.set_state(
-            (
-                str(data["random_state"]["state"]),
-                np.array(data["random_state"]["keys"], dtype=np.uint32),
-                int(data["random_state"]["pos"]),
-                int(data["random_state"]["has_gauss"]),
-                float(data["random_state"]["cached_gaussian"]),
-            )
-        )
+
         # Create the node
         new_class = cls(
             name=data["name"],
@@ -420,9 +368,8 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             parents=data.get("parents"),
             parent_mappings=data.get("parent_mappings"),
             domain_distribution=data.get("domain_distribution"),
+            random_state=data["random_state"]
         )
-        # Set the random state
-        new_class.random_state = random_state
 
         # Return the new class
         return new_class

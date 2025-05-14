@@ -50,6 +50,7 @@ def get_scm_overview(folder=None):
             with open(f) as h:
                 
                 try:
+                    print(f)
                     scm_json = json.load(h)
                     scm = SCM.from_dict(scm_json)
                     descriptor = get_scm_stats(scm)

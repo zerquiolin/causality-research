@@ -7,15 +7,15 @@ import json
 import pytest
 
 outcome_variable = "y"
-covs = ["x1", "x2"]
-treatments = ["t"]
+vars = ["x1", "x2", "t"]
+
 
 
 @pytest.mark.parametrize(
     "generator", [
-        SetupAOutcomeGenerator(random_state=0),
-        SetupBOutcomeGenerator(random_state=0),
-        ComplementaryOutcomeGenerator(base_outcome_generator=SetupAOutcomeGenerator(random_state=0))
+        SetupAOutcomeGenerator(index_of_treatment_variable=-1, random_state=0),
+        SetupBOutcomeGenerator(index_of_treatment_variable=-1, random_state=0),
+        ComplementaryOutcomeGenerator(base_outcome_generator=SetupAOutcomeGenerator(index_of_treatment_variable=-1, random_state=0))
     ]
 )
 def test_core_functionality(generator):
@@ -23,13 +23,12 @@ def test_core_functionality(generator):
     # fit model (only based on shapes actually)
     rs = np.random.RandomState(0)
     n = 42
-    x = rs.random(size=(n, len(covs)))
-    t = rs.random(size=(n, len(treatments)))
+    x = rs.random(size=(n, len(vars)))
     y = rs.random(size=n)
-    generator.fit(x, t, y)
+    generator.fit(x, y)
 
     # generate data
-    generated_data = generator.generate(x, t)
+    generated_data = generator.generate(x)
     assert generated_data.shape == (n, )
     for i, val_1 in enumerate(generated_data):
         for j, val_2 in enumerate(generated_data[:i]):
@@ -38,9 +37,9 @@ def test_core_functionality(generator):
 
 @pytest.mark.parametrize(
     "generator", [
-        SetupAOutcomeGenerator(random_state=0),
-        SetupBOutcomeGenerator(random_state=0),
-        ComplementaryOutcomeGenerator(base_outcome_generator=SetupAOutcomeGenerator(random_state=0))
+        SetupAOutcomeGenerator(index_of_treatment_variable=-1, random_state=0),
+        SetupBOutcomeGenerator(index_of_treatment_variable=-1, random_state=0),
+        ComplementaryOutcomeGenerator(base_outcome_generator=SetupAOutcomeGenerator(index_of_treatment_variable=-1, random_state=0))
     ]
 )
 def test_serializability_before_fit(generator):
@@ -51,14 +50,13 @@ def test_serializability_before_fit(generator):
 
     # fit generators
     n = 42
-    x = np.ones((n, len(covs)))
-    t = np.ones((n, len(treatments)))
+    x = np.ones((n, len(vars)))
     y = np.ones(n)
     for g in [generator, generator_recovered_internally, generator_recovered_json]:
-        g.fit(x, t, y)
+        g.fit(x, y)
     
     # test that generators generate same data
-    for sample_a, sample_b, sample_c in zip(generator.generate(x, t), generator_recovered_internally.generate(x, t), generator_recovered_json.generate(x, t)):
+    for sample_a, sample_b, sample_c in zip(generator.generate(x), generator_recovered_internally.generate(x), generator_recovered_json.generate(x)):
         assert sample_a == sample_b
         assert sample_a == sample_c
 
@@ -66,33 +64,32 @@ def test_serializability_before_fit(generator):
 
 @pytest.mark.parametrize(
     "generator", [
-        SetupAOutcomeGenerator(random_state=0),
-        SetupBOutcomeGenerator(random_state=0),
-        ComplementaryOutcomeGenerator(base_outcome_generator=SetupAOutcomeGenerator(random_state=0))
+        SetupAOutcomeGenerator(index_of_treatment_variable=-1, random_state=0),
+        SetupBOutcomeGenerator(index_of_treatment_variable=-1, random_state=0),
+        ComplementaryOutcomeGenerator(base_outcome_generator=SetupAOutcomeGenerator(index_of_treatment_variable=-1, random_state=0))
     ]
 )
 def test_serializability_after_fit(generator):
 
     # fit generators
     n = 42
-    x = np.ones((n, len(covs)))
-    t = np.ones((n, len(treatments)))
+    x = np.ones((n, len(vars)))
     y = np.ones(n)
-    generator.fit(x, t, y)
+    generator.fit(x, y)
 
     # recovered generators
     generator_recovered_internally = OutcomeGenerator.from_dict(generator.to_dict())
     generator_recovered_json = OutcomeGenerator.from_dict(json.loads(json.dumps(generator.to_dict())))
     
     # test that generators generate same data
-    for sample_a, sample_b, sample_c in zip(generator.generate(x, t), generator_recovered_internally.generate(x, t), generator_recovered_json.generate(x, t)):
+    for sample_a, sample_b, sample_c in zip(generator.generate(x), generator_recovered_internally.generate(x), generator_recovered_json.generate(x)):
         assert sample_a == sample_b
         assert sample_a == sample_c
 
 
 def test_complementary_outcome_generator():
 
-    base_gen = SetupAOutcomeGenerator()
+    base_gen = SetupAOutcomeGenerator(index_of_treatment_variable=-1)
     gen = ComplementaryOutcomeGenerator(
         base_outcome_generator=base_gen
     )
@@ -100,21 +97,19 @@ def test_complementary_outcome_generator():
     # fit generators
     rs = np.random.RandomState(0)
     n = 10
-    x = rs.random(size=(n, len(covs)))
-    t = rs.random(size=(n, len(treatments)))
+    x = rs.random(size=(n, len(vars)))
     y = rs.random(size=n)
-    gen.fit(x, t, y)
+    gen.fit(x, y)
 
     # check that all values are correctly memorized
     assert np.all(gen.x == x)
     assert np.all(gen.y == y)
-    assert np.all(gen.t == t)
 
     # check that known outcomes are not over-written
-    y_gen = gen.generate(x, t)
+    y_gen = gen.generate(x)
     assert np.all(y_gen == y)
 
     # check that we can generate outcomes for other data
     xp = x**2
-    y_gen = gen.generate(xp, t)
+    y_gen = gen.generate(xp)
     assert len(y_gen) == len(xp)

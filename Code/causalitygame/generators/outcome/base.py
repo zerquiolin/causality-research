@@ -21,11 +21,11 @@ class OutcomeGenerator(ABC):
             self.random_state = random_state
 
     @abstractmethod
-    def fit(self, x, t, y):
+    def fit(self, x, y):
         raise NotImplementedError
 
     @abstractmethod
-    def generate(self, x, t):
+    def generate(self, x, random_state=None):
         raise NotImplementedError
 
     @abstractmethod
@@ -60,12 +60,11 @@ class DummyOutcomeGenerator(OutcomeGenerator):
         super().__init__(random_state=None)
         self.constant = constant
     
-    def fit(self, x, t, y):
+    def fit(self, x, y):
         pass
 
-    def generate(self, x, t):
-        t = t.reshape(-1)
-        return np.ones(len(t)) * self.constant
+    def generate(self, x, random_state=None):
+        return np.ones(len(x)) * self.constant
 
     def _to_dict(self):
         return {
@@ -74,6 +73,7 @@ class DummyOutcomeGenerator(OutcomeGenerator):
     
     @classmethod
     def _from_dict(cls, data):
+        data.pop("random_state")
         return DummyOutcomeGenerator(**data)
 
 
@@ -91,30 +91,31 @@ class ComplementaryOutcomeGenerator(OutcomeGenerator):
 
         # state vars
         self.x = None
-        self.t = None
         self.y = None
     
-    def fit(self, x, t, y):
+    def fit(self, x, y):
         self.x = x
-        self.t = t
         self.y = y
-        self.base_outcome_generator.fit(x, t, y)
+        self.base_outcome_generator.fit(x, y)
     
-    def generate(self, x, t):
+    def generate(self, x, random_state=None):
+
+        if random_state is None:
+            random_state = self.random_state
+
         outcomes = []
-        for _x, _t in zip(x, t):
-            match = np.all(self.x == _x, axis=1) & np.all(self.t == _t, axis=1)
+        for _x in x:
+            match = np.all(self.x == _x, axis=1)
             indices_of_match = np.where(match)[0]
             if len(indices_of_match) > 0:
-                outcomes.append(self.y[self.random_state.choice(indices_of_match)])
+                outcomes.append(self.y[random_state.choice(indices_of_match)])
             else:
-                outcomes.append(self.base_outcome_generator.generate(np.array([_x]), np.array([_t]))[0])
+                outcomes.append(self.base_outcome_generator.generate(np.array([_x]))[0])
         return np.array(outcomes)
 
     def _to_dict(self):
         return {
             "x": self.x.tolist() if self.x is not None else None,
-            "t": self.t.tolist() if self.x is not None else None,
             "y": self.y.tolist() if self.x is not None else None,
             "base_generator": self.base_outcome_generator.to_dict()
         }
@@ -124,8 +125,6 @@ class ComplementaryOutcomeGenerator(OutcomeGenerator):
         gen = ComplementaryOutcomeGenerator(
             base_outcome_generator=OutcomeGenerator.from_dict(data["base_generator"])
         )
-        print(data)
         gen.x = np.array(data["x"])
-        gen.t = np.array(data["t"])
         gen.y = np.array(data["y"])
         return gen
