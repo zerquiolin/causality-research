@@ -4,6 +4,8 @@ import numpy as np
 # Graph
 import networkx as nx
 
+from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
+
 # Nodes
 from causalitygame.scm.node.base import (
     ACCESSIBILITY_CONTROLLABLE,
@@ -14,20 +16,10 @@ from causalitygame.scm.node.base import (
 
 # Typing
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from causalitygame.lib.utils.imports import get_class
 
 # Abstract
 from abc import ABC, abstractmethod
-
-# Imports
-import importlib
-
-
-def get_class(fqcn: str):
-    pos_of_last_point = fqcn.rindex(".")
-    module_name = fqcn[:pos_of_last_point]
-    class_name = fqcn[pos_of_last_point + 1:]
-    mod = importlib.import_module(module_name)
-    return getattr(mod, class_name)
 
 
 class BaseDAG(ABC):
@@ -167,36 +159,25 @@ class SCM:
         """
         self.dag = dag
         self.nodes = {node.name: node for node in nodes}
+        self._topologically_sorted_var_names = list(nx.topological_sort(self.dag.graph))
         self.random_state = random_state
         self.name = name
 
     @property
     def vars(self):
-        return sorted(self.nodes.keys())
+        return self._topologically_sorted_var_names
 
     @property
     def controllable_vars(self):
-        return [
-            n.name
-            for n in self.nodes.values()
-            if n.accessibility == ACCESSIBILITY_CONTROLLABLE
-        ]
-
+        return [n for n in self.vars if self.nodes[n].accessibility == ACCESSIBILITY_CONTROLLABLE]
+    
     @property
     def observable_vars(self):
-        return [
-            n.name
-            for n in self.nodes.values()
-            if n.accessibility in [ACCESSIBILITY_OBSERVABLE, ACCESSIBILITY_CONTROLLABLE]
-        ]
-
+        return [n for n in self.vars if self.nodes[n].accessibility in [ACCESSIBILITY_CONTROLLABLE, ACCESSIBILITY_OBSERVABLE]]
+    
     @property
     def latent_vars(self):
-        return [
-            n.name
-            for n in self.nodes.values()
-            if n.accessibility == ACCESSIBILITY_LATENT
-        ]
+        return [n for n in self.vars if self.nodes[n].accessibility in [ACCESSIBILITY_LATENT]]
 
     def get_random_state(self) -> np.random.RandomState:
         """
@@ -227,7 +208,7 @@ class SCM:
 
         for node_name, node in [
             (node_name, self.nodes[node_name])
-            for node_name in list(nx.topological_sort(self.dag.graph))
+            for node_name in self.vars
         ]:
             if node_name in interventions:
                 sample[node_name] = interventions[node_name]
@@ -271,19 +252,10 @@ class SCM:
         nodes_data = [node.to_dict() for node in self.nodes.values()]
 
         # Serialize the random state
-        state = self.random_state.get_state()
-        state_dict = {
-            "state": state[0],
-            "keys": state[1].tolist(),
-            "pos": state[2],
-            "has_gauss": state[3],
-            "cached_gaussian": state[4],
-        }
-
         return {
             "vars": nodes_data,
             "edges": self.dag.to_dict()["edges"],
-            "random_state": state_dict,
+            "random_state": random_state_to_json(self.random_state),
         }
 
     @classmethod
@@ -299,7 +271,8 @@ class SCM:
         """
 
         if "class" in data and data["class"] not in [__class__.__name__]:
-            return get_class(data["class"]).from_dict(data)
+            class_name = data.pop("class")
+            return get_class(class_name).from_dict(data)
 
         from causalitygame.scm.dag import DAG  # TODO
 
@@ -322,21 +295,8 @@ class SCM:
                 node_as_dict["parents"] = [e[0] for e in edges if e[1] == node_as_dict["name"]]
 
             # get node object
-            fully_qualified_class_name = node_as_dict["class"] if "." in node_as_dict["class"] else f"causalitygame.scm.node.{node_as_dict["class"]}"
-            node_class = get_class(fully_qualified_class_name)
-            node = node_class.from_dict(node_as_dict)
-            nodes.append(node)
+            nodes.append(BaseSCMNode.from_dict(node_as_dict))
 
         # Reconstruct the random state
-        random_state = np.random.RandomState(911)
-        if "random_state" in data:
-            state_tuple = (
-                str(data["random_state"]["state"]),
-                np.array(data["random_state"]["keys"], dtype=np.uint32),
-                int(data["random_state"]["pos"]),
-                int(data["random_state"]["has_gauss"]),
-                float(data["random_state"]["cached_gaussian"]),
-            )
-            random_state.set_state(state_tuple)
-
+        random_state = random_state_from_json(data["random_state"]) if "random_state" in data else None
         return cls(dag, nodes, random_state)

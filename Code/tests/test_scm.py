@@ -4,6 +4,7 @@ from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.scm.base import SCM
 from causalitygame.scm.dag import DAG
 from causalitygame.generators.dag_generator import DAGGenerator
+from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
 from scipy.stats import norm, uniform
 import numpy as np
 from causalitygame.scm.noise_distributions import (
@@ -422,6 +423,7 @@ def test_bayesian_network_scm_deserialization(network_path):
     # Load the JSON file
     with open(network_path, "r") as f:
         scm_data = json.load(f)
+        scm_data["random_state"] = random_state_to_json(np.random.RandomState(0))
 
     logger.debug("Recovering SCM (A) from JSON file")
     scm_deserialized_a = SCM.from_dict(scm_data)

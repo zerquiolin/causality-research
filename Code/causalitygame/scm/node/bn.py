@@ -1,6 +1,8 @@
 # Math
 import numpy as np
 
+from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
+
 
 # Abstract Base Class
 from causalitygame.scm.node.base import BaseCategoricSCMNode, ACCESSIBILITY_OBSERVABLE
@@ -16,12 +18,17 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
         accessibility: str = ACCESSIBILITY_OBSERVABLE,
         random_state: np.random.RandomState = np.random.RandomState(911),
     ):
-        self.name = name
-        self.parents = parents
-        self.domain = values
+        super().__init__(
+            name=name,
+            accessibility=accessibility,
+            evaluation=None,
+            parents=parents,
+            parent_mappings=None,
+            domain=values,
+            random_state=random_state,
+            noise_distribution=None
+        )
         self.probability_distribution = probability_distribution
-        self.accessibility = accessibility
-        self.random_state = random_state
 
         # sanity check of given distribution
         if isinstance(probability_distribution, list):
@@ -29,7 +36,7 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
             s = np.sum(probability_distribution)
             assert np.isclose(s, 1), f"Invalid distribution for leaf node {name}, which sum up to {sum(probability_distribution)}: {probability_distribution}"
             if s != 1:
-                    self.probability_distribution /= s
+                self.probability_distribution /= s
         else:
             for parent_combo, distribution in probability_distribution.items():
                 assert all([isinstance(v, (float, np.float64)) for v in distribution]), f"invalid entries in distribution for {name}: {distribution}"
@@ -48,6 +55,7 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
         Returns:
             str: A sampled value from the node's distribution.
         """
+        self._init_random_state()
         rs = random_state if random_state else self.random_state
         distribution = self.get_distribution(parent_values)
         return rs.choice(self.domain, p=distribution)
@@ -83,7 +91,7 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
         """
         return self.get_distribution(parent_values)
 
-    def to_dict(self) -> dict:
+    def _to_dict(self) -> dict:
         data = {
             "class": self.__class__.__name__,
             "name": self.name,
@@ -92,37 +100,18 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
             "accessibility": self.accessibility,
             "probability_distribution": self.probability_distribution,
         }
-        if self.random_state:
-            state = self.random_state.get_state()
-            data["random_state"] = {
-                "state": state[0],
-                "keys": state[1].tolist(),
-                "pos": state[2],
-                "has_gauss": state[3],
-                "cached_gaussian": state[4],
-            }
         return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "BayesianNetworkSCMNode":
+        
         # Reconstruct the random state.
-        random_state = None
-        if "random_state" in data:
-            random_state = np.random.RandomState()
-            random_state.set_state(
-                (
-                    str(data["random_state"]["state"]),
-                    np.array(data["random_state"]["keys"], dtype=np.uint32),
-                    int(data["random_state"]["pos"]),
-                    int(data["random_state"]["has_gauss"]),
-                    float(data["random_state"]["cached_gaussian"]),
-                )
-            )
+        random_state = data["random_state"] if "random_state" in data else None
         return cls(
             name=data["name"],
             parents=data["parents"],
             values=data["values"],
             probability_distribution=data["probability_distribution"] if data["parents"] else [v[0] for v in data["probability_distribution"]],
             accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
-            random_state=random_state,
+            random_state=random_state
         )

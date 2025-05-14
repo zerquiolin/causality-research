@@ -1,7 +1,10 @@
 import pandas as pd
 import numpy as np
 import json
-from causalitygame.generators.db_generator import DatabaseDrivenSCMGenerator
+import itertools as it
+
+from causalitygame.generators.outcome.base import DummyOutcomeGenerator
+from causalitygame.scm.base import SCM
 from causalitygame.scm.db import DatabaseSCM
 import pytest
 
@@ -21,262 +24,97 @@ logger.addHandler(ch)
 logger.setLevel(logging.DEBUG)
 
 @pytest.mark.parametrize(
-    "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
+    "path_to_csv, intervention_variables, outcome_variables, has_counterfactuals, overwrite_factual_outcomes", [[a[0], a[1], a[2], a[3], b] for a, b in it.product([
+            ["causalitygame/data/datasets/ihdp/ihdp.csv", ["treat"], ["YC"], False],
+            ["causalitygame/data/datasets/jobs/nsw.csv", ["treatment"], ["RE78"], False],
+            ["causalitygame/data/datasets/twins/twins.csv", ["selection"], ["mortality"], True]
+        ],
+        [False, True]
+        )
     ])
-def test_db_scm_with_pre_treatment_covariates_allowing_counterfactuals(factual_df):
+def test_functionality_of_db_scm(path_to_csv, intervention_variables, outcome_variables, has_counterfactuals, overwrite_factual_outcomes):
 
-    scm = DatabaseDrivenSCMGenerator(
+    factual_df = pd.read_csv(path_to_csv).head(1000)
+
+    scm = DatabaseSCM(
         factual_df=factual_df,
-        covariates_before_intervention=True,
-        reveal_only_outcomes_of_originally_factual_covariates=False,
+        intervention_variables=intervention_variables,
         random_state=np.random.RandomState(0),
-        overwrite_factual_outcomes=False,
-        outcome_generator=lambda x: [2] # always create a value of 2
-    ).generate()
-
-    # identify controlled vars
-    treatment_vars = [c for c in factual_df.columns if c.startswith("t:")]
+        overwrite_factual_outcomes=overwrite_factual_outcomes,
+        outcome_generators={
+            k: DummyOutcomeGenerator(constant=-1)
+            for k in outcome_variables
+        }
+    )
 
     # check that topological ordering is correct
-    assert len(scm.dag.nodes) == factual_df.shape[1]
+    assert factual_df.shape[1] == len(scm.dag.nodes)
     seen_treatments = []
     seen_outputs = []
     for n in nx.topological_sort(scm.dag.graph):
-        if n.startswith("t:"):
+        if n in intervention_variables:
             seen_treatments.append(n)
-        if n.startswith("o:"):
+        elif n in outcome_variables:
             seen_outputs.append(n)
-        if n.startswith("c:"):
-            assert not seen_treatments, f"incorrect topological ordering. The covariate {n} comes after treatments {treatment_vars}"
+        else:
+            assert not seen_treatments, f"incorrect topological ordering. The covariate {n} comes after treatments {intervention_variables}"
             assert not seen_outputs, f"incorrect topological ordering. The covariate {n} comes after outputs {seen_outputs}"
 
     # check that the controllable variable is indeed controllable
-    assert treatment_vars == scm.controllable_vars
+    assert intervention_variables == scm.controllable_vars
 
-    # check whether all data points are contained in the original database
-    num_factuals = 0
-    num_counter_factuals = 0
+    # check whether all data points are contained in the original database if we do not intervene
     for s in scm.generate_samples(num_samples=10**1):
         row = np.array([s[v] for v in scm.var_names])
-        is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
-        if is_factual:
-            num_factuals += 1
-        else:
-            num_counter_factuals += 1
+        entry_contained_in_original_data = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
+        assert (overwrite_factual_outcomes and not entry_contained_in_original_data) or (not overwrite_factual_outcomes and entry_contained_in_original_data)
 
-    # check that we have both factual entries (from the original data) and counter-factual entries
-    assert num_counter_factuals >= 3, "There should be at least 3 counterfactual entries even though factuals are not overwritten."
-    assert num_factuals >= 3, "There should be at least 3 factual entries since original entries are preserved."
+    # check that we obtain counter-factuals when we intervene
+    num_matches = 0
+    num_mismatches = 0
+    possible_interventions = it.product(*[sorted(pd.unique(factual_df[v])) for v in intervention_variables])
+    for intervention in possible_interventions:
+        for s in scm.generate_samples(interventions={
+            var_name: var_val
+            for var_name, var_val in zip(intervention_variables, intervention)
+        }, num_samples=10**1):
+            row = np.array([s[v] for v in scm.var_names])
+            is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
+            if is_factual:
+                num_matches += 1
+                assert not overwrite_factual_outcomes, f"There should be exclusively counter-factual entries in the database since outcomes are configured to be overwritten, but {row} is a factual contained in the database."
+            else:
+                num_mismatches += 1
+                assert overwrite_factual_outcomes or not has_counterfactuals, f"The database is marked as complete, so there should be no mismatches, but {row} does not occur in {path_to_csv}."
 
-
-@pytest.mark.parametrize(
-    "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
-    ])
-def test_db_scm_with_pre_treatment_covariates_prohibiting_counterfactuals(factual_df):
-
-    scm = DatabaseDrivenSCMGenerator(
-        factual_df=factual_df,
-        covariates_before_intervention=True,
-        reveal_only_outcomes_of_originally_factual_covariates=True,
-        random_state=np.random.RandomState(0),
-        overwrite_factual_outcomes=False,
-        outcome_generator=lambda x: [2] # always create a value of 2
-    ).generate()
-
-    # identify controlled vars
-    treatment_vars = [c for c in factual_df.columns if c.startswith("t:")]
-
-    # check that topological ordering is correct
-    assert len(scm.dag.nodes) == factual_df.shape[1]
-    seen_treatments = []
-    seen_outputs = []
-    for n in nx.topological_sort(scm.dag.graph):
-        if n.startswith("t:"):
-            seen_treatments.append(n)
-        if n.startswith("o:"):
-            seen_outputs.append(n)
-        if n.startswith("c:"):
-            assert not seen_treatments, f"incorrect topological ordering. The covariate {n} comes after treatments {treatment_vars}"
-            assert not seen_outputs, f"incorrect topological ordering. The covariate {n} comes after outputs {seen_outputs}"
-
-    # check that the controllable variable is indeed controllable
-    assert treatment_vars == scm.controllable_vars
-
-    # check whether all data points are contained in the original database
-    num_factuals = 0
-    num_counter_factuals = 0
-    num_samples = 10**1
-    for s in scm.generate_samples(num_samples=num_samples):
-        row = np.array([s[v] for v in scm.var_names])
-        is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
-        if is_factual:
-            num_factuals += 1
-        else:
-            num_counter_factuals += 1
-
-    # check that we have both factual entries (from the original data) and counter-factual entries
-    assert num_counter_factuals == 0, "There should be no counterfactuals in the training data, since these have been forbidden."
-    assert num_factuals == num_samples, "All data points should be contained in the sampled data."
-
-@pytest.mark.parametrize(
-    "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
-    ])
-def test_db_scm_with_post_treatment_covariates_allowing_counterfactuals(factual_df):
-
-    scm = DatabaseDrivenSCMGenerator(
-        factual_df=factual_df,
-        covariates_before_intervention=False,
-        reveal_only_outcomes_of_originally_factual_covariates=False,
-        random_state=np.random.RandomState(0),
-        overwrite_factual_outcomes=False,
-        outcome_generator=lambda x: [2] # always create a value of 2
-    ).generate()
-
-    # identify controlled vars
-    treatment_vars = [c for c in factual_df.columns if c.startswith("t:")]
-
-    # check that topological ordering is correct
-    assert len(scm.dag.nodes) == factual_df.shape[1]
-    seen_covariates = []
-    seen_outputs = []
-    for n in nx.topological_sort(scm.dag.graph):
-        if n.startswith("c:"):
-            seen_covariates.append(n)
-        if n.startswith("o:"):
-            seen_outputs.append(n)
-        if n.startswith("t:"):
-            assert not seen_covariates, f"incorrect topological ordering. The treatment variable {n} comes after covariates {seen_covariates}"
-            assert not seen_outputs, f"incorrect topological ordering. The treatment variable {n} comes after outputs {seen_outputs}"
-
-    # check that the controllable variable is indeed controllable
-    assert treatment_vars == scm.controllable_vars
-
-    # check whether all data points are contained in the original database
-    num_factuals = 0
-    num_counter_factuals = 0
-    for s in scm.generate_samples(num_samples=10**1):
-        row = np.array([s[v] for v in scm.var_names])
-        is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
-        if is_factual:
-            num_factuals += 1
-        else:
-            num_counter_factuals += 1
-
-    # check that we have both factual entries (from the original data) and counter-factual entries
-    assert num_counter_factuals >= 3, "There should be at least 3 counterfactual entries even though factuals are not overwritten."
-    assert num_factuals >= 3, "There should be at least 3 factual entries since original entries are preserved."
-
-@pytest.mark.parametrize(
-    "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
-    ])
-def test_db_scm_with_post_treatment_covariates_prohibiting_counterfactuals(factual_df):
-
-    
-    scm = DatabaseDrivenSCMGenerator(
-        factual_df=factual_df,
-        covariates_before_intervention=False,
-        reveal_only_outcomes_of_originally_factual_covariates=True,
-        random_state=np.random.RandomState(0),
-        overwrite_factual_outcomes=False,
-        outcome_generator=lambda x: [2] # always create a value of 2
-    ).generate()
-
-    # identify controlled vars
-    treatment_vars = [c for c in factual_df.columns if c.startswith("t:")]
-
-    # check that topological ordering is correct
-    assert len(scm.dag.nodes) == factual_df.shape[1]
-    seen_covariates = []
-    seen_outputs = []
-    for n in nx.topological_sort(scm.dag.graph):
-        if n.startswith("c:"):
-            seen_covariates.append(n)
-        if n.startswith("o:"):
-            seen_outputs.append(n)
-        if n.startswith("t:"):
-            assert not seen_covariates, f"incorrect topological ordering. The treatment variable {n} comes after covariates {seen_covariates}"
-            assert not seen_outputs, f"incorrect topological ordering. The treatment variable {n} comes after outputs {seen_outputs}"
-
-    # check that the controllable variable is indeed controllable
-    assert treatment_vars == scm.controllable_vars
-
-    # check whether all data points are contained in the original database
-    num_factuals = 0
-    num_counter_factuals = 0
-    num_samples = 10**1
-    for s in scm.generate_samples(num_samples=num_samples):
-        row = np.array([s[v] for v in scm.var_names])
-        is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
-        if is_factual:
-            num_factuals += 1
-        else:
-            num_counter_factuals += 1
-
-    # check that we have both factual entries (from the original data) and counter-factual entries
-    assert num_counter_factuals == 0, "There should be no counterfactuals in the training data, since these have been forbidden."
-    assert num_factuals == num_samples, "All data points should be contained in the sampled data."
+        # check that we have both factual entries (from the original data) and counter-factual entries
+        if not has_counterfactuals:
+            assert num_mismatches >= 1, "There should be at least 1 counter-factual entry not contained in the database even though factuals are not overwritten."
 
 
 @pytest.mark.parametrize(
-    "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
+    "path_to_csv, intervention_variables, outcome_variables, overwrite_factual_outcomes", [[a[0], a[1], a[2], b] for a, b in it.product([
+            ["causalitygame/data/datasets/ihdp/ihdp.csv", ["treat"], ["YC"]],
+            ["causalitygame/data/datasets/jobs/nsw.csv", ["treatment"], ["RE78"]],
+            ["causalitygame/data/datasets/twins/twins.csv", ["selection"], ["mortality"]]
+        ],
+        [False, True]
+        )
     ])
-def test_that_only_instances_marked_as_revealed_are_shown_to_the_agent(factual_df):
+def test_serializability_of_scm(path_to_csv, intervention_variables, outcome_variables, overwrite_factual_outcomes):
 
-    scm = DatabaseDrivenSCMGenerator(
+    factual_df = pd.read_csv(path_to_csv).head(1000)
+
+    scm = DatabaseSCM(
         factual_df=factual_df,
-        covariates_before_intervention=True,
-        reveal_only_outcomes_of_originally_factual_covariates=False,
+        intervention_variables=intervention_variables,
         random_state=np.random.RandomState(0),
-        overwrite_factual_outcomes=False,
-        outcome_generator=lambda x: [2] # always create a value of 2
-    ).generate()
-
-    # identify controlled vars
-    treatment_vars = [c for c in factual_df.columns if c.startswith("t:")]
-
-    # check that topological ordering is correct
-    assert len(scm.dag.nodes) == factual_df.shape[1]
-    seen_treatments = []
-    seen_outputs = []
-    for n in nx.topological_sort(scm.dag.graph):
-        if n.startswith("t:"):
-            seen_treatments.append(n)
-        if n.startswith("o:"):
-            seen_outputs.append(n)
-        if n.startswith("c:"):
-            assert not seen_treatments, f"incorrect topological ordering. The covariate {n} comes after treatments {treatment_vars}"
-            assert not seen_outputs, f"incorrect topological ordering. The covariate {n} comes after outputs {seen_outputs}"
-
-    # check that the controllable variable is indeed controllable
-    assert treatment_vars == scm.controllable_vars
-
-    # check whether all data points are contained in the original database
-    for s in scm.generate_samples(num_samples=10**1):
-        row = np.array([s[v] for v in scm.var_names])
-        mask = np.all(scm.df[scm.var_names].values == row, axis=1)
-        assert np.count_nonzero(mask) == 1, "There should be exactly one entry for this covariate/treatment combination"
-        assert scm.df[mask]["revealed"].iloc[0], f"The datapoint {scm.df[mask]["revealed"][0]} has been revealed to the user even though it is not marked for revelation."
-
-
-@pytest.mark.parametrize(
-    "factual_df", [
-        (pd.read_csv("causalitygame/data/scm/ihdp_prepared.csv"))
-    ])
-def test_serializability_of_scm(factual_df):
-
-    scm = DatabaseDrivenSCMGenerator(
-        factual_df=factual_df,
-        covariates_before_intervention=True,
-        reveal_only_outcomes_of_originally_factual_covariates=False,
-        random_state=np.random.RandomState(0),
-        overwrite_factual_outcomes=False,
-        outcome_generator=lambda x: [2] # always create a value of 2
-    ).generate()
+        overwrite_factual_outcomes=overwrite_factual_outcomes,
+        outcome_generators={
+            k: DummyOutcomeGenerator(constant=-1)
+            for k in outcome_variables
+        }
+    )
 
     def test_df_equalness(df1, df2, msg=""):
         if df1.equals(df2):
@@ -303,23 +141,25 @@ def test_serializability_of_scm(factual_df):
             logger.info("Checking whether SCM is correctly serialized and deserialized if samples have been generated previously.")
 
         # recover from dict
-        scm_recovered_inside_python = DatabaseSCM.from_dict(scm.to_dict())
-        scm_recovered_after_json = DatabaseSCM.from_dict(json.loads(json.dumps(scm.to_dict())))
+        scm_recovered_inside_python = SCM.from_dict(scm.to_dict())
+        scm_recovered_after_json = SCM.from_dict(json.loads(json.dumps(scm.to_dict())))
 
         # test that properties are equal
         logger.debug("Checking that properties are equal.")
         for other in [scm_recovered_inside_python, scm_recovered_after_json]:
             assert scm.controllable_vars == other.controllable_vars
-            assert scm.latent_vars == other.latent_vars
-            assert scm.observable_vars == other.observable_vars
-            assert scm._output_columns == other._output_columns
-            assert scm.covariates_before_intervention == other.covariates_before_intervention
+            assert scm._outcome_vars == other._outcome_vars
             assert list(nx.topological_sort(scm.dag.graph)) == list(nx.topological_sort(other.dag.graph))
-
+        
         # test that dataframes are identical
         logger.debug("Checking that dataframes are equal.")
         test_df_equalness(scm.df, scm_recovered_inside_python.df, msg="DataFrame has changed after internal Python deserialization")
         test_df_equalness(scm.df, scm_recovered_after_json.df, msg="Dataframe has changed after json.loads and json.dumps")
+
+        # test that all nodes of the same type
+        for node_a, node_b, node_c in zip(scm.nodes, scm_recovered_inside_python.nodes, scm_recovered_after_json.nodes):
+            assert type(node_a) == type(node_b), f"Node type has changed after Python internal serialization from {type(node_a)} to {type(node_b)}"
+            assert type(node_a) == type(node_c), f"Node type has changed after JSON serialization from {type(node_a)} to {type(node_c)}"
 
         # test that generated instances are the same
         logger.debug(f"Checking that sampled instances are equal.")

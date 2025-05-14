@@ -1,12 +1,14 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-import numpy as np
-
 ACCESSIBILITY_LATENT = "latent"
 ACCESSIBILITY_OBSERVABLE = "observable"
 ACCESSIBILITY_CONTROLLABLE = "controllable"
 
+from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
+from causalitygame.lib.utils.imports import get_class
+
+import numpy as np
 
 class BaseNoiseDistribution(ABC):
     def generate(self, random_state: Optional[int] = 911) -> float:
@@ -83,6 +85,10 @@ class BaseSCMNode(ABC):
 
         # this is just to not break the MRO
         super().__init__()
+    
+    def _init_random_state(self):
+        if self.random_state is None:
+            self.random_state = np.random.RandomState()
 
     @abstractmethod
     def generate_value(
@@ -100,15 +106,32 @@ class BaseSCMNode(ABC):
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    @abstractmethod
+    def _to_dict(self) -> dict:
+        return {}
+
     def to_dict(self) -> dict:
-        raise NotImplementedError("Subclasses must implement this method.")
+        d = {
+            "class": f"{self.__module__}.{self.__class__.__name__}",
+            "name": self.name,
+            "accessibility": self.accessibility,
+            "domain": self.domain,
+            "parents": self.parents,
+            "parent_mappings": self.parent_mappings,
+            "random_state": random_state_to_json(self.random_state) if self.random_state is not None else None
+        }
+        d.update(self._to_dict())
+        assert "class" in d
+        return d
 
     @classmethod
-    @abstractmethod
     def from_dict(cls, data: dict) -> "BaseSCMNode":
-        raise NotImplementedError("Subclasses must implement this method.")
-
+        assert "class" in data, f"Serialized node has no class entry: {data}"
+        data = data.copy()
+        data["random_state"] = random_state_from_json(data["random_state"]) if "random_state" in data else None
+        class_name = data.pop("class")
+        fully_qualified_class_name = class_name if "." in class_name else f"causalitygame.scm.node.{class_name}"
+        return get_class(fully_qualified_class_name).from_dict(data)
+        
 class BaseNumericSCMNode(BaseSCMNode):
     pass
 

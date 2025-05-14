@@ -4,29 +4,14 @@ import pandas as pd
 
 # typing
 from typing import Dict, Any, List
+from causalitygame.lib.utils.random_state_serialization import random_state_to_json, random_state_from_json
 
 # Abstract Base Class
-from causalitygame.scm.node.base import BaseCategoricSCMNode, ACCESSIBILITY_OBSERVABLE
+from causalitygame.scm.node.base import BaseCategoricSCMNode, BaseNumericSCMNode, ACCESSIBILITY_OBSERVABLE
 
 
-class DatabaseDefinedSCMNode(BaseCategoricSCMNode):
-    def __init__(
-        self,
-        name: str,
-        df: pd.DataFrame,
-        revealed_to_agent: list,
-        accessibility: str = ACCESSIBILITY_OBSERVABLE,
-        random_state: np.random.RandomState = np.random.RandomState(911),
-    ):
-        self.name = name
-        cols = list(df.columns)
-        self.df = df
-        self.revealed_to_agent = revealed_to_agent
-        self.parents = cols[:cols.index(name)] # all predecessor columns are parents
-        self.domain = sorted(pd.unique(df[name]))
-        self.accessibility = accessibility
-        self.random_state = random_state
-        self.eval_mode = False
+
+class DatabaseDefinedSCMNode:
     
     def enable_eval_mode(self):
         self.eval_mode = True  # enables access to the unrevealed instances
@@ -34,7 +19,7 @@ class DatabaseDefinedSCMNode(BaseCategoricSCMNode):
     def disable_eval_mode(self):
         self.eval_mode = False
 
-    def generate_value(
+    def _generate_value(
         self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
     ):
         
@@ -87,47 +72,70 @@ class DatabaseDefinedSCMNode(BaseCategoricSCMNode):
         """
         return self.get_distribution(parent_values)
 
-    def to_dict(self) -> dict:
-        data = {
-            "class": self.__class__.__name__,
-            "name": self.name,
-            "parents": self.parents,
-            "values": self.domain,
-            "accessibility": self.accessibility
-        }
-        if self.random_state:
-            state = self.random_state.get_state()
-            data["random_state"] = {
-                "state": state[0],
-                "keys": state[1].tolist(),
-                "pos": state[2],
-                "has_gauss": state[3],
-                "cached_gaussian": state[4],
-            }
-        return data
+class DatabaseDefinedNumericSCMNode(BaseNumericSCMNode, DatabaseDefinedSCMNode):
+    def __init__(
+        self,
+        name: str,
+        df: pd.DataFrame,
+        revealed_to_agent: list,
+        accessibility: str = ACCESSIBILITY_OBSERVABLE,
+        random_state: np.random.RandomState = np.random.RandomState(911),
+    ):
+        self.cols = list(df.columns)
+        super().__init__(
+            name=name,
+            accessibility=accessibility,
+            evaluation=None,
+            noise_distribution=None,
+            parents=self.cols[:self.cols.index(name)],
+            domain=sorted(pd.unique(df[name])),
+            random_state=random_state
+        )
+        self.df = df
+        self.revealed_to_agent = revealed_to_agent
+        self.eval_mode = False
+    
+    def generate_value(
+        self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
+    ):
+        return self._generate_value(parent_values=parent_values, random_state=random_state)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "DatabaseDefinedSCMNode":
+    def from_dict(cls, data: dict) -> "DatabaseDefinedNumericSCMNode":
+        print(data["random_state"])
+        return cls(**data)
 
-        # Reconstruct the random state.
-        random_state = None
-        if "random_state" in data:
-            random_state = np.random.RandomState()
-            random_state.set_state(
-                (
-                    str(data["random_state"]["state"]),
-                    np.array(data["random_state"]["keys"], dtype=np.uint32),
-                    int(data["random_state"]["pos"]),
-                    int(data["random_state"]["has_gauss"]),
-                    float(data["random_state"]["cached_gaussian"]),
-                )
-            )
-        return cls(
-            name=data["name"],
-            df=data["df"],
-            revealed_to_agent=data["revealed_to_agent"],
-            parents=data["parents"],
-            values=data["values"],
-            accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
-            random_state=random_state,
+
+
+class DatabaseDefinedCategoricSCMNode(BaseCategoricSCMNode, DatabaseDefinedSCMNode):
+    def __init__(
+        self,
+        name: str,
+        df: pd.DataFrame,
+        revealed_to_agent: list,
+        accessibility: str = ACCESSIBILITY_OBSERVABLE,
+        random_state: np.random.RandomState = np.random.RandomState(911),
+    ):
+        self.cols = list(df.columns)
+        super().__init__(
+            name=name,
+            accessibility=accessibility,
+            evaluation=None,
+            noise_distribution=None,
+            parents=self.cols[:self.cols.index(name)],
+            domain=sorted(pd.unique(df[name])),
+            random_state=random_state
         )
+        self.df = df
+        self.revealed_to_agent = revealed_to_agent
+        self.eval_mode = False
+
+    def generate_value(
+        self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
+    ):
+        return self._generate_value(parent_values=parent_values, random_state=random_state)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DatabaseDefinedCategoricSCMNode":
+        print(data["random_state"])
+        return cls(**data)

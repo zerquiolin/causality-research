@@ -3,7 +3,7 @@
         {
             "name": "KE",
             "equation": "0.5*m*v**2",
-            "domain": [0, 1e33],
+            "domain": [0, 1e45],
             "class": "EquationBasedNumericalSCMNode"
         },
         {
