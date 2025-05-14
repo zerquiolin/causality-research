@@ -25,7 +25,7 @@ logger.setLevel(logging.DEBUG)
 
 @pytest.mark.parametrize(
     "path_to_csv, intervention_variables, outcome_variables, has_counterfactuals, overwrite_factual_outcomes", [[a[0], a[1], a[2], a[3], b] for a, b in it.product([
-            ["causalitygame/data/datasets/ihdp/ihdp_orig.csv", ["treat"], ["YC"], False],
+            ["causalitygame/data/datasets/ihdp/ihdp.csv", ["treat"], ["YC"], False],
             ["causalitygame/data/datasets/jobs/nsw.csv", ["treatment"], ["RE78"], False],
             ["causalitygame/data/datasets/twins/twins.csv", ["selection"], ["mortality"], True]
         ],
@@ -94,7 +94,7 @@ def test_functionality_of_db_scm(path_to_csv, intervention_variables, outcome_va
 
 @pytest.mark.parametrize(
     "path_to_csv, intervention_variables, outcome_variables, overwrite_factual_outcomes", [[a[0], a[1], a[2], b] for a, b in it.product([
-            ["causalitygame/data/datasets/ihdp/ihdp_orig.csv", ["treat"], ["YC"]],
+            ["causalitygame/data/datasets/ihdp/ihdp.csv", ["treat"], ["YC"]],
             ["causalitygame/data/datasets/jobs/nsw.csv", ["treatment"], ["RE78"]],
             ["causalitygame/data/datasets/twins/twins.csv", ["selection"], ["mortality"]]
         ],
