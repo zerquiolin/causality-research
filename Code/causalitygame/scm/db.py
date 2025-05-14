@@ -94,7 +94,7 @@ class DatabaseSCM(SCM):
         # create DAG
         nodes = []
         for name in self.var_names:
-            if self.df[name].dtype in [float, int, np.number]:
+            if self.df[name].dtype in [float, int, np.number] and len(pd.unique(self.df[name])) > 10:
                 if name in self._outcome_vars:
                     node = ComputedNumericSCMNode(
                         name=name,
