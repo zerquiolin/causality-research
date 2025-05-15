@@ -158,6 +158,7 @@ class Environment:
                     "round": self.current_round,
                     "action": "final_answer",
                     "action_object": answer,
+                    "current_result": answer,
                     "state_datasets": self.state["datasets"],
                 }
             )
@@ -212,7 +213,6 @@ class Environment:
                 )
 
             # Generate samples for the treatment using the dedicated random state
-            print(f"Generating samples for treatment: {treatment}")
             samples = self.game_instance.scm.generate_samples(
                 interventions=treatment,
                 num_samples=num_samples,
@@ -246,22 +246,23 @@ class Environment:
                 samples=samples, actions=actions, num_rounds=num_rounds
             )
 
+            # For performance measurement purposes only
+            current_result = self.agent.submit_answer()
+
+            # Check if the agent has chosen to stop the game
+            if action == "stop_with_answer":
+                break
+
             # Log the current state and action
             self.history.append(
                 {
                     "round": self.current_round,
                     "action": action,
-                    "action_object": (
-                        action_object
-                        if action != "stop_with_answer"
-                        else self.agent.submit_answer()
-                    ),
+                    "action_object": action_object,
+                    "current_result": current_result,
                     "state_datasets": state["datasets"],
                 }
             )
-
-            if action == "stop_with_answer":
-                break
 
             self.apply_action(action, action_object)
             self.current_round += 1
@@ -292,7 +293,6 @@ class Environment:
             path
             or f"./output/game_history-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
         )
-        print(file_path)
         directory = os.path.dirname(file_path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)

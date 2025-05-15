@@ -5,6 +5,8 @@ from causalitygame.lib.scripts.pc import learn as learn_dag
 
 
 class RandomAgent(BaseAgent):
+    _is_numeric = False
+
     def __init__(
         self,
         stop_probability: float,
@@ -64,6 +66,7 @@ class RandomAgent(BaseAgent):
                 continue
 
             if isinstance(domain, tuple):  # Numerical domain
+                self._is_numeric = True
                 treatment_value = self.random_state.uniform(domain[0], domain[1])
             elif isinstance(domain, list):  # Categorical domain
                 treatment_value = self.random_state.choice(domain)
@@ -88,4 +91,4 @@ class RandomAgent(BaseAgent):
                     self.past_data[key][val].extend(records)
 
     def submit_answer(self):
-        return learn_dag(self.past_data, seed=self.seed)
+        return learn_dag(self.past_data, self._is_numeric, seed=self.seed)

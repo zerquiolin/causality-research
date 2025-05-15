@@ -1,8 +1,8 @@
 from itertools import permutations
 import json
 import pytest
-from causalitygame.evaluators.impl.BehaviorMetrics import ExperimentsBehaviorMetric
-from causalitygame.evaluators.impl.DeliverableMetrics import SHDDeliverableMetric
+from causalitygame.evaluators.impl.behavior import ExperimentsBehaviorMetric
+from causalitygame.evaluators.impl.deliverable import SHDDeliverableMetric
 from causalitygame.game.Environment import Environment
 from causalitygame.game.GameInstance import GameInstance
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
@@ -49,7 +49,7 @@ scm_generator = EquationBasedSCMGenerator(
         UniformNoiseDistribution(low=-1, high=1),
     ],
     random_state=np.random.RandomState(911),
-    num_samples_for_cdf_generation=10
+    num_samples_for_cdf_generation=10,
 )
 scm = scm_generator.generate()
 

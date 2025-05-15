@@ -5,10 +5,14 @@ ACCESSIBILITY_LATENT = "latent"
 ACCESSIBILITY_OBSERVABLE = "observable"
 ACCESSIBILITY_CONTROLLABLE = "controllable"
 
-from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
+from causalitygame.lib.utils.random_state_serialization import (
+    random_state_from_json,
+    random_state_to_json,
+)
 from causalitygame.lib.utils.imports import get_class
 
 import numpy as np
+
 
 class BaseNoiseDistribution(ABC):
     def generate(self, random_state: Optional[int] = 911) -> float:
@@ -85,7 +89,7 @@ class BaseSCMNode(ABC):
 
         # this is just to not break the MRO
         super().__init__()
-    
+
     def _init_random_state(self):
         if self.random_state is None:
             self.random_state = np.random.RandomState()
@@ -117,7 +121,11 @@ class BaseSCMNode(ABC):
             "domain": self.domain,
             "parents": self.parents,
             "parent_mappings": self.parent_mappings,
-            "random_state": random_state_to_json(self.random_state) if self.random_state is not None else None
+            "random_state": (
+                random_state_to_json(self.random_state)
+                if self.random_state is not None
+                else None
+            ),
         }
         d.update(self._to_dict())
         assert "class" in d
@@ -127,13 +135,21 @@ class BaseSCMNode(ABC):
     def from_dict(cls, data: dict) -> "BaseSCMNode":
         assert "class" in data, f"Serialized node has no class entry: {data}"
         data = data.copy()
-        data["random_state"] = random_state_from_json(data["random_state"]) if "random_state" in data else None
+        data["random_state"] = (
+            random_state_from_json(data["random_state"])
+            if "random_state" in data and data["random_state"] is not None
+            else None
+        )
         class_name = data.pop("class")
-        fully_qualified_class_name = class_name if "." in class_name else f"causalitygame.scm.node.{class_name}"
+        fully_qualified_class_name = (
+            class_name if "." in class_name else f"causalitygame.scm.node.{class_name}"
+        )
         return get_class(fully_qualified_class_name).from_dict(data)
-        
+
+
 class BaseNumericSCMNode(BaseSCMNode):
     pass
+
 
 class BaseCategoricSCMNode(BaseSCMNode):
     pass

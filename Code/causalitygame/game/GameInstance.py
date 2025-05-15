@@ -49,7 +49,6 @@ class GameInstance:
     @classmethod
     def from_dict(cls, data):
         mission_mapping = {m.__name__: m for m in [DAGInferenceMission]}
-        print(data["mission"])
         mission = mission_mapping[data["mission"]["class"]].from_dict(data["mission"])
         assert isinstance(
             mission, BaseMission
@@ -66,7 +65,7 @@ class GameInstance:
             int(data["random_state"]["has_gauss"]),  # Ensure integer (0 or 1)
             float(data["random_state"]["cached_gaussian"]),  # Ensure float
         )
-        random_state = np.random.RandomState()
+        random_state = np.random.RandomState(911)
         random_state.set_state(random_state_config)
         return cls(max_rounds, scm, mission, random_state)
 
@@ -89,8 +88,9 @@ class GameInstance:
         # Ensure the directory exists
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-        # Write the JSON file
-        data = joblib.load(filename)
+        with open(filename, "r") as f:
+            data = json.load(f)
+
         return cls.from_dict(data)
 
 

@@ -1,4 +1,4 @@
-from causalitygame.scm.scm import SCM
+from causalitygame.scm.base import SCM
 from .base import DeliverableMetric, BehaviorMetric, WeightedScores
 from typing import List
 

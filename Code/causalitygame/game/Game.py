@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 # Math
 import numpy as np
+import pandas as pd
 
 # Figures
 import matplotlib.pyplot as plt
@@ -25,7 +26,7 @@ import matplotlib.pyplot as plt
 import joblib
 
 # Types
-from typing import List, Tuple, Union, Callable, Dict, Any
+from typing import Optional, List, Tuple, Union, Callable, Dict, Any
 
 
 class Game:
@@ -33,8 +34,8 @@ class Game:
         self,
         agents: List[Tuple[str, BaseAgent]],
         game_spec: str,
-        behavior_metrics: List[Any],
-        deliverable_metrics: List[Any],
+        behavior_metrics: Optional[List[Any]] = [],
+        deliverable_metrics: Optional[List[Any]] = [],
         plambda: float = 0.8,
         seed: int = 911,
     ):
@@ -54,21 +55,18 @@ class Game:
         # will hold results keyed by agent name
         self.results: Dict[str, Dict[str, Any]] = {}
 
-    def _make_env(self, agent):
+    def _make_game_instance(self):
         # Read the game instance from the JSON file
         with open(self.game_spec, "r") as f:
             game_instance_data = f.read()
         game_instance = json.loads(game_instance_data)
-        print(game_instance["mission"])
         # Create a game instance
         game_instance = GameInstance.from_dict(game_instance)
+        return game_instance
 
-        # # Set the random seed for reproducibility
-        # random_state = np.random.RandomState(42)
-        # # Generate a binary SCM with the specified seed
-        # dag, scm = gen_binary_scm(random_state=random_state)
-        # # Create a GameInstance with the generated SCM
-        # game_instance = GameInstance(scm=scm, random_state=random_state)
+    def _make_env(self, agent):
+        # Create a game instance
+        game_instance = self._make_game_instance()
 
         # Create an environment
         env = Environment(
@@ -86,7 +84,7 @@ class Game:
           - 'eval'    (raw Evaluator results)
           - 'behavior_score', 'deliverable_score'
         """
-        for name, agent in self.agents:
+        for name, agent in tqdm(self.agents):
             # 1) Build a fresh environment
             env = self._make_env(agent)
 
@@ -109,26 +107,11 @@ class Game:
             )
             raw_results = evaluator.evaluate(history=final_history)
 
-            # 4) Aggregate into two scalars
-            behavior_vals = [v for _, v in raw_results["behavior"]]
-            deliverable_vals = [v for _, v in raw_results["deliverable"]]
-
-            behavior_score = WeightedScores(
-                values=behavior_vals,
-                weights=[1 / len(behavior_vals)] * len(behavior_vals),
-            ).compute()
-            deliverable_score = WeightedScores(
-                values=deliverable_vals,
-                weights=[1 / len(deliverable_vals)] * len(deliverable_vals),
-            ).compute()
-
-            # 5) Store
+            # 4) Store
             self.results[name] = {
                 "agent": agent,
                 "history": final_history,
-                "raw": raw_results,
-                "behavior_score": behavior_score,
-                "deliverable_score": deliverable_score,
+                "scores": raw_results,
                 "mission": env.game_instance.mission.evaluate(
                     env.game_instance.scm, final_history
                 ),
@@ -142,24 +125,114 @@ class Game:
         """
         if not self.results:
             raise RuntimeError("No results to plot: run() first.")
+        # Get the game instance from the game spec
+        game_instance = self._make_game_instance()
 
-        plt.figure(figsize=(8, 6))
-        for name, res in self.results.items():
-            plt.scatter(
-                res["behavior_score"],
-                res["deliverable_score"],
-                s=100,
-                edgecolor="black",
-                label=name,
+        # Plot the scores
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+        for name, run in self.results.items():
+            # Get the mission scores
+            behavior_score, deliverable_score = run["mission"]
+
+            # Plot behavior vs. deliverable scores
+            self._plot_scores(
+                name=name,
+                behavior_score=behavior_score,
+                deliverable_score=deliverable_score,
+                title="Behavior vs. Deliverable Scores",
+                ax=axes[0],
+            )
+            # Plot behavior score over time
+            self._plot_behavior_score(
+                name=name,
+                mission=game_instance.mission,
+                history=run["history"],
+                ax=axes[1],
+            )
+            axes[1].scatter(
+                len(run["history"]) - 1, behavior_score, s=100, edgecolor="black"
+            )
+            # Plot deliverable score
+            self.plot_deliverable_score(
+                name=name,
+                scm=game_instance.scm,
+                mission=game_instance.mission,
+                history=run["history"],
+                ax=axes[2],
+            )
+            axes[2].scatter(
+                len(run["history"]) - 1, deliverable_score, s=100, edgecolor="black"
             )
 
-        plt.xlabel("Behavior Score", fontsize=12)
-        plt.ylabel("Deliverable Score", fontsize=12)
-        plt.title("Agent Performance Comparison", fontsize=14)
-        plt.legend(title="Agent", fontsize=10, title_fontsize=11)
-        plt.grid(True, linestyle="--", alpha=0.7)
+        # Set the title and labels
+        fig.suptitle("Agent Comparison Scores", fontsize=14)
+        # Behavior vs. Deliverable Scores
+        axes[0].grid(True, linestyle="--", alpha=0.7)
+        axes[0].legend(title="Agent", fontsize=10, title_fontsize=11)
+        axes[0].set_xlabel("Behavior Score", fontsize=12)
+        axes[0].set_ylabel("Deliverable Score", fontsize=12)
+        # Behavior Score over Time
+        axes[1].grid(True, linestyle="--", alpha=0.7)
+        axes[1].legend(title="Agent", fontsize=10, title_fontsize=11)
+        axes[1].set_xlabel("Number of Rounds", fontsize=12)
+        axes[1].set_ylabel("Behavior Score", fontsize=12)
+        # Deliverable Score
+        axes[2].grid(True, linestyle="--", alpha=0.7)
+        axes[2].legend(title="Agent", fontsize=10, title_fontsize=11)
+        axes[2].set_xlabel("Number of Rounds", fontsize=12)
+        axes[2].set_ylabel("Deliverable Score", fontsize=12)
         plt.tight_layout()
         plt.show()
+
+    def _plot_scores(self, name, behavior_score, deliverable_score, title, ax):
+        """
+        Plot the scores of the agents.
+        """
+        ax.scatter(
+            behavior_score,
+            deliverable_score,
+            s=100,
+            edgecolor="black",
+            label=name,
+        )
+
+    def _plot_behavior_score(self, name, mission, history, ax):
+        # history
+        scores = []
+        for i in range(len(history)):
+            # Get the behavior score
+            behavior_score = mission.behavior_metric.evaluate(history.iloc[: i + 1])
+            scores.append(behavior_score)
+        # Plot the behavior score
+        ax.plot(
+            range(len(scores)),
+            scores,
+            label=name,
+            alpha=0.7,
+        )
+
+    def plot_deliverable_score(self, name, scm, mission, history, ax):
+        # history
+        scores = []
+        for i in range(len(history)):
+            # Create new dataframe with the action object
+            current_result = history.iloc[i]["current_result"]
+            new_history = pd.DataFrame(
+                {
+                    "action_object": [current_result],
+                }
+            )
+            # Get the behavior score
+            deliverable_score = mission.deliverable_metric.evaluate(scm, new_history)
+            scores.append(deliverable_score)
+
+        # Plot the behavior score
+        ax.plot(
+            range(len(scores)),
+            scores,
+            label=name,
+            alpha=0.7,
+        )
 
     def plot_dags(self):
         """
