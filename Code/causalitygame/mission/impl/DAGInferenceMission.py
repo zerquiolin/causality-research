@@ -1,12 +1,12 @@
 from causalitygame.evaluators.base import BaseMetric
 from ..base import BaseMission
-from causalitygame.evaluators.impl.BehaviorMetrics import (
+from causalitygame.evaluators.impl.behavior import (
     ExperimentsBehaviorMetric,
     TreatmentsBehaviorMetric,
     RoundsBehaviorMetric,
 )
 
-from causalitygame.evaluators.impl.DeliverableMetrics import (
+from causalitygame.evaluators.impl.deliverable import (
     SHDDeliverableMetric,
     F1DeliverableMetric,
     EdgeAccuracyDeliverableMetric,

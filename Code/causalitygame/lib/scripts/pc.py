@@ -99,7 +99,7 @@ def _all_permutations(iterable, r):
 # --------------------------------------------------------------------------
 
 
-def PC(data: Dict, alpha: float = 0.05):
+def PC(data: Dict, isNumerical: bool, alpha: float = 0.05):
     """Run the PC algorithm on *observational* rows ``data['empty']``.
 
     Returns
@@ -122,7 +122,9 @@ def PC(data: Dict, alpha: float = 0.05):
     sep_sets: Dict[frozenset, Set[str]] = {}
 
     # compute the largest possible conditioning‐set size up front
-    max_l = max(len(set(G.neighbors(X)) - {Y}) for X, Y in G.edges())
+    max_l = (
+        max(len(set(G.neighbors(X)) - {Y}) for X, Y in G.edges()) if G.edges() else 0
+    )
 
     # 2. edge-removal
     logging.debug(f"max_l: {max_l}")
@@ -141,7 +143,12 @@ def PC(data: Dict, alpha: float = 0.05):
                     continue
                 # test _all_ subsets of size l
                 for Z in _all_combinations(nbrs_X, l):
-                    if ci_test_discrete(df=obs_df, X=X, Y=Y, Z=list(Z)):
+                    conditional = (
+                        ci_test_discrete(df=obs_df, X=X, Y=Y, Z=list(Z))
+                        if not isNumerical
+                        else ci_test(df=obs_df, X=X, Y=Y, Z=list(Z))
+                    )
+                    if conditional:
                         G.remove_edge(X, Y)
                         sep_sets[frozenset({X, Y})] = set(Z)
                         logging.debug(f"PC: removing edge {X} - {Y} | {Z}")
@@ -307,7 +314,7 @@ def remove_cycles_from_digraph(graph: nx.DiGraph, seed: int) -> nx.DiGraph:
             # Remove one edge from the cycle randomly
             rid = rs.choice(len(cycle))
             edge_to_remove = cycle[rid][:2]  # (source, target)
-            print(f"Removing edge {edge_to_remove} to break cycle.")
+            logging.info(f"Removing edge {edge_to_remove} to break cycle.")
             g.remove_edge(*edge_to_remove)
     except nx.NetworkXNoCycle:
         pass  # No more cycles
@@ -315,7 +322,9 @@ def remove_cycles_from_digraph(graph: nx.DiGraph, seed: int) -> nx.DiGraph:
     return g
 
 
-def learn(data: Dict, alpha: float = 0.05, seed: int = 911) -> nx.DiGraph:
+def learn(
+    data: Dict, isNumerical: bool, alpha: float = 0.05, seed: int = 911
+) -> nx.DiGraph:
     """End‑to‑end learner: observational PC → interventional orientation.
 
     Parameters
@@ -332,7 +341,7 @@ def learn(data: Dict, alpha: float = 0.05, seed: int = 911) -> nx.DiGraph:
         oriented.  Ambiguous skeleton edges are **omitted**.  (If you
         prefer to keep them, add them as bidirectional pairs.)
     """
-    skeleton, dir_pc = PC(data, alpha)
+    skeleton, dir_pc = PC(data, alpha, isNumerical)
     blacklist = _create_edge_blacklist_and_path_whitelist(data, skeleton, dir_pc, alpha)
     bl_skeleton = _clean_skeleton_with_blacklist(skeleton, blacklist, dir_pc)
 
