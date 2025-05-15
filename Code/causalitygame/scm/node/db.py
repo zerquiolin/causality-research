@@ -4,29 +4,35 @@ import pandas as pd
 
 # typing
 from typing import Dict, Any, List
-from causalitygame.lib.utils.random_state_serialization import random_state_to_json, random_state_from_json
+from causalitygame.lib.utils.random_state_serialization import (
+    random_state_to_json,
+    random_state_from_json,
+)
 
 # Abstract Base Class
-from causalitygame.scm.node.base import BaseCategoricSCMNode, BaseNumericSCMNode, ACCESSIBILITY_OBSERVABLE
-
+from causalitygame.scm.node.base import (
+    BaseCategoricSCMNode,
+    BaseNumericSCMNode,
+    ACCESSIBILITY_OBSERVABLE,
+)
 
 
 class DatabaseDefinedSCMNode:
-    
+
     def enable_eval_mode(self):
         self.eval_mode = True  # enables access to the unrevealed instances
-    
+
     def disable_eval_mode(self):
         self.eval_mode = False
 
     def _generate_value(
         self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
     ):
-        
+
         # take own random state if None is given
         if random_state is None:
             random_state = self.random_state
-        
+
         # Filter the dataset for rows matching parent values
         filtered = self.df
         if not self.eval_mode:
@@ -34,7 +40,7 @@ class DatabaseDefinedSCMNode:
         for parent in self.parents:
             if parent in parent_values:
                 filtered = filtered[filtered[parent] == parent_values[parent]]
-        
+
         # If no match found, fallback to full column
         if filtered.empty:
             return random_state.choice(self.df[self.name].dropna().tolist())
@@ -72,6 +78,7 @@ class DatabaseDefinedSCMNode:
         """
         return self.get_distribution(parent_values)
 
+
 class DatabaseDefinedNumericSCMNode(BaseNumericSCMNode, DatabaseDefinedSCMNode):
     def __init__(
         self,
@@ -87,24 +94,24 @@ class DatabaseDefinedNumericSCMNode(BaseNumericSCMNode, DatabaseDefinedSCMNode):
             accessibility=accessibility,
             evaluation=None,
             noise_distribution=None,
-            parents=self.cols[:self.cols.index(name)],
+            parents=self.cols[: self.cols.index(name)],
             domain=sorted(pd.unique(df[name])),
-            random_state=random_state
+            random_state=random_state,
         )
         self.df = df
         self.revealed_to_agent = revealed_to_agent
         self.eval_mode = False
-    
+
     def generate_value(
         self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
     ):
-        return self._generate_value(parent_values=parent_values, random_state=random_state)
+        return self._generate_value(
+            parent_values=parent_values, random_state=random_state
+        )
 
     @classmethod
     def from_dict(cls, data: dict) -> "DatabaseDefinedNumericSCMNode":
-        print(data["random_state"])
         return cls(**data)
-
 
 
 class DatabaseDefinedCategoricSCMNode(BaseCategoricSCMNode, DatabaseDefinedSCMNode):
@@ -122,9 +129,9 @@ class DatabaseDefinedCategoricSCMNode(BaseCategoricSCMNode, DatabaseDefinedSCMNo
             accessibility=accessibility,
             evaluation=None,
             noise_distribution=None,
-            parents=self.cols[:self.cols.index(name)],
+            parents=self.cols[: self.cols.index(name)],
             domain=sorted(pd.unique(df[name])),
-            random_state=random_state
+            random_state=random_state,
         )
         self.df = df
         self.revealed_to_agent = revealed_to_agent
@@ -133,9 +140,10 @@ class DatabaseDefinedCategoricSCMNode(BaseCategoricSCMNode, DatabaseDefinedSCMNo
     def generate_value(
         self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
     ):
-        return self._generate_value(parent_values=parent_values, random_state=random_state)
+        return self._generate_value(
+            parent_values=parent_values, random_state=random_state
+        )
 
     @classmethod
     def from_dict(cls, data: dict) -> "DatabaseDefinedCategoricSCMNode":
-        print(data["random_state"])
         return cls(**data)

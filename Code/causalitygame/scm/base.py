@@ -4,14 +4,17 @@ import numpy as np
 # Graph
 import networkx as nx
 
-from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
+from causalitygame.lib.utils.random_state_serialization import (
+    random_state_from_json,
+    random_state_to_json,
+)
 
 # Nodes
 from causalitygame.scm.node.base import (
     ACCESSIBILITY_CONTROLLABLE,
     ACCESSIBILITY_LATENT,
     ACCESSIBILITY_OBSERVABLE,
-    BaseSCMNode
+    BaseSCMNode,
 )
 
 # Typing
@@ -145,7 +148,7 @@ class SCM:
         self,
         dag: BaseDAG,
         nodes: List[BaseSCMNode],
-        random_state: np.random.RandomState,
+        random_state: Optional[np.random.RandomState],
         name=None,
     ):
         """
@@ -160,7 +163,7 @@ class SCM:
         self.dag = dag
         self.nodes = {node.name: node for node in nodes}
         self._topologically_sorted_var_names = list(nx.topological_sort(self.dag.graph))
-        self.random_state = random_state
+        self.random_state = random_state if random_state else np.random.RandomState(911)
         self.name = name
 
     @property
@@ -169,15 +172,28 @@ class SCM:
 
     @property
     def controllable_vars(self):
-        return [n for n in self.vars if self.nodes[n].accessibility == ACCESSIBILITY_CONTROLLABLE]
-    
+        return [
+            n
+            for n in self.vars
+            if self.nodes[n].accessibility == ACCESSIBILITY_CONTROLLABLE
+        ]
+
     @property
     def observable_vars(self):
-        return [n for n in self.vars if self.nodes[n].accessibility in [ACCESSIBILITY_CONTROLLABLE, ACCESSIBILITY_OBSERVABLE]]
-    
+        return [
+            n
+            for n in self.vars
+            if self.nodes[n].accessibility
+            in [ACCESSIBILITY_CONTROLLABLE, ACCESSIBILITY_OBSERVABLE]
+        ]
+
     @property
     def latent_vars(self):
-        return [n for n in self.vars if self.nodes[n].accessibility in [ACCESSIBILITY_LATENT]]
+        return [
+            n
+            for n in self.vars
+            if self.nodes[n].accessibility in [ACCESSIBILITY_LATENT]
+        ]
 
     def get_random_state(self) -> np.random.RandomState:
         """
@@ -207,8 +223,7 @@ class SCM:
         sample = {}
 
         for node_name, node in [
-            (node_name, self.nodes[node_name])
-            for node_name in self.vars
+            (node_name, self.nodes[node_name]) for node_name in self.vars
         ]:
             if node_name in interventions:
                 sample[node_name] = interventions[node_name]
@@ -289,14 +304,20 @@ class SCM:
         for node_as_dict in sorted(
             data["vars"], key=lambda n: topological_order.index(n["name"])
         ):
-            
+
             # extract parents from edges if they are not explicitly given
             if not "parents" in node_as_dict:
-                node_as_dict["parents"] = [e[0] for e in edges if e[1] == node_as_dict["name"]]
+                node_as_dict["parents"] = [
+                    e[0] for e in edges if e[1] == node_as_dict["name"]
+                ]
 
             # get node object
             nodes.append(BaseSCMNode.from_dict(node_as_dict))
 
         # Reconstruct the random state
-        random_state = random_state_from_json(data["random_state"]) if "random_state" in data else None
+        random_state = (
+            random_state_from_json(data["random_state"])
+            if "random_state" in data
+            else None
+        )
         return cls(dag, nodes, random_state)
