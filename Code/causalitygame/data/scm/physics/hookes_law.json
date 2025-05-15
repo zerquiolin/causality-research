@@ -3,7 +3,7 @@
         {
             "name": "F",
             "equation": "-k*x",
-            "domain": [-1e11, 1e24],
+            "domain": [-1e11, 1e26],
             "class": "EquationBasedNumericalSCMNode"
         },
         {

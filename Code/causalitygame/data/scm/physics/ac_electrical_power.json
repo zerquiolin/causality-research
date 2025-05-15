@@ -3,7 +3,7 @@
         {
             "name": "P",
             "class": "EquationBasedNumericalSCMNode",
-            "domain": [-1e11, 1e11],
+            "domain": [-1e12, 1e12],
             "equation": "Irms*Vrms*cos(psi)"
         },
         {

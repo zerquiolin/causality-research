@@ -20,6 +20,18 @@ def get_scm_stats(scm):
     # check in-degrees and out-degrees of the variables
     out_degrees = {v: len([1 for e in edges if e[0] == v]) for v in nodes}
     in_degrees = {v: len([1 for e in edges if e[1] == v]) for v in nodes}
+
+    # check domain sizes
+    domains = {
+        c: scm.nodes[c].domain
+        for c in nodes
+    }
+    domain_sizes = {
+        c: len(d)
+        for c, d in domains.items()
+    }
+
+    # check domain sizes
     return {
         "num_nodes": num_nodes,
         "num_edges": num_edges,
@@ -28,7 +40,8 @@ def get_scm_stats(scm):
         "max_parents": max(in_degrees.values()) if in_degrees is not None else None,
         "max_children": max(out_degrees.values()) if out_degrees is not None else None,
         "num_categorical_vars": num_categorical_nodes,
-        "num_numerical_vars": num_numerical_nodes
+        "num_numerical_vars": num_numerical_nodes,
+        "min/avg/max domain size": f"{min(domain_sizes.values())}/{int(np.round(np.mean(list(domain_sizes.values()))))}/{max(domain_sizes.values())}"
     }
 
 
@@ -53,9 +66,11 @@ def get_scm_overview(folder=None):
                     print(f)
                     scm_json = json.load(h)
                     scm = SCM.from_dict(scm_json)
-                    descriptor = get_scm_stats(scm)
-                    descriptor["name"] = name
-                    descriptor["filename"] = f
+                    descriptor = {
+                        "name": name,
+                        "filename": f
+                    }
+                    descriptor.update(get_scm_stats(scm))
                     rows.append(descriptor)
 
                 except json.decoder.JSONDecodeError:
