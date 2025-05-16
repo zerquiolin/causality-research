@@ -4,11 +4,11 @@ from ...base import DeliverableMetric
 
 
 class F1DeliverableMetric(DeliverableMetric):
-    name = "F1"
+    name = "F1 Deliverable Metric"
 
     def evaluate(self, scm, history) -> float:
         G_true: nx.DiGraph = scm.dag.graph
-        G_pred: nx.DiGraph = history.iloc[-1]["action_object"]
+        G_pred: nx.DiGraph = history.iloc[-1]["current_result"]
         nodes = sorted(set(G_true.nodes()).union(G_pred.nodes()))
 
         true_edges = set(G_true.subgraph(nodes).edges())

@@ -195,6 +195,16 @@ class SCM:
             if self.nodes[n].accessibility in [ACCESSIBILITY_LATENT]
         ]
 
+    @property
+    def outcome_vars(self):
+        return [
+            n
+            for n in self.vars
+            if self.nodes[n].accessibility
+            in [ACCESSIBILITY_CONTROLLABLE, ACCESSIBILITY_OBSERVABLE]
+            and not self.nodes[n].parents
+        ]
+
     def get_random_state(self) -> np.random.RandomState:
         """
         Returns the SCM's random number generator.

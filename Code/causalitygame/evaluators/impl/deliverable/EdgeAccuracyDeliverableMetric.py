@@ -4,11 +4,11 @@ from ...base import DeliverableMetric
 
 
 class EdgeAccuracyDeliverableMetric(DeliverableMetric):
-    name = "EdgeOrientationAccuracy"
+    name = "Edge Accuracy Deliverable Metric"
 
     def evaluate(self, scm, history) -> float:
         G_true: nx.DiGraph = scm.dag.graph
-        G_pred: nx.DiGraph = history.iloc[-1]["action_object"]
+        G_pred: nx.DiGraph = history.iloc[-1]["current_result"]
 
         true_edges = set(G_true.edges())
         pred_edges = set(G_pred.edges())

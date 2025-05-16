@@ -3,3 +3,6 @@ from .F1DeliverableMetric import F1DeliverableMetric
 from .PEHEDeliverableMetric import PEHEDeliverableMetric
 from .PolicyRiskDeliverableMetric import PolicyRiskDeliverableMetric
 from .SHDDeliverableMetric import SHDDeliverableMetric
+from .AbsoluteErrorDeliverableMetric import AbsoluteErrorDeliverableMetric
+from .SquaredErrorDeliverableMetric import SquaredErrorDeliverableMetric
+from .MeanSquaredErrorDeliverableMetric import MeanSquaredErrorDeliverableMetric

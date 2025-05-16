@@ -3,7 +3,7 @@ from causalitygame.lib.utils.metrics import log_penalty
 
 
 class ExperimentsBehaviorMetric(BehaviorMetric):
-    name = "experiments_score"
+    name = "Experiments Behavior Metric"
 
     def __init__(self, e: float = 1.0):
         self.e = e

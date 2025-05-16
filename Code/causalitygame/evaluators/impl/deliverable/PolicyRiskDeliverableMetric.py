@@ -4,7 +4,7 @@ from typing import List, Any
 
 
 class PolicyRiskDeliverableMetric(DeliverableMetric):
-    name = "PolicyRisk"
+    name = "Policy Risk Deliverable Metric"
 
     def __init__(self, policy_fn, contexts: List[Any], outcomes: List[Any]):
         self.policy_fn = policy_fn

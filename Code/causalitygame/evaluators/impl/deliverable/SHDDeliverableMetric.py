@@ -3,11 +3,11 @@ from ...base import DeliverableMetric
 
 
 class SHDDeliverableMetric(DeliverableMetric):
-    name = "SHD"
+    name = "Structural Hamming Distance Deliverable Metric"
 
     def evaluate(self, scm, history) -> float:
         G_true: nx.DiGraph = scm.dag.graph
-        G_pred: nx.DiGraph = history.iloc[-1]["action_object"]
+        G_pred: nx.DiGraph = history.iloc[-1]["current_result"]
 
         nodes = sorted(set(G_true.nodes()).union(G_pred.nodes()))
         G_true = nx.relabel_nodes(G_true.subgraph(nodes), lambda x: x)

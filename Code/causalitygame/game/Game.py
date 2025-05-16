@@ -90,9 +90,9 @@ class Game:
 
             # 1.1) Inform the agent about the game instance
             agent.inform(
-                goal=env.game_instance.mission.__class__.__name__,
-                behavior_metric=env.game_instance.mission.behavior_metric.__class__.name,
-                deliverable_metric=env.game_instance.mission.deliverable_metric.__class__.name,
+                goal=f"{env.game_instance.mission.name}: {env.game_instance.mission.description}",
+                behavior_metric=env.game_instance.mission.behavior_metric.name,
+                deliverable_metric=env.game_instance.mission.deliverable_metric.name,
             )
 
             # 2) Play the game
@@ -129,59 +129,97 @@ class Game:
         game_instance = self._make_game_instance()
 
         # Plot the scores
-        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+        fig, axes = plt.subplots(1, 3, figsize=(18, 4))
+        # Add a main title slightly lower (so legend can go above it)
+        fig.suptitle("Agent Comparison Scores", fontsize=14)
+
         for name, run in self.results.items():
+            behavior_scores, deliverable_scores = [], []
+            for i in range(len(run["history"])):
+                current_behavior_score, current_deliverable_score = (
+                    game_instance.mission.evaluate(
+                        game_instance.scm, run["history"].iloc[: i + 1]
+                    )
+                )
+                behavior_scores.append(current_behavior_score)
+                deliverable_scores.append(current_deliverable_score)
+
             # Get the mission scores
             behavior_score, deliverable_score = run["mission"]
 
             # Plot behavior vs. deliverable scores
+            # TODO: Fix the behavior score plot
             self._plot_scores(
                 name=name,
                 behavior_score=behavior_score,
-                deliverable_score=deliverable_score,
+                # deliverable_score=deliverable_score,
+                deliverable_score=deliverable_scores[-1],
                 title="Behavior vs. Deliverable Scores",
                 ax=axes[0],
             )
-            # Plot behavior score over time
+            if deliverable_scores[-1] >= 10**4:
+                axes[0].set_yscale("log")
+            # Plot behavior score over time result
             self._plot_behavior_score(
                 name=name,
-                mission=game_instance.mission,
-                history=run["history"],
+                scores=behavior_scores,
                 ax=axes[1],
             )
+            # TODO: Fix the behavior score plot
             axes[1].scatter(
-                len(run["history"]) - 1, behavior_score, s=100, edgecolor="black"
+                # len(run["history"]) - 1, behavior_score, s=100, edgecolor="black"
+                len(run["history"]) - 1,
+                behavior_scores[-1],
+                s=100,
+                edgecolor="black",
             )
-            # Plot deliverable score
+            # Plot deliverable score result
+            # TODO: Fix the deliverable score plot
             self.plot_deliverable_score(
                 name=name,
-                scm=game_instance.scm,
-                mission=game_instance.mission,
-                history=run["history"],
+                scores=deliverable_scores,
                 ax=axes[2],
             )
             axes[2].scatter(
-                len(run["history"]) - 1, deliverable_score, s=100, edgecolor="black"
+                # len(run["history"]) - 1, deliverable_score, s=100, edgecolor="black"
+                len(run["history"]) - 1,
+                deliverable_scores[-1],
+                s=100,
+                edgecolor="black",
             )
+            if deliverable_scores[-1] >= 10**4:
+                axes[2].set_yscale("log")
 
-        # Set the title and labels
-        fig.suptitle("Agent Comparison Scores", fontsize=14)
+        # Collect legend entries from one axis only (e.g., the first)
+        handles, labels = axes[0].get_legend_handles_labels()
+        unique = dict(zip(labels, handles))  # remove duplicates
+
+        # Add a single legend above the whole figure
+        fig.legend(
+            handles=unique.values(),
+            labels=unique.keys(),
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.93),
+            ncol=11,
+            fontsize="small",
+        )
+
+        plt.subplots_adjust(top=0.83)  # Adjust the top to make room for the legend
+
         # Behavior vs. Deliverable Scores
         axes[0].grid(True, linestyle="--", alpha=0.7)
-        axes[0].legend(title="Agent", fontsize=10, title_fontsize=11)
         axes[0].set_xlabel("Behavior Score", fontsize=12)
         axes[0].set_ylabel("Deliverable Score", fontsize=12)
         # Behavior Score over Time
         axes[1].grid(True, linestyle="--", alpha=0.7)
-        axes[1].legend(title="Agent", fontsize=10, title_fontsize=11)
         axes[1].set_xlabel("Number of Rounds", fontsize=12)
         axes[1].set_ylabel("Behavior Score", fontsize=12)
         # Deliverable Score
         axes[2].grid(True, linestyle="--", alpha=0.7)
-        axes[2].legend(title="Agent", fontsize=10, title_fontsize=11)
         axes[2].set_xlabel("Number of Rounds", fontsize=12)
         axes[2].set_ylabel("Deliverable Score", fontsize=12)
-        plt.tight_layout()
+
+        # Show the plot
         plt.show()
 
     def _plot_scores(self, name, behavior_score, deliverable_score, title, ax):
@@ -196,13 +234,7 @@ class Game:
             label=name,
         )
 
-    def _plot_behavior_score(self, name, mission, history, ax):
-        # history
-        scores = []
-        for i in range(len(history)):
-            # Get the behavior score
-            behavior_score = mission.behavior_metric.evaluate(history.iloc[: i + 1])
-            scores.append(behavior_score)
+    def _plot_behavior_score(self, name, scores, ax):
         # Plot the behavior score
         ax.plot(
             range(len(scores)),
@@ -211,21 +243,7 @@ class Game:
             alpha=0.7,
         )
 
-    def plot_deliverable_score(self, name, scm, mission, history, ax):
-        # history
-        scores = []
-        for i in range(len(history)):
-            # Create new dataframe with the action object
-            current_result = history.iloc[i]["current_result"]
-            new_history = pd.DataFrame(
-                {
-                    "action_object": [current_result],
-                }
-            )
-            # Get the behavior score
-            deliverable_score = mission.deliverable_metric.evaluate(scm, new_history)
-            scores.append(deliverable_score)
-
+    def plot_deliverable_score(self, name, scores, ax):
         # Plot the behavior score
         ax.plot(
             range(len(scores)),
