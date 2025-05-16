@@ -5,7 +5,7 @@ from typing import List, Any
 
 
 class PEHEDeliverableMetric(DeliverableMetric):
-    name = "PEHE"
+    name = "PEHE Deliverable Metric"
 
     def __init__(self, true_effects: np.ndarray, predicted_effects: np.ndarray):
         self.true_effects = true_effects

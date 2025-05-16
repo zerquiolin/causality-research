@@ -4,6 +4,7 @@ from ..base import BaseAgent
 
 # Dag Learning Script
 from causalitygame.lib.scripts.pc import learn as learn_dag
+from causalitygame.lib.scripts.empiricalCATE import compute_empirical_cate_fuzzy
 
 from typing import Any, Dict, List, Tuple
 
@@ -17,6 +18,7 @@ class ExhaustiveAgent(BaseAgent):
         Inform the agent about the goal, behavior metric, and deliverable.
         """
         # Store the goal, behavior metric, and deliverable
+        self._process = goal.split(":")[0]
         self._goal = goal
         self._behavior_metric = behavior_metric
         self._deliverable_metric = deliverable_metric
@@ -51,7 +53,8 @@ class ExhaustiveAgent(BaseAgent):
             # Get the domain of the action
             domain = actions[node]
             # Check if the domain is categorical
-            if isinstance(domain, list):
+            if type(domain[0]) is str:
+                # if isinstance(domain, list):
                 for value in domain:
                     # Add all possible values to the treatment list
                     treatments.append(({node: value}, num_inter))
@@ -76,4 +79,21 @@ class ExhaustiveAgent(BaseAgent):
                     self.past_data[key][val].extend(records)
 
     def submit_answer(self):
+        task_mapping = {
+            "DAG Inference Mission": self._dag_inference_task,
+            "Conditional Average Treatment Effect (CATE) Mission": self._cate_task,
+        }
+        return task_mapping.get(self._process, None)()
+
+    def _dag_inference_task(self):
         return learn_dag(self.past_data, self._is_numeric)
+
+    def _cate_task(self):
+        def compute_cate(Y, T, Z):
+            return compute_empirical_cate_fuzzy(
+                query={"Y": Y, "T": T, "Z": Z},
+                data=self.past_data,
+                distance_threshold=10**2,
+            )
+
+        return compute_cate

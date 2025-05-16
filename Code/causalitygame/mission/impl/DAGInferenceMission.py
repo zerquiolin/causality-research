@@ -10,6 +10,9 @@ from causalitygame.evaluators.impl.deliverable import (
     SHDDeliverableMetric,
     F1DeliverableMetric,
     EdgeAccuracyDeliverableMetric,
+    AbsoluteErrorDeliverableMetric,
+    SquaredErrorDeliverableMetric,
+    MeanSquaredErrorDeliverableMetric,
 )
 
 
@@ -19,6 +22,9 @@ class DAGInferenceMission(BaseMission):
     This mission is designed to evaluate the performance of agents in inferring the
     underlying causal structure from observational data.
     """
+
+    name = "DAG Inference Mission"
+    description = "This mission evaluates the ability to infer the structure of a DAG from observational data. The user is expected to provide a nx.DiGraph object representing the underlying causal structure."
 
     def __init__(self, behavior_metric, deliverable_metric):
         super().__init__(behavior_metric, deliverable_metric)
@@ -46,6 +52,9 @@ class DAGInferenceMission(BaseMission):
                 SHDDeliverableMetric,
                 F1DeliverableMetric,
                 EdgeAccuracyDeliverableMetric,
+                AbsoluteErrorDeliverableMetric,
+                SquaredErrorDeliverableMetric,
+                MeanSquaredErrorDeliverableMetric,
             ]
         }
         behavior_metric = mapping[dict["behavior_metric"]]()

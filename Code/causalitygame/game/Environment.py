@@ -178,7 +178,14 @@ class Environment:
                     return
                 # Validate that the treatment values are within the node's domain
                 if not all(
-                    value in self.node_properties[node]["domain"]
+                    (
+                        (
+                            value >= self.node_properties[node]["domain"][0]
+                            and value <= self.node_properties[node]["domain"][1]
+                        )
+                        if type(value) is not str
+                        else value in self.node_properties[node]["domain"]
+                    )
                     for node, value in experiment[0].items()
                 ):
                     logging.error("Error: Invalid experiment. Value not in domain.")

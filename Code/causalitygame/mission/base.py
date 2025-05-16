@@ -10,6 +10,7 @@ class BaseMission(ABC):
     """
 
     name: str
+    description: str
 
     def __init__(
         self, behavior_metric: BehaviorMetric, deliverable_metric: DeliverableMetric

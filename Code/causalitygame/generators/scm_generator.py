@@ -8,7 +8,7 @@ import networkx as nx
 # SCM
 from causalitygame.scm.node.base import (
     ACCESSIBILITY_CONTROLLABLE,
-    BaseNoiseDistribution
+    BaseNoiseDistribution,
 )
 from causalitygame.scm.base import SCM
 from causalitygame.scm.node.sympy import (
@@ -42,7 +42,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         noise_distributions: List[BaseNoiseDistribution],
         random_state: np.random.RandomState = np.random.RandomState(911),
         num_samples_for_cdf_generation: int = 1000,
-        logger: logging.Logger = None
+        logger: logging.Logger = None,
     ):
         """
         Initializes the SCMGenerator with the DAG and configuration for generating node equations.
@@ -85,7 +85,9 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         )
 
         for var in input_vars:
-            coeff = np.round(self.random_state.uniform(-5, 5), 8)  # higher precisions can cause problems in the serialization since not supported by str
+            coeff = np.round(
+                self.random_state.uniform(-5, 5), 8
+            )  # higher precisions can cause problems in the serialization since not supported by str
             term = coeff * var
 
             if allow_non_linear:
@@ -151,9 +153,11 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             generator = type_generators.get(node_type)
             # Check for existence of the generator
             assert generator, f"Unsupported variable type: {node_type}"
-            
+
             # Generate the node
-            self.logger.debug(f"Generating node {node_name} of type {node_type} with parents {parents}")
+            self.logger.debug(
+                f"Generating node {node_name} of type {node_type} with parents {parents}"
+            )
             node = generator(
                 node_name=node_name,
                 parents=parents,
@@ -162,7 +166,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             )
             nodes.append(node)
             self.logger.debug(f"added node {node_name}")
-        
+
         self.logger.debug("Creating SCM object")
         scm = SCM(self.dag, nodes, self.random_state)
         self.logger.info(f"SCM with {len(nodes)} variables generated.")
@@ -265,7 +269,9 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             equations[category] = equation
 
             # Generate CDF: sample at least 1000 datapoints.
-            self.logger.debug(f"Generating {self.num_samples_for_cdf_generation} samples for the case {node_name}={category}")
+            self.logger.debug(
+                f"Generating {self.num_samples_for_cdf_generation} samples for the case {node_name}={category}"
+            )
             samples = []
             for _ in range(self.num_samples_for_cdf_generation):
 

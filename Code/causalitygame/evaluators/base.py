@@ -25,7 +25,7 @@ class DeliverableMetric(BaseMetric):
     name: str
 
     @abstractmethod
-    def evaluate(self, scm, history) -> float:
+    def evaluate(self, scm, data) -> float:
         """Evaluate this deliverable metric on the provided history."""
         raise NotImplementedError(
             "The evaluate method must be implemented in the derived class."
