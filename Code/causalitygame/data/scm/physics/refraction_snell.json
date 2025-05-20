@@ -4,13 +4,13 @@
       "name": "n_1",
       "class": "EquationBasedNumericalSCMNode",
       "accessibility": "controllable",
-      "domain": [1.0, 2.5]
+      "domain": [1.0, 1.5]
     },
     {
       "name": "n_2",
       "class": "EquationBasedNumericalSCMNode",
       "accessibility": "controllable",
-      "domain": [1.0, 2.5]
+      "domain": [1.5, 2.5]
     },
     {
       "name": "theta_1",

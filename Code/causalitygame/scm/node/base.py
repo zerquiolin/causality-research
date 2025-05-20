@@ -12,10 +12,13 @@ from causalitygame.lib.utils.random_state_serialization import (
 from causalitygame.lib.utils.imports import get_class
 
 import numpy as np
+import pandas as pd
+
+import logging
 
 
 class BaseNoiseDistribution(ABC):
-    def generate(self, random_state: Optional[int] = 911) -> float:
+    def generate(self, size, random_state: Optional[int] = 911) -> float:
         """
         Generates a noise value using the provided random state.
 
@@ -25,7 +28,7 @@ class BaseNoiseDistribution(ABC):
         Returns:
             float: A generated noise value.
         """
-        return self.noise.rsv(random_state=random_state)
+        return self.noise.rsv(random_state=random_state, size=size)
 
     @abstractmethod
     def to_dict(self) -> Dict:
@@ -62,6 +65,7 @@ class BaseSCMNode(ABC):
         parents: Optional[List[str]] = None,
         parent_mappings: Optional[Dict[str, int | float]] = None,
         random_state: np.random.RandomState = np.random.RandomState(911),
+        logger: logging.Logger = None
     ):
         """
         SCMNode is class representing a node in a Structural Causal Model (SCM).
@@ -86,6 +90,7 @@ class BaseSCMNode(ABC):
         self.parents = parents
         self.parent_mappings = parent_mappings
         self.random_state = random_state
+        self.logger = logger if logger is not None else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
 
         # this is just to not break the MRO
         super().__init__()
@@ -93,10 +98,24 @@ class BaseSCMNode(ABC):
     def _init_random_state(self):
         if self.random_state is None:
             self.random_state = np.random.RandomState()
+        
+    def prepare_new_random_state_structure(self, random_state):
+        """
+            generates a random structure that is required by this node. By default, this is just a simple RandomState.
+            However, if need be and keeping in mind reproducibility, it can be useful to generate several such objects
+            so that several random things can be determined for multiple sampled instances in parallel, e.g., noise and category or so.
+
+        Args:
+            random_state (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        return np.random.RandomState(random_state.randint(0, 10**5))
 
     @abstractmethod
-    def generate_value(
-        self, parent_values: dict, random_state: np.random.RandomState
+    def generate_values(
+        self, parent_values: pd.DataFrame, random_state: np.random.RandomState
     ) -> float | str:
         """
         Generates a value for the node based on its parents and noise.

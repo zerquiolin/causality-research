@@ -1,6 +1,8 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import sympy as sp
 import numpy as np
+import pandas as pd
+
 
 from causalitygame.scm.node.base import (
     ACCESSIBILITY_CONTROLLABLE,
@@ -41,46 +43,34 @@ class EquationBasedSCMNode:
             self.symbols_needed_for_evaluation = get_symbols_for_formula_while_checking_that_those_are_declared(self.evaluation) if self.evaluation is not None else None
 
 class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
-    def generate_value(
+    def generate_values(
         self,
-        parent_values: Dict[str, float | str | int],
+        parent_values: pd.DataFrame,
         random_state: Optional[np.random.RandomState] = None,
     ):
         # Define random state
         rs = random_state if random_state else self.random_state
+
         # Check if the node has parents
         if not self.parents:
-            return self.noise_distribution.generate(rs)
-        # Get the evaluation symbols for evaluation
-        symbols = [
-            str(symb) for symb in self.evaluation.free_symbols
-        ]  # Parsed for easier comparison
+            return self.noise_distribution.generate(size=len(parent_values), random_state=rs)
+        
         # Check if the parent values are provided
-        assert set(symbols).issubset(
-            parent_values.keys()
+        assert set(self.parents).issubset(
+            set(parent_values.columns)
         ), "Parent values do not match the expected symbols"
-        # Map categorical parent values
-        substitutions = {
-            symb: (
-                self.parent_mappings[symb]
-                if self.parent_mappings is not None and symb in self.parent_mappings
-                else parent_values[symb]
-            )
-            for symb in symbols
-        }
+
         # Evaluate the expression
-        evaluated = self.evaluation.subs(substitutions).evalf()
-        assert evaluated.is_number, "Evaluation failed"
-        # Cover for "Possibly" imaginary numbers
-        evaluated = (
-            float(evaluated.as_real_imag()[0])
-            if not evaluated.is_real
-            else float(evaluated)
-        )
+        f = sp.lambdify(self.parents, self.evaluation, modules="numpy")
+        evaluated = f(*tuple(parent_values[self.parents].values.T))
+        assert not np.any(np.iscomplex(evaluated)), f"Evaluation of {self.evaluation} lead to complex numbers {evaluated}"
+
         # Clip to the minimum and maximum values
-        evaluated = min(max(evaluated, self.domain[0]), self.domain[-1])
+        evaluated = np.minimum(np.maximum(evaluated, self.domain[0]), self.domain[-1])
+
         # Add noise to the evaluated value
-        noise = self.noise_distribution.generate(rs)
+        noise = self.noise_distribution.generate(size=len(evaluated), random_state=rs)
+
         # Return the final value
         return evaluated + noise
 
@@ -193,6 +183,12 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             if not domain_distribution
             else domain_distribution
         )
+    
+    def prepare_new_random_state_structure(self, random_state):
+        return {
+            "noise": np.random.RandomState(random_state.randint(0, 10**5)),
+            "choice": np.random.RandomState(random_state.randint(0, 10**5))
+        }
 
     def _noise_to_category_distribution(
         self, n_samples: int = 10000
@@ -207,7 +203,7 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             Dict[str, float]: A dictionary mapping each category to a probability.
         """
         # Sample from the noise distribution
-        samples = [self.noise_distribution.generate() for _ in range(n_samples)]
+        samples = self.noise_distribution.generate(size=n_samples)
 
         # Use quantiles to bin the samples into categories
         quantiles = np.percentile(samples, np.linspace(0, 100, len(self.domain) + 1))
@@ -223,18 +219,27 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
         total = sum(counts.values())
         return {cat: counts.get(cat, 0) / total for cat in self.domain}
 
-    def generate_value(
+    def generate_values(
         self,
-        parent_values: Dict[str, float | str | int],
-        random_state: Optional[np.random.RandomState] = np.random.RandomState(911),
+        parent_values: pd.DataFrame,
+        random_state: Optional[dict] = None
     ):
 
         # Define random state
-        rs = random_state if random_state else self.random_state
+        if random_state is None:
+            rs_noise, rs_choice = (self.random_state, self.random_state)
+        elif isinstance(random_state, dict):
+            rs_noise, rs_choice = (random_state["noise"], random_state["choice"])
+        else:
+            rs_noise, rs_choice = (random_state, random_state)
+        
+        # now start sampling
+        self.logger.info("Drawing %s values for categorical node %s with parents %s", len(parent_values), self.name, self.parents)
+        self.logger.debug(f"Parent mapping of {self.name} is %s.", self.parent_mappings)
 
         # Check if the node has parents
         if not self.parents:
-            return rs.choice(
+            return rs_noise.choice(
                 list(self.domain_noise_distribution.keys()),
                 p=list(self.domain_noise_distribution.values()),
             )
@@ -248,52 +253,43 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             missing_values = self.symbols_needed_for_evaluation[eq_name].difference(parent_values.keys())
             assert not missing_values, f"Cannot evaluate formula {eq} of variable {self.name} because no values are provided for parent {missing_values}"
             symbols.update(self.symbols_needed_for_evaluation[eq_name])
-
-        # Map categorical parent values
-        substitutions = {
-            symb: (
-                self.parent_mappings[symb].get(str(parent_values[symb]), None)
-                or self.parent_mappings[symb].get(int(parent_values[symb]), None)
-                if symb in self.parent_mappings
-                else parent_values[symb]
-            )
-            for symb in symbols
-        }
+        symbols = list(symbols)
 
         # Evaluate the expression
-        evaluations = {}
-        for possible_category, eq in self.evaluation.items():
+        possible_categories = list(self.evaluation.keys())
+        evaluations = []
+        
+        # determine the noise terms once (important to do this here simultaneously for all instances to not confuse the random state)
+        noises = self.noise_distribution.generate(size=(len(parent_values), len(possible_categories)), random_state=rs_noise)
+
+        for i, possible_category in enumerate(possible_categories):
+
+            eq = self.evaluation[possible_category]
 
             # Evaluate the expression
-            evaluated = eq.subs(substitutions).evalf()
-            assert evaluated.is_number, "Evaluation failed"
-            # Cover for "Possibly" imaginary numbers
-            evaluated = (
-                float(evaluated.as_real_imag()[0])
-                if not evaluated.is_real
-                else float(evaluated)
-            )
-            # Add noise to the evaluated value
-            noise = self.noise_distribution.generate(rs)
-            # Calculate the CDF for the evaluated value and category
-            evaluations[possible_category] = self.cdfs[possible_category](
-                evaluated + noise
-            )
+            f = sp.lambdify(symbols, eq, modules="numpy")
+            evaluated = f(*tuple(parent_values[symbols].values.T))
+            
+            # Calculate the CDF for the evaluated value and category to obtain values normalized between 0 and 1
+            evaluations.append(self.cdfs[possible_category](evaluated + noises[:, i]))
+        
+        evaluations = np.array(evaluations).T
+        expected_shape = (len(parent_values), len(self.domain))
+        assert expected_shape == evaluations.shape, f"Shape of evaluations should be {expected_shape} but was {evaluations.shape}"
+        
         # Normalize the evaluations
-        total = sum(evaluations.values())
-        evaluations = (
-            {cat: val / total for cat, val in evaluations.items()}
-            if total > 0
-            else {cat: 1 / len(evaluations) for cat in evaluations}
-        )
+        evaluations = np.maximum(evaluations, 10**-20) # to avoid that all entries in a row are 0
+        evaluations /= evaluations.sum(axis=1)[:, np.newaxis]
+
         # Check if the evaluations are valid
         assert (
-            all(0 <= val <= 1 for val in evaluations.values())
-            and len(evaluations) == len(self.domain)
-            and np.isclose(sum(evaluations.values()), 1.0)
-        ), "Evaluations are not valid probabilities"
+            np.all(0 <= evaluations) and
+            np.all(evaluations <= 1) and
+            np.all(np.isclose(np.sum(evaluations, axis=1), 1.0))
+        ), f"Evaluations are not valid probabilities: {evaluations}"
+
         # Sample from the categorical distribution
-        return rs.choice(list(evaluations.keys()), p=list(evaluations.values()))
+        return [rs_choice.choice(self.domain, p=dist) for dist in evaluations]
 
     def _to_dict(self):
         """
@@ -378,6 +374,7 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
 class SerializableCDF:
     def __init__(self, sorted_samples):
         self.sorted_samples = np.array(sorted_samples)
+        assert len(self.sorted_samples.shape) == 1, "SerializableCDF needs a one-dimensional vector of values."
 
     def __call__(self, x):
         return np.searchsorted(self.sorted_samples, x, side="right") / len(

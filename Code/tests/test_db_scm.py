@@ -11,6 +11,8 @@ import pytest
 import networkx as nx
 import logging
 
+from time import time
+
 # define stream handler
 ch = logging.StreamHandler()
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -64,20 +66,28 @@ def test_functionality_of_db_scm(path_to_csv, intervention_variables, outcome_va
     assert intervention_variables == scm.controllable_vars
 
     # check whether all data points are contained in the original database if we do not intervene
-    for s in scm.generate_samples(num_samples=10**1):
-        row = np.array([s[v] for v in scm.var_names])
+    for row in scm.generate_samples(num_samples=10**1).values:
         entry_contained_in_original_data = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
         assert (overwrite_factual_outcomes and not entry_contained_in_original_data) or (not overwrite_factual_outcomes and entry_contained_in_original_data)
 
     # check that we obtain counter-factuals when we intervene
+    num_samples = 10**1 # this is a configuration
     num_matches = 0
     num_mismatches = 0
-    possible_interventions = it.product(*[sorted(pd.unique(factual_df[v])) for v in intervention_variables])
+    possible_interventions = list(it.product(*[sorted(pd.unique(factual_df[v])) for v in intervention_variables]))
+    logger.info(f"Testing on {len(possible_interventions)} possible interventions whether generated samples have the desired properties.")
     for intervention in possible_interventions:
-        for s in scm.generate_samples(interventions={
+
+        # generate samples for intervention
+        logger.debug(f"Generating {num_samples} samples for intervention {intervention}.")
+        samples = scm.generate_samples(interventions={
             var_name: var_val
             for var_name, var_val in zip(intervention_variables, intervention)
-        }, num_samples=10**1):
+        }, num_samples=num_samples)
+
+        # check samples
+        logger.debug(f"Checking {len(samples)} samples for desirable properties.")
+        for _, s in samples.iterrows():
             row = np.array([s[v] for v in scm.var_names])
             is_factual = np.any([np.all(row == orig_row) for orig_row in factual_df[scm.var_names].values])
             if is_factual:
@@ -90,6 +100,38 @@ def test_functionality_of_db_scm(path_to_csv, intervention_variables, outcome_va
         # check that we have both factual entries (from the original data) and counter-factual entries
         if not has_counterfactuals:
             assert num_mismatches >= 1, "There should be at least 1 counter-factual entry not contained in the database even though factuals are not overwritten."
+
+
+@pytest.mark.parametrize(
+    "path_to_csv, intervention_variables, outcome_variables, has_counterfactuals, overwrite_factual_outcomes", [[a[0], a[1], a[2], a[3], b] for a, b in it.product([
+            ["causalitygame/data/datasets/ihdp/ihdp.csv", ["treat"], ["YC"], False],
+            ["causalitygame/data/datasets/jobs/nsw.csv", ["treatment"], ["RE78"], False],
+            ["causalitygame/data/datasets/twins/twins.csv", ["selection"], ["mortality"], True]
+        ],
+        [False, True]
+        )
+    ])
+def test_db_sample_generation_speed(path_to_csv, intervention_variables, outcome_variables, has_counterfactuals, overwrite_factual_outcomes):
+
+    factual_df = pd.read_csv(path_to_csv).head(1000)
+
+    scm = DatabaseSCM(
+        factual_df=factual_df,
+        intervention_variables=intervention_variables,
+        random_state=np.random.RandomState(0),
+        overwrite_factual_outcomes=overwrite_factual_outcomes,
+        outcome_generators={
+            k: DummyOutcomeGenerator(constant=-1)
+            for k in outcome_variables
+        }
+    )
+
+    for num_samples, allowed_time in [(1, 10**-1), (10, 10**-1), (100, 1), (1000, 2), (10**4, 20)]: # we must be able to generate 1000 instances in less than a second
+        t_start = time()
+        scm.generate_samples(num_samples=num_samples)
+        runtime = time() - t_start
+        assert runtime < allowed_time, f"Runtime to generate {num_samples} samples was {runtime} but must be under {allowed_time}s."
+        logger.info(f"Generated {num_samples} samples in overall runtime of {runtime}s.")
 
 
 @pytest.mark.parametrize(

@@ -2,6 +2,8 @@
 import numpy as np
 import pandas as pd
 
+from time import time
+
 # typing
 from typing import Dict, Any, List
 from causalitygame.lib.utils.random_state_serialization import (
@@ -25,27 +27,25 @@ class DatabaseDefinedSCMNode:
     def disable_eval_mode(self):
         self.eval_mode = False
 
-    def _generate_value(
-        self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
+    def _generate_values(
+        self,
+        possibilities: np.ndarray,
+        parent_values: pd.DataFrame,
+        random_state: np.random.RandomState = None
     ):
+        
+        self.logger.debug(f"Generating values for {self.name} from database. parent_values have shape {parent_values.shape}.")
 
         # take own random state if None is given
         if random_state is None:
             random_state = self.random_state
 
-        # Filter the dataset for rows matching parent values
-        filtered = self.df
-        if not self.eval_mode:
-            filtered = filtered[self.revealed_to_agent]
-        for parent in self.parents:
-            if parent in parent_values:
-                filtered = filtered[filtered[parent] == parent_values[parent]]
-
-        # If no match found, fallback to full column
-        if filtered.empty:
-            return random_state.choice(self.df[self.name].dropna().tolist())
-
-        return random_state.choice(filtered[self.name].dropna().tolist())
+        # for each sample, find a random value from the node column filtered to rows that are still possible
+        vals = []
+        column_as_slice = self.df[self.name].values
+        for parent_vals, possibilities_to_complete_instance in zip(parent_values.values, possibilities):
+            vals.append(random_state.choice(column_as_slice[possibilities_to_complete_instance]))
+        return vals
 
     def get_distribution(self, parent_values: dict) -> list:
         if not self.parents:
@@ -102,11 +102,16 @@ class DatabaseDefinedNumericSCMNode(BaseNumericSCMNode, DatabaseDefinedSCMNode):
         self.revealed_to_agent = revealed_to_agent
         self.eval_mode = False
 
-    def generate_value(
-        self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
+    def generate_values(
+        self,
+        possibilities: np.ndarray,
+        parent_values: pd.DataFrame,
+        random_state: np.random.RandomState = None,
     ):
-        return self._generate_value(
-            parent_values=parent_values, random_state=random_state
+        return self._generate_values(
+            parent_values=parent_values,
+            random_state=random_state,
+            possibilities=possibilities
         )
 
     @classmethod
@@ -137,11 +142,16 @@ class DatabaseDefinedCategoricSCMNode(BaseCategoricSCMNode, DatabaseDefinedSCMNo
         self.revealed_to_agent = revealed_to_agent
         self.eval_mode = False
 
-    def generate_value(
-        self, parent_values: Dict[str, Any], random_state: np.random.RandomState = None
+    def generate_values(
+        self,
+        possibilities: np.ndarray,
+        parent_values: pd.DataFrame,
+        random_state: np.random.RandomState = None,
     ):
-        return self._generate_value(
-            parent_values=parent_values, random_state=random_state
+        return self._generate_values(
+            parent_values=parent_values,
+            random_state=random_state,
+            possibilities=possibilities
         )
 
     @classmethod

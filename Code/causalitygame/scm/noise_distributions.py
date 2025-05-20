@@ -1,6 +1,8 @@
 # Abstract
 from causalitygame.scm.node.base import BaseNoiseDistribution
 
+import numpy as np
+
 # Distributions
 from scipy.stats import norm, uniform
 
@@ -10,14 +12,14 @@ class DiracNoiseDistribution(BaseNoiseDistribution):
         super().__init__()
         self.val = val
 
-    def generate(self, rs) -> float:
+    def generate(self, size, random_state) -> float:
         """
         Always provides the same value
 
         Returns:
             float: the constant value
         """
-        return self.val
+        return self.val * np.ones(size)
 
     def to_dict(self):
         """
@@ -44,7 +46,7 @@ class GaussianNoiseDistribution(BaseNoiseDistribution):
         self.mean = mean
         self.std = std
 
-    def generate(self, random_state: int = 911) -> float:
+    def generate(self, size, random_state: int = 911) -> float:
         """
         Generates a noise value using the Gaussian distribution.
 
@@ -54,7 +56,7 @@ class GaussianNoiseDistribution(BaseNoiseDistribution):
         Returns:
             float: A generated noise value.
         """
-        return norm.rvs(loc=self.mean, scale=self.std, random_state=random_state)
+        return norm.rvs(loc=self.mean, scale=self.std, size=size, random_state=random_state)
 
     def to_dict(self) -> dict:
         """
@@ -95,7 +97,7 @@ class UniformNoiseDistribution(BaseNoiseDistribution):
         self.low = low
         self.high = high
 
-    def generate(self, random_state: int = 911) -> float:
+    def generate(self, size, random_state: int = 911) -> float:
         """
         Generates a noise value using the Uniform distribution.
 
@@ -106,7 +108,7 @@ class UniformNoiseDistribution(BaseNoiseDistribution):
             float: A generated noise value.
         """
         return uniform.rvs(
-            loc=self.low, scale=self.high - self.low, random_state=random_state
+            loc=self.low, scale=self.high - self.low, size=size, random_state=random_state
         )
 
     def to_dict(self) -> dict:

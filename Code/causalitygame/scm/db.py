@@ -16,9 +16,11 @@ from causalitygame.scm.node.base import (
     ACCESSIBILITY_OBSERVABLE
 )
 
-from typing import Dict
+from typing import Dict, List, Optional
 
 import networkx as nx
+
+import logging
 
 
 class DatabaseSCM(SCM):
@@ -33,7 +35,8 @@ class DatabaseSCM(SCM):
         train_size=0.7,
         revealed_mask=None,
         name=None,
-        random_state: np.random.RandomState = np.random.RandomState(42)
+        random_state: np.random.RandomState = np.random.RandomState(42),
+        logger: logging.Logger = None
     ):
         """
 
@@ -72,7 +75,7 @@ class DatabaseSCM(SCM):
         for outcome_var, generator in self.outcome_generators.items():
             gen = generator if self.overwrite_factual_outcomes else ComplementaryOutcomeGenerator(generator)
             gen.fit(
-                x=factual_df[self.covariates + self.intervention_variables],
+                x=factual_df[self.covariates + self.intervention_variables].values,
                 y=factual_df[outcome_var]
             )
             fitted_generators[outcome_var] = gen
@@ -136,7 +139,62 @@ class DatabaseSCM(SCM):
         ])
         
         # create the SCM
-        super().__init__(dag=DAG(dag), nodes=nodes, name=name, random_state=random_state)
+        super().__init__(dag=DAG(dag), nodes=nodes, name=name, random_state=random_state, logger=logger)
+
+    def generate_samples(
+        self,
+        interventions: Dict[str, float] = {},
+        num_samples: int = 1,
+        random_state: Optional[np.random.RandomState] = None,
+    ) -> List[Dict[str, float]]:
+        """
+        Generates multiple samples from the SCM.
+
+        Args:
+            interventions (Dict[str, float], optional): Interventions to apply to nodes.
+            num_samples (int): Number of samples to generate.
+            random_state (np.random.RandomState, optional): Optional random generator for reproducibility.
+
+        Returns:
+            List[Dict[str, float]]: A list of sample dictionaries.
+        """
+        rs = random_state or self.random_state
+        sample = pd.DataFrame(index=range(num_samples))
+
+        # create the possibility matrix that, in position (i, j) holds the boolean value indicating whether  the i-th sample can still be completed from the j-th entry of the original database
+        possibilities = np.ones((num_samples, len(self.df))).astype(bool)
+        if self.revealed_mask is not None:
+            possibilities[:, ~self.revealed_mask] = False
+
+        from time import time
+        t = 0
+        for node_name, node in [
+            (node_name, self.nodes[node_name]) for node_name in self.vars
+        ]:
+            
+            t_start = time()
+            
+            if node_name in interventions:
+                sample_for_col = [interventions[node_name]] * num_samples
+            else:
+                if isinstance(node, (DatabaseDefinedCategoricSCMNode, DatabaseDefinedNumericSCMNode)):
+                    sample_for_col = node.generate_values(parent_values=sample, random_state=rs, possibilities=possibilities)
+                else:
+                    sample_for_col = node.generate_values(parent_values=sample, random_state=rs)
+            sample_for_col = np.array(sample_for_col)
+            sample[node_name] = sample_for_col
+
+            # update possibility matrix
+            t_start_update = time()
+            compatibilities_of_generated_vals_in_column = (self.df[node_name].values[None, :] == sample_for_col[:, None])
+            possibilities &= compatibilities_of_generated_vals_in_column
+            t_end = time()
+            added_runtime = t_end - t_start
+            t += added_runtime
+            self.logger.info(f"Node {node_name} added a runtime of {added_runtime}, total elapsed time for generation: {t}. Updating possabilities took {t_end - t_start_update}")
+        
+        assert type(sample) == pd.DataFrame, f"sample should be a dataframe but is {type(sample)}"
+        return sample
 
     def to_dict(self) -> Dict:
         """

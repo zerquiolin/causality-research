@@ -1,5 +1,6 @@
 # Math
 import numpy as np
+import pandas as pd
 
 from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
 
@@ -45,7 +46,7 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
                 if s != 1:
                     probability_distribution[parent_combo] /= s
 
-    def generate_value(self, parent_values: dict, random_state) -> str:
+    def generate_values(self, parent_values: pd.DataFrame, random_state) -> str:
         """
         Given a dictionary of parent values, returns a sampled value from the node's distribution.
 
@@ -55,41 +56,38 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
         Returns:
             str: A sampled value from the node's distribution.
         """
+
+        # get distribution for each of the samples
+        distributions = self.get_distributions(parent_values)
+
+        # draw samples from each distribution
         self._init_random_state()
         rs = random_state if random_state else self.random_state
-        distribution = self.get_distribution(parent_values)
-        return rs.choice(self.domain, p=distribution)
+        return [rs.choice(self.domain, p=dist) for dist in distributions]
 
-    def get_distribution(self, parent_values: dict) -> list:
+    def get_distributions(self, parent_values: pd.DataFrame) -> list:
         if not self.parents:
             # Flatten the possibly nested list
             return [
-                p
-                for sub in self.probability_distribution
-                for p in (sub if isinstance(sub, list) else [sub])
+                [
+                    p
+                    for sub in self.probability_distribution
+                    for p in (sub if isinstance(sub, list) else [sub])
+                ]
+                for _ in range(len(parent_values))
             ]
 
-        key_ordered = [parent_values[parent] for parent in self.parents]
-        key = ",".join(key_ordered)
-        # Flatten the possibly nested list for conditional distributions
-        return [
-            p
-            for sub in self.probability_distribution[key]
-            for p in (sub if isinstance(sub, list) else [sub])
-        ]
-
-    def get_value_distribution(self, parent_values: dict) -> list:
-        """
-        Given a dictionary of parent values, returns the probability distribution
-        over this node's values.
-
-        Args:
-            parent_values (dict): A dictionary mapping parent names to their values.
-
-        Returns:
-            list: The probability distribution over the node's values.
-        """
-        return self.get_distribution(parent_values)
+        
+        # get the distribution for each entry, based on the respective values of the parent variables
+        dists = []
+        for row in parent_values[self.parents].values:
+            key = ",".join(row)
+            dists.append([
+                p
+                for sub in self.probability_distribution[key]
+                for p in (sub if isinstance(sub, list) else [sub])
+            ])
+        return dists
 
     def _to_dict(self) -> dict:
         data = {

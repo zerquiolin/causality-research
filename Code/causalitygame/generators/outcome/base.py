@@ -3,12 +3,15 @@ from causalitygame.scm.base import get_class
 from causalitygame.lib.utils.random_state_serialization import random_state_to_json, random_state_from_json
 import numpy as np
 
+import logging
+
 
 class OutcomeGenerator(ABC):
 
     def __init__(
             self,
-            random_state
+            random_state,
+            logger=None
         ):
         super().__init__()
 
@@ -19,6 +22,8 @@ class OutcomeGenerator(ABC):
             self.random_state = np.random.RandomState(random_state)
         else:
             self.random_state = random_state
+        
+        self.logger = logger if logger is not None else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
 
     @abstractmethod
     def fit(self, x, y):
@@ -64,7 +69,7 @@ class DummyOutcomeGenerator(OutcomeGenerator):
         pass
 
     def generate(self, x, random_state=None):
-        return np.ones(len(x)) * self.constant
+        return np.ones(x.shape[0]) * self.constant
 
     def _to_dict(self):
         return {
@@ -95,23 +100,40 @@ class ComplementaryOutcomeGenerator(OutcomeGenerator):
     
     def fit(self, x, y):
         self.x = x
+        if not isinstance(x, np.ndarray):
+            raise ValueError(f"x must be a numpy array but is {type(x)}")
         self.y = y
         self.base_outcome_generator.fit(x, y)
     
-    def generate(self, x, random_state=None):
+    def generate(self, x: np.ndarray, random_state=None):
+        if not isinstance(x, np.ndarray):
+            raise ValueError(f"x must be a numpy array but is {type(x)}")
 
         if random_state is None:
             random_state = self.random_state
 
-        outcomes = []
-        for _x in x:
-            match = np.all(self.x == _x, axis=1)
-            indices_of_match = np.where(match)[0]
-            if len(indices_of_match) > 0:
-                outcomes.append(self.y[random_state.choice(indices_of_match)])
-            else:
-                outcomes.append(self.base_outcome_generator.generate(np.array([_x]))[0])
-        return np.array(outcomes)
+        # create matrix where entry (i, j) says whether sample i can be complemented with the value of database entry j
+        matches = np.all((x[:, None, :] == self.x[None, :, :]), axis=2)
+        lookupable = np.any(matches, axis=1)
+        num_lookups = np.count_nonzero(lookupable)
+        num_generations = len(x) - num_lookups
+        
+        # first look up all the values that can be looked up
+        self.logger.info(f"Looking up/sampling values from existing entries for {num_lookups} samples.")
+        lookup_values = np.array([random_state.choice(self.y[match]) for match in matches[lookupable]])
+        assert np.count_nonzero(lookupable) == len(lookup_values)
+
+        # now generate values for all other samples
+        self.logger.info(f"Generating {num_generations} sample values as they are not present.")
+        generated_values = self.base_outcome_generator.generate(x[~lookupable])
+        assert (len(x) - len(lookup_values )) == len(generated_values)
+        self.logger.info(f"Generated {len(generated_values)} sample values.")
+
+        # merge the looked up and generated values position-true
+        outcomes = np.zeros(len(x))
+        outcomes[lookupable] = lookup_values
+        outcomes[~lookupable] = generated_values
+        return outcomes
 
     def _to_dict(self):
         return {

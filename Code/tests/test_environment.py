@@ -16,6 +16,21 @@ from scipy.stats import norm, uniform
 import sympy as sp
 import numpy as np
 
+import logging
+
+# define stream handler
+ch = logging.StreamHandler()
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+ch.setFormatter(formatter)
+ch.setLevel(logging.DEBUG)
+
+# configure logger for tester
+logger = logging.getLogger("tester")
+logger.handlers.clear()
+logger.addHandler(ch)
+logger.setLevel(logging.DEBUG)
+
+
 # Test DAGs
 dag_random_state = np.random.RandomState(911)
 dag = DAGGenerator(
@@ -64,7 +79,6 @@ mission = DAGInferenceMission(
 game_instance_random_state = np.random.RandomState(911)
 game_instance = GameInstance(100, scm, mission, game_instance_random_state)
 
-
 @pytest.mark.parametrize(
     "game_instance, agent, random_state_seed, interventions",
     [
@@ -74,14 +88,14 @@ game_instance = GameInstance(100, scm, mission, game_instance_random_state)
             911,
             [
                 ("X10", 5),
-                ("X4", "2"),
+                ("X4", 2),
                 ("X8", 2),
                 ("X9", 1),
             ],  # Interventions X4 is 0 with a log
         )
     ],  # The agent is not used in the test
 )
-def test_environment_is_invariant(
+def test_that_sample_sequences_are_invariant_to_treatment_organization(
     game_instance, agent, random_state_seed, interventions
 ):
     """
@@ -90,31 +104,49 @@ def test_environment_is_invariant(
     # Generate all permutations
     all_permutations = list(permutations(interventions))
 
-    history = {"all-in": [], "partitioned": []}
-
+    logger.info(f"Executing {sum([len(p) for p in all_permutations])} experiments")
+    
+    prev_final_state = None
     for perm in all_permutations:
+
         # Create the Environment using the GameInstance and Agent
         all_in_env = Environment(
             game_instance=game_instance,
             agent=agent,
-            random_state=np.random.RandomState(random_state_seed),
+            random_state=np.random.RandomState(random_state_seed)
         )
         partitioned_env = Environment(
             game_instance=game_instance,
             agent=agent,
-            random_state=np.random.RandomState(random_state_seed),
+            random_state=np.random.RandomState(random_state_seed)
         )
+
         experiment = lambda t: [({var: val}, t)]
         for var, val in perm:
-            # Perform the intervention for the all in environment
-            all_in_env.perform_experiment(experiment(2))
-            history["all-in"].append(all_in_env.get_state()["datasets"])
-        for var, val in perm:
-            # Perform the intervention for the partitioned environment
-            partitioned_env.perform_experiment(experiment(1))
-        for var, val in perm:
-            # Perform the intervention for the partitioned environment
-            partitioned_env.perform_experiment(experiment(1))
-            history["partitioned"].append(partitioned_env.get_state()["datasets"])
 
-    assert history["all-in"] == history["partitioned"]
+            # Perform the intervention 1x2 in the first and 2x1 in the second environment
+            all_in_env.perform_experiment(experiment(2))
+            partitioned_env.perform_experiment(experiment(1))
+            partitioned_env.perform_experiment(experiment(1))
+
+            # check that both environments have the same datasets now
+            h1 = all_in_env.get_state()["datasets"]
+            h2 = partitioned_env.get_state()["datasets"]
+
+            logger.debug(f"Compare histories after {len(h1)} interventions.")
+            assert ((var, val), ) in h1, f"no intervention data for {var}={val} in state of first environment"
+            assert ((var, val), ) in h2, f"no intervention data for {var}={val} in state of second environment"
+            assert sorted(h1.keys()) == sorted(h2.keys()), "Histories have different keys"
+            for treatment in h1.keys():
+                for col in h1[treatment].columns:
+                    assert h1[treatment][col].equals(h2[treatment][col]), f"Different values for col {col} in experiment {treatment}:\n\th1: {list(h1[treatment][col])}\n\th2: {list(h2[treatment][col])}"
+                assert h1[treatment].equals(h2[treatment])
+        
+        # check that the history is the same as for the previous permutation
+        if prev_final_state is not None:
+            cur_final_state_all_in = all_in_env.get_state()["datasets"]
+            for exp, df_exp in prev_final_state.items():
+                assert df_exp.equals(cur_final_state_all_in[exp])
+        prev_final_state = all_in_env.get_state()["datasets"]
+
+    logger.info("Done.")
