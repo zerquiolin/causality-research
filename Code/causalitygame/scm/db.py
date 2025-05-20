@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import itertools as it
+from io import StringIO
 
 from causalitygame.lib.utils.random_state_serialization import random_state_to_json, random_state_from_json
 
@@ -226,7 +226,7 @@ class DatabaseSCM(SCM):
             SCM: A new SCM instance.
         """
         data = data.copy()
-        data["factual_df"] = pd.read_json(data["factual_df"], orient="records", precise_float=True)
+        data["factual_df"] = pd.read_json(StringIO(data["factual_df"]), orient="records", precise_float=True)
         data["random_state"] = random_state_from_json(data["random_state"])
         data["overwrite_factual_outcomes"] = data["overwrite_factual_outcomes"]
         data["revealed_mask"] = np.array(data["revealed_mask"])
