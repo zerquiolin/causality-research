@@ -44,6 +44,7 @@ class Environment:
         game_instance: GameInstance,
         agent: BaseAgent,
         random_state: np.random.RandomState,
+        logger: logging.Logger = None
     ) -> None:
         """
         Initializes the Environment.
@@ -65,6 +66,7 @@ class Environment:
             self.initialize_node_properties()
         )
         self.random_states: Dict[Any, np.random.RandomState] = {}
+        self.logger = logger if logger is not None else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
 
     def initialize_state(self) -> Dict[str, Any]:
         """
@@ -174,7 +176,7 @@ class Environment:
                     and self.node_properties[node]["treatable"]
                     for node in experiment[0].keys()
                 ):
-                    logging.error("Error: Invalid experiment. Node not treatable.")
+                    self.logger.error("Error: Invalid experiment. Node not treatable.")
                     return
                 # Validate that the treatment values are within the node's domain
                 if not all(
@@ -188,7 +190,7 @@ class Environment:
                     )
                     for node, value in experiment[0].items()
                 ):
-                    logging.error("Error: Invalid experiment. Value not in domain.")
+                    self.logger.error("Error: Invalid experiment. Value not in domain.")
                     return
 
                 self.perform_experiment([experiment])
@@ -204,6 +206,7 @@ class Environment:
         Args:
             treatments (List[Tuple[Any, int]]): A list of (treatment, num_samples) pairs.
         """
+        self.logger.info("Starting experiment with the following treatments: %s", treatments)
         for treatment, num_samples in treatments:
             if treatment == "observe":
                 samples = self.game_instance.scm.generate_samples(
@@ -215,22 +218,25 @@ class Environment:
             # Generate a hashable representation of the treatment to use a dedicated random state
             hashable_treatment = tuple(sorted(treatment.items()))
             if hashable_treatment not in self.random_states:
-                self.random_states[hashable_treatment] = np.random.RandomState(
-                    zlib.crc32(str(hashable_treatment).encode())
-                )
+                seed = zlib.crc32(str(hashable_treatment).encode())
+                self.logger.info("Creating new random states for all variables under treatment %s with seed %s", hashable_treatment, seed)
+                rs_base = np.random.RandomState(seed)
+                self.random_states[hashable_treatment] = self.game_instance.scm.prepare_new_random_state_structure(rs_base)
 
             # Generate samples for the treatment using the dedicated random state
+            self.logger.debug("Generating %s samples.", num_samples)
             samples = self.game_instance.scm.generate_samples(
                 interventions=treatment,
                 num_samples=num_samples,
                 random_state=self.random_states[hashable_treatment],
             )
-            for node, value in treatment.items():
-                self.state["datasets"].setdefault(node, {}).setdefault(
-                    value, []
-                ).extend(
-                    samples
-                )  # todo: check if this is correct
+            self.logger.debug("Done. Now incorporating the samples into the state. Drawn samples: \n\n%s", samples)
+
+            if not hashable_treatment in self.state["datasets"]:
+                self.state["datasets"][hashable_treatment] = samples
+            else:
+                self.state["datasets"][hashable_treatment] = pd.concat([self.state["datasets"][hashable_treatment], samples], ignore_index=True)
+            self.logger.debug("Done.")
 
     def run_game(self) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """

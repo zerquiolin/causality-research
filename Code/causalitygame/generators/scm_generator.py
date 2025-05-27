@@ -1,6 +1,7 @@
 # Math
 import numpy as np
 import sympy as sp
+import pandas as pd
 
 # Graph
 import networkx as nx
@@ -134,6 +135,15 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             []
         )
 
+        # data frame with initialization samples (can be used to define the distributions)
+        samples = pd.DataFrame(index=range(self.num_samples_for_cdf_generation))
+        
+        #  Define a mapping of variable types to generator functions
+        type_generators = {
+            "numerical": self._generate_numerical_node,
+            "categorical": self._generate_categorical_node,
+        }
+        
         for node_name in topological_order:
             # Get the parents of the current node.
             parents = list(self.dag.graph.predecessors(node_name))
@@ -143,11 +153,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                 for p in parents
                 if self.variable_types[p] == "categorical"
             }
-            #  Define a mapping of variable types to generator functions
-            type_generators = {
-                "numerical": self._generate_numerical_node,
-                "categorical": self._generate_categorical_node,
-            }
+            
             # Use the mapping to get the right generator
             node_type = self.variable_types[node_name]
             generator = type_generators.get(node_type)
@@ -162,9 +168,10 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                 node_name=node_name,
                 parents=parents,
                 parent_mappings=parent_mappings,
-                nodes=nodes,
+                samples=samples,
             )
             nodes.append(node)
+            samples[node_name] = node.generate_values(parent_values=samples[parents], random_state=self.random_state)
             self.logger.debug(f"added node {node_name}")
 
         self.logger.debug("Creating SCM object")
@@ -177,7 +184,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         node_name: str,
         parents: List[str],
         parent_mappings: Dict[str, int],
-        nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode],
+        samples: pd.DataFrame,
     ) -> Tuple[EquationBasedNumericalSCMNode, Dict[str, Any]]:
         """
         Generates a numerical SCM node.
@@ -225,7 +232,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         node_name: str,
         parents: List[str],
         parent_mappings: Dict[str, int],
-        nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode],
+        samples: pd.DataFrame,
     ) -> Tuple[EquationBasedCategoricalSCMNode, Dict[str, Any]]:
         """
         Generates a categorical SCM node.
@@ -253,6 +260,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                 parent_mappings=None,
                 random_state=self.random_state,
             )
+
         # Define an equation for each possible variable in the domain
         equations = {}
 
@@ -272,37 +280,14 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             self.logger.debug(
                 f"Generating {self.num_samples_for_cdf_generation} samples for the case {node_name}={category}"
             )
-            samples = []
-            for _ in range(self.num_samples_for_cdf_generation):
 
-                # Values for the evaluated nodes
-                node_values = {}
-                # Iterate over the already generated nodes
-                for n in nodes:
-                    # Generate values for the current node n
-                    node_values[n.name] = n.generate_value(
-                        parent_values=node_values, random_state=self.random_state
-                    )
-                # Substitute parent values into the equation.
-                try:
-                    # Filter out only the parent values
-                    parent_values = {
-                        p: node_values[p] for p in parents if p in node_values
-                    }
-                    val = equation.subs(
-                        {sp.Symbol(p): parent_values[p] for p in parents}
-                    ).evalf()
-                    samples.append(float(val))
-                except Exception:
-                    self.logger.error(
-                        f"Error evaluating equation for {node_name} with parents {parents}: {equation}"
-                    )
-                    self.logger.error(f"Node values: {node_values}")
-                    self.logger.error(f"Equation: {equation}")
-                    raise ValueError(
-                        f"Error evaluating equation for {node_name} with parents {parents}: {equation}"
-                    )
-            sorted_samples = np.sort(samples)
+            # Substitute parent values into the equation.
+            parent_values = samples[parents]
+            f = sp.lambdify(parents, equation, modules="numpy")
+            evaluated = f(*tuple(parent_values.values.T))
+            
+            # create CDF based on all seen values for this variable
+            sorted_samples = np.sort(evaluated)
             self.logger.debug("Creating CDF from sample data.")
             cdf_mappings[category] = SerializableCDF(sorted_samples)
 

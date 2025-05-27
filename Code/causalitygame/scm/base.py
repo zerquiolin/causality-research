@@ -1,6 +1,10 @@
 # Math
 import numpy as np
 
+import pandas as pd
+
+import logging
+
 # Graph
 import networkx as nx
 
@@ -149,6 +153,7 @@ class SCM:
         dag: BaseDAG,
         nodes: List[BaseSCMNode],
         random_state: Optional[np.random.RandomState],
+        logger: logging.Logger = None,
         name=None,
     ):
         """
@@ -165,6 +170,7 @@ class SCM:
         self._topologically_sorted_var_names = list(nx.topological_sort(self.dag.graph))
         self.random_state = random_state if random_state else np.random.RandomState(911)
         self.name = name
+        self.logger = logger if logger is not None else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
 
     @property
     def vars(self):
@@ -213,41 +219,23 @@ class SCM:
             np.random.RandomState: The random generator used for sampling.
         """
         return self.random_state
+    
+    def prepare_new_random_state_structure(self, random_state=None):
+        
+        # root
+        random_state = random_state or self.random_state
 
-    def _generate_sample(
-        self,
-        interventions: Dict[str, float] = {},
-        random_state: Optional[np.random.RandomState] = None,
-    ) -> Dict[str, float]:
-        """
-        Generates a single sample from the SCM.
-
-        Args:
-            interventions (Dict[str, float], optional): A dictionary of variable names and values to intervene on.
-            random_state (np.random.RandomState, optional): A custom random generator. Defaults to self.random_state.
-
-        Returns:
-            Dict[str, float]: A dictionary mapping variable names to sampled values.
-        """
-        rs = random_state or self.random_state
-        sample = {}
-
-        for node_name, node in [
-            (node_name, self.nodes[node_name]) for node_name in self.vars
-        ]:
-            if node_name in interventions:
-                sample[node_name] = interventions[node_name]
-            else:
-                value = node.generate_value(sample, random_state=rs)
-                sample[node_name] = value
-
-        return sample
+        # ask each node for a structure of new random states
+        random_structure = {}
+        for node_name, node in self.nodes.items():
+            random_structure[node_name] = node.prepare_new_random_state_structure(random_state)
+        return random_structure
 
     def generate_samples(
         self,
         interventions: Dict[str, float] = {},
         num_samples: int = 1,
-        random_state: Optional[np.random.RandomState] = None,
+        random_state: Optional[Dict[str, np.random.RandomState]] = None,
     ) -> List[Dict[str, float]]:
         """
         Generates multiple samples from the SCM.
@@ -260,11 +248,19 @@ class SCM:
         Returns:
             List[Dict[str, float]]: A list of sample dictionaries.
         """
-        rs = random_state or self.random_state
-        return [
-            self._generate_sample(interventions, random_state=rs)
-            for _ in range(num_samples)
-        ]
+        random_states = random_state or {v: self.random_state for v in self.vars}
+        sample = pd.DataFrame(index=range(num_samples))
+
+        for node_name, node in [
+            (node_name, self.nodes[node_name]) for node_name in self.vars
+        ]:
+            if node_name in interventions:
+                sample_for_col = [interventions[node_name]] * num_samples
+            else:
+                sample_for_col = node.generate_values(parent_values=sample, random_state=random_states[node_name])
+            sample = pd.concat([sample, pd.DataFrame({node_name: sample_for_col})], axis=1)
+        assert type(sample) == pd.DataFrame, f"sample should be a dataframe but is {type(sample)}"
+        return sample
 
     def to_dict(self) -> Dict:
         """

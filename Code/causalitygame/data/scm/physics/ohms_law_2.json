@@ -3,8 +3,8 @@
         {
             "name": "V",
             "class": "EquationBasedNumericalSCMNode",
-            "domain": [-10e10, 10e10],
-            "equation": "I*R"
+            "domain": [-10e30, 10e30],
+            "equation": "EE*R"
         },
         {
             "name": "R",
@@ -13,10 +13,10 @@
             "accessibility": "controllable"
         },
         {
-            "name": "I",
+            "name": "EE",
             "class": "EquationBasedNumericalSCMNode",
             "domain": [-10e10, 10e10]
         }
     ],
-    "edges": [["I", "V"], ["R", "V"]]
+    "edges": [["EE", "V"], ["R", "V"]]
 }

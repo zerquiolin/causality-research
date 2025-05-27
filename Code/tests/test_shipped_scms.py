@@ -32,7 +32,7 @@ def test_usability_of_shipped_scms(name, filename):
         # test that we can draw samples from this SCM and that all values are in the domains
         sample = scm.generate_samples(num_samples=10)
         assert len(sample) == 10
-        for obs in sample:
+        for _, obs in sample.iterrows():
             for var, val in obs.items():
                 if isinstance(scm.nodes[var], BaseNumericSCMNode):
                     assert val >= scm.nodes[var].domain[0], f"Invalid value for numerical var {var} with value {val} but must be at least {scm.nodes[var].domain[0]}"

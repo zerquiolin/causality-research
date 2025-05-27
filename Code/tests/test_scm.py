@@ -70,6 +70,13 @@ def assert_dicts_equal(d1, d2, path="", msg="", atol=None):
     for key in d2:
         assert key in d1, f"{msg}\nKey '{path + key}' missing in first dict"
 
+def check_sample_equivalence(samples_a, samples_b, msg=""):
+    assert (samples_a.shape == samples_b.shape), msg
+    assert all(samples_a.columns == samples_b.columns), msg
+
+    for sample_a, sample_b, in zip(samples_a.values, samples_b.values):
+        assert np.array_equal(sample_a, sample_b), f"{msg}\n\tSample mismatch between {sample_a} and {sample_b}"
+
 
 @pytest.mark.parametrize(
     "dag, num_nodes",
@@ -336,22 +343,11 @@ def test_scm_deserialization(dag, num_nodes, seed):
             assert a == b == c, "Random states should be equal after serialization."
 
     # Generate samples
-    for sample_a, sample_b, sample_c in zip(
-        scm.generate_samples(num_samples=10),
-        scm_deserialized.generate_samples(num_samples=10),
-        scm_deserialized_json.generate_samples(num_samples=10),
-    ):
-        assert_dicts_equal(
-            sample_a,
-            sample_b,
-            msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.\n\t{sample_a}\n\t{sample_b}",
-        )
-        assert_dicts_equal(
-            sample_a,
-            sample_c,
-            msg=f"Sample of original SCM and SCM via json.dumps and json.loads is not the same.\n\t{sample_a}\n\t{sample_c}",
-        )
-
+    samples_a = scm.generate_samples(num_samples=10)
+    samples_b = scm_deserialized.generate_samples(num_samples=10)
+    samples_c = scm_deserialized_json.generate_samples(num_samples=10)
+    check_sample_equivalence(samples_a, samples_b)
+    check_sample_equivalence(samples_a, samples_c)
 
 @pytest.mark.parametrize(
     "dag, num_nodes, num_samples, seed",
@@ -405,7 +401,7 @@ def test_scm_samples_reproducibility(dag, num_nodes, num_samples, seed):
     samples_a = scm.generate_samples(num_samples=num_samples)
     samples_b = scm_b.generate_samples(num_samples=num_samples)
 
-    assert samples_a == samples_b, "Samples should be equal with the same seed."
+    check_sample_equivalence(samples_a, samples_b)
 
 
 @pytest.mark.parametrize(
@@ -460,12 +456,6 @@ def test_bayesian_network_scm_deserialization(network_path):
 
     logger.debug("Checking if the samples are equal")
     # Generate samples
-    for sample_a, sample_b in zip(
-        scm_deserialized_a.generate_samples(num_samples=10),
-        scm_deserialized_b.generate_samples(num_samples=10),
-    ):
-        assert_dicts_equal(
-            sample_a,
-            sample_b,
-            msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.\n\t{sample_a}\n\t{sample_b}",
-        )
+    samples_a = scm_deserialized_a.generate_samples(num_samples=10)
+    samples_b = scm_deserialized_b.generate_samples(num_samples=10)
+    check_sample_equivalence(samples_a, samples_b, msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.")
