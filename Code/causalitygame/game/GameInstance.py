@@ -7,6 +7,7 @@ from networkx.readwrite import json_graph
 from causalitygame.generators.dag_generator import DAGGenerator
 from causalitygame.mission.base import BaseMission
 from causalitygame.mission.impl.CATEMission import CATEMission
+from causalitygame.mission.impl.TreatmentEffectMission import TreatmentEffectMission
 from causalitygame.scm.dag import DAG
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.scm.base import SCM
@@ -49,7 +50,10 @@ class GameInstance:
 
     @classmethod
     def from_dict(cls, data):
-        mission_mapping = {m.__name__: m for m in [DAGInferenceMission, CATEMission]}
+        mission_mapping = {
+            m.__name__: m
+            for m in [DAGInferenceMission, CATEMission, TreatmentEffectMission]
+        }
         mission = mission_mapping[data["mission"]["class"]].from_dict(data["mission"])
         assert isinstance(
             mission, BaseMission

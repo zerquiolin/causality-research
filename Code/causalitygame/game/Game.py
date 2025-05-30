@@ -28,6 +28,8 @@ import joblib
 # Types
 from typing import Optional, List, Tuple, Union, Callable, Dict, Any
 
+from causalitygame.scm.dag import DAG
+
 
 class Game:
     def __init__(
@@ -134,6 +136,8 @@ class Game:
         fig.suptitle("Agent Comparison Scores", fontsize=14)
 
         for name, run in self.results.items():
+            # cd = DAG(run["history"].iloc[-1]["action_object"])
+            # cd.plot()
             behavior_scores, deliverable_scores = [], []
             for i in range(len(run["history"])):
                 current_behavior_score, current_deliverable_score = (
@@ -152,8 +156,8 @@ class Game:
             self._plot_scores(
                 name=name,
                 behavior_score=behavior_score,
-                # deliverable_score=deliverable_score,
-                deliverable_score=deliverable_scores[-1],
+                deliverable_score=deliverable_score,
+                # deliverable_score=deliverable_scores[-1],
                 title="Behavior vs. Deliverable Scores",
                 ax=axes[0],
             )
