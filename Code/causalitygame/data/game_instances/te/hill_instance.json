@@ -1,5 +1,5 @@
 {
-    "max_rounds": 100,
+    "max_rounds": 10,
     "scm": {
         "vars": [
             {
@@ -27,19 +27,22 @@
                 "name": "X",
                 "accessibility": "observable",
                 "domain": [
-                    200.0,
-                    4000.0
+                    200,
+                    400
                 ],
                 "parents": [
                     "Z"
                 ],
-                "parent_mappings": null,
+                "parent_mappings": {
+                    "Z": {
+                        "0": 0,
+                        "1": 1
+                    }
+                },
                 "random_state": null,
                 "equation": "200*Z + 200",
                 "noise_distribution": {
-                    "class": "UniformNoiseDistribution",
-                    "low": 200.0,
-                    "high": 4000.0
+                    "class": "NoNoiseDistribution"
                 }
             },
             {
@@ -47,19 +50,17 @@
                 "name": "Y",
                 "accessibility": "observable",
                 "domain": [
-                    40000.0,
-                    80000000.0
+                    200,
+                    400
                 ],
                 "parents": [
                     "X"
                 ],
-                "parent_mappings": null,
+                "parent_mappings": {},
                 "random_state": null,
-                "equation": "200*X",
+                "equation": "X",
                 "noise_distribution": {
-                    "class": "UniformNoiseDistribution",
-                    "low": 40000.0,
-                    "high": 80000000.0
+                    "class": "NoNoiseDistribution"
                 }
             }
         ],
@@ -78,7 +79,7 @@
     "mission": {
         "class": "TreatmentEffectMission",
         "behavior_metric": "ExperimentsBehaviorMetric",
-        "deliverable_metric": "SquaredErrorDeliverableMetric"
+        "deliverable_metric": "AbsoluteErrorDeliverableMetric"
     },
     "random_state": {
         "state": "MT19937",

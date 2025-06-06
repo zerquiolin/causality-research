@@ -65,7 +65,7 @@ class BaseSCMNode(ABC):
         parents: Optional[List[str]] = None,
         parent_mappings: Optional[Dict[str, int | float]] = None,
         random_state: np.random.RandomState = np.random.RandomState(911),
-        logger: logging.Logger = None
+        logger: logging.Logger = None,
     ):
         """
         SCMNode is class representing a node in a Structural Causal Model (SCM).
@@ -90,7 +90,11 @@ class BaseSCMNode(ABC):
         self.parents = parents
         self.parent_mappings = parent_mappings
         self.random_state = random_state
-        self.logger = logger if logger is not None else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
+        self.logger = (
+            logger
+            if logger is not None
+            else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
+        )
 
         # this is just to not break the MRO
         super().__init__()
@@ -98,7 +102,7 @@ class BaseSCMNode(ABC):
     def _init_random_state(self):
         if self.random_state is None:
             self.random_state = np.random.RandomState()
-        
+
     def prepare_new_random_state_structure(self, random_state):
         """
             generates a random structure that is required by this node. By default, this is just a simple RandomState.

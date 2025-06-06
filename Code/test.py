@@ -1,40 +1,25 @@
-# import joblib
+# import pandas as pd
+
+# # Cambia la ruta si es necesario
+# df = pd.read_csv("past_data.csv")
+
+# # 1.a) Asegúrate de que las columnas existan
+# print("Columnas disponibles:", list(df.columns))
+
+# # 1.b) Revisa cuántas filas cumplen Y == X
+# # Por ejemplo, si X es la columna "X_value" y Y es la columna "target":
+# col_X = "X"  # ajústalo al nombre de tu columna
+# col_Y = "Y"  # ajústalo al nombre real de tu target
+# match_mask = df[col_X] == df[col_Y]
+# imatch_mask = df[col_X] != df[col_Y]
+# print(f"Filas con {col_X} == {col_Y} :", match_mask.sum(), "de", len(df))
+
+# # 1.c) Si hubo NaNs o strings, el == fallará; revisa nulos y dtypes:
+# print("Valores nulos:\n", df[[col_X, col_Y]].isnull().sum())
+# print("Tipos de datos:\n", df[[col_X, col_Y]].dtypes)
+# print("Valores distintos en", col_X, ":", df[imatch_mask])
 
 
-# path = "runs.pkl"
-# # Read pickle file
-# with open(path, "rb") as f:
-#     data = joblib.load(f)
-# # Print the data
-# print(len(data["Random Agent 1"]["history"]))
+a = []
 
-# import matplotlib.pyplot as plt
-# import numpy as np
-
-# x = np.linspace(0, 100, 500)
-
-
-# def log_penalty(x, alpha=1.0, floor=0.01):
-#     return 1 / (np.log(alpha * x + 2)) + floor
-
-
-# def inverse_root_penalty(x, scale=1.0, floor=0.01):
-#     return 1 / (scale * np.sqrt(x + 1)) + floor
-
-
-# def rational_penalty(x, alpha=1.0, floor=0.01):
-#     return 1 / (alpha * x + 1) + floor
-
-
-# plt.plot(x, log_penalty(x, alpha=0.025), label="Log Penalty")
-# plt.plot(x, inverse_root_penalty(x, scale=1.0), label="Inverse Root")
-# plt.plot(x, rational_penalty(x, alpha=0.1), label="Rational (alpha=0.1)")
-# plt.plot(x, rational_penalty(x, alpha=0.01), label="Rational (alpha=0.05)")
-
-# plt.ylim(0, 1.2)
-# plt.title("Decay Penalty Functions")
-# plt.xlabel("x (e.g. number of experiments)")
-# plt.ylabel("Penalty")
-# plt.legend()
-# plt.grid(True)
-# plt.show()
+print(a[-1])

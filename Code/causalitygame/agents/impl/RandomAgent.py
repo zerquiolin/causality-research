@@ -40,7 +40,6 @@ class RandomAgent(BaseAgent):
                 self.random_state.randint(50, 100),
             )
         )
-        self.visited_nodes: set[tuple] = set()
         self.past_data: pd.DataFrame = None
 
     def inform(self, goal: str, behavior_metric: str, deliverable_metric: str):
@@ -106,24 +105,18 @@ class RandomAgent(BaseAgent):
 
         return "experiment", treatments
 
-    def _merge_data(self, new_data: Dict[str, Dict[str, List[Any]]]):
+    def _merge_data(self, new_data: Dict[tuple, pd.DataFrame]):
         # Check if new_data is empty
         if not new_data:
+            self.past_data = pd.DataFrame()
             return
-        # Check if past_data is None
-        if self.past_data is None:
-            # Initialize past_data with the first data frame
-            self.past_data = pd.DataFrame(columns=list(new_data.values())[0].columns)
+
+        # Reset the past data if this is the first round
+        self.past_data = pd.DataFrame(columns=list(new_data.values())[0].columns)
 
         for treatment, df in new_data.items():
-            # Check if the treatment is already seen
-            if treatment in self.visited_nodes:
-                continue
             # Add the new data to the historical data
             self.past_data = pd.concat([self.past_data, df], ignore_index=True)
-
-            # Add the treatment to the visited nodes
-            self.visited_nodes.add(treatment)
 
     def submit_answer(self):
         task_mapping = {
@@ -135,28 +128,33 @@ class RandomAgent(BaseAgent):
         return task_mapping.get(self._process, None)()
 
     def _dag_inference_task(self):
-        return learn_dag(self.past_data, self._is_numeric, seed=self.seed)
+        return learn_dag(self.past_data.copy(), self._is_numeric, seed=self.seed)
 
     def _cate_task(self):
+        data = self.past_data.copy()
+
         def compute_cate(Y, T, Z):
             return compute_empirical_cate_fuzzy(
                 query={"Y": Y, "T": T, "Z": Z},
-                data=self.past_data,
+                data=data,
                 distance_threshold=10**2,
             )
 
         return compute_cate
 
     def _te_task(self):
+        data = self.past_data.copy()
+
         def compute_te(Y, Z, X):
             """
             Compute the treatment effect given Y, Z, and X.
             """
+            data.to_csv("past_data.csv", index=False)  # Save past data for debugging
             return te_estimation(
                 Y=Y,
                 Z=Z,
                 X=X,
-                data=self.past_data,
+                data=data,
             )
 
         return compute_te

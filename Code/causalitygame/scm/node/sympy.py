@@ -15,6 +15,7 @@ from causalitygame.scm.node.base import (
 
 from causalitygame.scm.noise_distributions import (
     GaussianNoiseDistribution,
+    NoNoiseDistribution,
     UniformNoiseDistribution,
     DiracNoiseDistribution,
 )
@@ -86,18 +87,15 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
         # Evaluate the expression
         f = sp.lambdify(self.parents, self.evaluation, modules="numpy")
         evaluated = f(*tuple(parent_values[self.parents].values.T))
+
         assert not np.any(
             np.iscomplex(evaluated)
         ), f"Evaluation of {self.evaluation} lead to complex numbers {evaluated}"
 
-        # Clip to the minimum and maximum values
-        evaluated = np.minimum(np.maximum(evaluated, self.domain[0]), self.domain[-1])
-
         # Add noise to the evaluated value
         noise = self.noise_distribution.generate(size=len(evaluated), random_state=rs)
 
-        # Return the final value
-        return evaluated + noise
+        return np.minimum(np.maximum(evaluated + noise, self.domain[0]), self.domain[1])
 
     def _to_dict(self):
         """
@@ -128,10 +126,9 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
                 str(evaluation) == data["equation"]
             ), f"Evaluation structure {data['equation']} could not parsed properly. Recovered {str(evaluation)}"
 
-        # Deserialize the noise distribution
         if "noise_distribution" in data:
             noise_distribution = data["noise_distribution"]
-            if type(noise_distribution) == dict:
+            if isinstance(noise_distribution, dict):
                 if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
                     noise_distribution = GaussianNoiseDistribution.from_dict(
                         noise_distribution
@@ -142,6 +139,10 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
                     )
                 elif noise_distribution["class"] == DiracNoiseDistribution.__name__:
                     noise_distribution = DiracNoiseDistribution.from_dict(
+                        noise_distribution
+                    )
+                elif noise_distribution["class"] == NoNoiseDistribution.__name__:
+                    noise_distribution = NoNoiseDistribution.from_dict(
                         noise_distribution
                     )
                 else:
@@ -155,9 +156,7 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
                     f"Unknown noise distribution type: {type(noise_distribution)}"
                 )
         else:
-            noise_distribution = UniformNoiseDistribution(
-                low=data["domain"][0], high=data["domain"][1]
-            )
+            noise_distribution = UniformNoiseDistribution(low=0, high=1)
 
         # Create the node
         new_class = cls(
@@ -387,6 +386,8 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
         elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
             noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
+        elif noise_distribution["class"] == NoNoiseDistribution.__name__:
+            noise_distribution = NoNoiseDistribution.from_dict(noise_distribution)
         else:
             raise ValueError(
                 f"Unknown noise distribution class: {noise_distribution['class']}"

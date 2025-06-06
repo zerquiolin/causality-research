@@ -18,18 +18,18 @@
             "name": "X",
             "equation": "200*Z + 200",
             "domain": [
-                2e2,
-                4e3
+                200,
+                400
             ],
             "class": "EquationBasedNumericalSCMNode",
             "accessibility": "observable"
         },
         {
             "name": "Y",
-            "equation": "200*X",
+            "equation": "X",
             "domain": [
-                4e4,
-                8e7
+                200,
+                400
             ],
             "class": "EquationBasedNumericalSCMNode",
             "accessibility": "observable"

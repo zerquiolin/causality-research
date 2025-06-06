@@ -334,7 +334,10 @@ class SCM:
                 ]
 
             # Generate parent mappings if not provided
-            if not node_as_dict["parent_mappings"]:
+            if (
+                not "parent_mappings" in node_as_dict
+                or not node_as_dict["parent_mappings"]
+            ):
                 node_as_dict["parent_mappings"] = {
                     node.name: {cat: idx for idx, cat in enumerate(node.domain)}
                     for node in nodes

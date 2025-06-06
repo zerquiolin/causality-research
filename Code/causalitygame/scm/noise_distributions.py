@@ -6,6 +6,7 @@ import numpy as np
 # Distributions
 from scipy.stats import norm, uniform
 
+
 class DiracNoiseDistribution(BaseNoiseDistribution):
 
     def __init__(self, val):
@@ -56,7 +57,9 @@ class GaussianNoiseDistribution(BaseNoiseDistribution):
         Returns:
             float: A generated noise value.
         """
-        return norm.rvs(loc=self.mean, scale=self.std, size=size, random_state=random_state)
+        return norm.rvs(
+            loc=self.mean, scale=self.std, size=size, random_state=random_state
+        )
 
     def to_dict(self) -> dict:
         """
@@ -108,7 +111,10 @@ class UniformNoiseDistribution(BaseNoiseDistribution):
             float: A generated noise value.
         """
         return uniform.rvs(
-            loc=self.low, scale=self.high - self.low, size=size, random_state=random_state
+            loc=self.low,
+            scale=self.high - self.low,
+            size=size,
+            random_state=random_state,
         )
 
     def to_dict(self) -> dict:
@@ -136,3 +142,50 @@ class UniformNoiseDistribution(BaseNoiseDistribution):
             UniformNoiseDistribution: An instance of Uniform noise distribution.
         """
         return cls(low=data["low"], high=data["high"])
+
+
+class NoNoiseDistribution(BaseNoiseDistribution):
+    def __init__(self):
+        """
+        Initializes the Gaussian noise distribution with a given mean and standard deviation.
+
+        Args:
+            mean (float): The mean of the Gaussian distribution.
+            std (float): The standard deviation of the Gaussian distribution.
+        """
+
+    def generate(self, size, random_state: int = 911) -> float:
+        """
+        Generates a noise value using the Gaussian distribution.
+
+        Args:
+            random_state (int, optional): Seed for random number generation. Defaults to 911.
+
+        Returns:
+            float: A generated noise value.
+        """
+        return np.zeros(size)
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the Gaussian noise object into a dictionary format.
+
+        Returns:
+            dict: The dictionary representation of the Gaussian noise object.
+        """
+        return {
+            "class": NoNoiseDistribution.__name__,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "GaussianNoiseDistribution":
+        """
+        Deserializes the No noise object from a dictionary representation.
+
+        Args:
+            data (dict): The dictionary containing No noise data.
+
+        Returns:
+            NoNoiseDistribution: An instance of No noise distribution.
+        """
+        return cls()

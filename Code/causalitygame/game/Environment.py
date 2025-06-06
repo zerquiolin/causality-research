@@ -6,13 +6,31 @@ import numpy as np
 
 # Data
 import pandas as pd
+from causalitygame.scm.node.base import (
+    ACCESSIBILITY_OBSERVABLE,
+    ACCESSIBILITY_CONTROLLABLE,
+)
 
 # Models
 from causalitygame.game.GameInstance import GameInstance
 from causalitygame.agents.base import BaseAgent
 
 # Typing
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Callable, Dict, List, Tuple, Optional, TypedDict
+
+
+class Hooks(TypedDict):
+    """
+    Hooks for the game.
+    """
+
+    on_round_start: Optional[Callable[[str, int, Dict, List, Dict], None]] = None
+    on_action_chosen: Optional[Callable[[str, Dict, str, any], None]] = None
+    on_action_evaluated: Optional[Callable[[str, Dict, str, any, Tuple], None]] = None
+    on_round_end: Optional[Callable[[str, int, Dict, str, any, Dict, Tuple], None]] = (
+        None
+    )
+
 
 # Utils
 import os
@@ -43,7 +61,9 @@ class Environment:
         self,
         game_instance: GameInstance,
         agent: BaseAgent,
+        agent_name: str,
         random_state: np.random.RandomState,
+        hooks: Hooks = {},
         logger: logging.Logger = None,
     ) -> None:
         """
@@ -57,6 +77,7 @@ class Environment:
         self.random_state: np.random.Generator = random_state
         self.game_instance: GameInstance = game_instance
         self.agent: BaseAgent = agent
+        self.agent_name: str = agent_name
         self.current_round: int = 0
         self.state: Dict[str, Any] = self.initialize_state()
         self.history: List[Dict[str, Any]] = (
@@ -65,6 +86,7 @@ class Environment:
         self.node_properties: Dict[str, Dict[str, Any]] = (
             self.initialize_node_properties()
         )
+        self.hooks: Hooks = hooks
         self.random_states: Dict[Any, np.random.RandomState] = {}
         self.logger = (
             logger
@@ -95,6 +117,7 @@ class Environment:
         Returns:
             Dict[str, Dict[str, Any]]: A dictionary mapping node names to their properties.
         """
+        #  TODO: Fix all the logic regarding node properties
         # todo: Add a parameter that allows to have non treatable and non measurable nodes
         properties: Dict[str, Dict[str, Any]] = {}
         # Sort nodes by name (assuming names like 'X1', 'X2', ...)
@@ -122,9 +145,7 @@ class Environment:
             Dict[str, Optional[Any]]: A dictionary of action names to domain or None.
         """
         actions = {
-            node: props["domain"]
-            for node, props in self.node_properties.items()
-            if props["treatable"]
+            node.name: node.domain for node in self.game_instance.scm.nodes.values()
         }
         actions["observe"] = None
         actions["stop_with_answer"] = None
@@ -240,14 +261,12 @@ class Environment:
                     seed,
                 )
                 rs_base = np.random.RandomState(seed)
-                self.random_states[hashable_treatment] = (
-                    self.game_instance.scm.prepare_new_random_state_structure(rs_base)
-                )
+                self.random_states[hashable_treatment] = rs_base
+                # TODO: Check if this is still needed
+                # (
+                #     self.game_instance.scm.prepare_new_random_state_structure(rs_base)
+                # )
 
-            # Generate samples for the treatment using the dedicated random state
-            # print(
-            #     f"Random states for treatment {hashable_treatment}: {self.random_states[hashable_treatment]}"
-            # )
             self.logger.debug("Generating %s samples.", num_samples)
             samples = self.game_instance.scm.generate_samples(
                 interventions=treatment,
@@ -259,7 +278,7 @@ class Environment:
                 samples,
             )
 
-            if not hashable_treatment in self.state["datasets"]:
+            if hashable_treatment not in self.state["datasets"]:
                 self.state["datasets"][hashable_treatment] = samples
             else:
                 self.state["datasets"][hashable_treatment] = pd.concat(
@@ -281,16 +300,60 @@ class Environment:
         while self.current_round < self.game_instance.max_rounds:
             state = self.get_state()
             samples = state["datasets"]
-            # TODO: filter samples to show only measurable nodes
+            for treatment, dataset in samples.items():
+                # Filter columns to only those that are measurable
+                measurable_columns = [
+                    node.name
+                    for node in self.game_instance.scm.nodes.values()
+                    if node.accessibility == ACCESSIBILITY_OBSERVABLE
+                    or node.accessibility == ACCESSIBILITY_CONTROLLABLE
+                ]
+                samples[treatment] = dataset[measurable_columns]
             actions = state["available_actions"]
             num_rounds = state["round"]
+
+            # Hook for round start
+            if "on_round_start" in self.hooks and callable(
+                self.hooks["on_round_start"]
+            ):
+                self.hooks["on_round_start"](
+                    self.agent_name, num_rounds, state, actions, samples
+                )
 
             action, action_object = self.agent.choose_action(
                 samples=samples, actions=actions, num_rounds=num_rounds
             )
 
+            # Hook for action chosen
+            if "on_action_chosen" in self.hooks and callable(
+                self.hooks["on_action_chosen"]
+            ):
+                self.hooks["on_action_chosen"](
+                    self.agent_name, state, action, action_object
+                )
+
             # For performance measurement purposes only
             current_result = self.agent.submit_answer()
+
+            # Hook for action applied
+            if "on_action_evaluated" in self.hooks and callable(
+                self.hooks["on_action_evaluated"]
+            ):
+                self.hooks["on_action_evaluated"](
+                    self.agent_name, state, action, action_object, current_result
+                )
+
+            # Hook for round end
+            if "on_round_end" in self.hooks and callable(self.hooks["on_round_end"]):
+                self.hooks["on_round_end"](
+                    self.agent_name,
+                    num_rounds,
+                    state,
+                    action,
+                    action_object,
+                    samples,
+                    current_result,
+                )
 
             # Check if the agent has chosen to stop the game
             if action == "stop_with_answer":

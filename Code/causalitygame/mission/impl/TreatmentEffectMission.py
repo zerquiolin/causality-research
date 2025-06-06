@@ -71,17 +71,14 @@ class TreatmentEffectMission(BaseMission):
                     **X,
                 },
                 num_samples=1,
-            )[
-                Y
-            ][0]
+                random_state=rs,
+            )[Y][0]
             for value in Z_values
         ]
 
         te = Y1 - Y0
-        print(f"Estimated Treatment Effect (TE): {te}")
         # Comput the empirical treatment effect
         empirical_te = empirical_te_function(Y, Z, X)
-        print(f"Empirical Treatment Effect (TE): {empirical_te}")
         behavior_score = self.behavior_metric.evaluate(history)
         deliverable_score = self.deliverable_metric.evaluate(scm, (te, empirical_te))
 
