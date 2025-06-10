@@ -4,7 +4,10 @@ from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.scm.base import SCM
 from causalitygame.scm.dag import DAG
 from causalitygame.generators.dag_generator import DAGGenerator
-from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
+from causalitygame.lib.utils.random_state_serialization import (
+    random_state_from_json,
+    random_state_to_json,
+)
 from scipy.stats import norm, uniform
 import numpy as np
 from causalitygame.scm.noise_distributions import (
@@ -54,9 +57,12 @@ test_dag_b = DAGGenerator(
 
 
 def assert_dicts_equal(d1, d2, path="", msg="", atol=None):
+    print(f"Keys in first dict: {list(d1.keys())}")
+    print(f"Keys in second dict: {list(d2.keys())}")
     for key in d1:
         assert key in d2, f"Key '{path + key}' missing in second dict"
         if isinstance(d1[key], dict) and isinstance(d2[key], dict):
+            print(f"Recursing into key: {key}, {d1[key]}, {d2[key]}")
             assert_dicts_equal(d1[key], d2[key], path=path + key + ".", msg=msg)
         else:
             if type(d1[key]) in [float, np.float64] and atol is not None:
@@ -70,12 +76,18 @@ def assert_dicts_equal(d1, d2, path="", msg="", atol=None):
     for key in d2:
         assert key in d1, f"{msg}\nKey '{path + key}' missing in first dict"
 
+
 def check_sample_equivalence(samples_a, samples_b, msg=""):
-    assert (samples_a.shape == samples_b.shape), msg
+    assert samples_a.shape == samples_b.shape, msg
     assert all(samples_a.columns == samples_b.columns), msg
 
-    for sample_a, sample_b, in zip(samples_a.values, samples_b.values):
-        assert np.array_equal(sample_a, sample_b), f"{msg}\n\tSample mismatch between {sample_a} and {sample_b}"
+    for (
+        sample_a,
+        sample_b,
+    ) in zip(samples_a.values, samples_b.values):
+        assert np.array_equal(
+            sample_a, sample_b
+        ), f"{msg}\n\tSample mismatch between {sample_a} and {sample_b}"
 
 
 @pytest.mark.parametrize(
@@ -308,16 +320,21 @@ def test_scm_deserialization(dag, num_nodes, seed):
     logger.debug("Marshalling and unmarshalling dictionary to json")
     scm_deserialized_json = SCM.from_dict(json.loads(json.dumps(scm_data)))
 
+    print("First")
     # Check if the SCMs are not equal
     for node_a, node_b, node_c in zip(
         sorted(scm.nodes.values(), key=lambda n: n.name),
         sorted(scm_deserialized.nodes.values(), key=lambda n: n.name),
         sorted(scm_deserialized_json.nodes.values(), key=lambda n: n.name),
     ):
+        print(f"Node A: {node_a.to_dict()}")
+        print(f"Node B: {node_b.to_dict()}")
+        print(f"Node C: {node_c.to_dict()}")
         assert node_a.name == node_b.name
         assert node_a.name == node_c.name
         assert node_a.accessibility == node_b.accessibility
         assert node_a.accessibility == node_c.accessibility
+        print("Node names are equal:", node_a.name, node_b.name, node_c.name)
         assert_dicts_equal(
             node_a.to_dict(),
             node_b.to_dict(),
@@ -328,11 +345,14 @@ def test_scm_deserialization(dag, num_nodes, seed):
             node_c.to_dict(),
             msg=f"SCM node {node_a.name} ({type(node_a)}) is not the same after recovering via json.dumps and json.loads.",
         )
+    print("Second")
 
     # Check if the random states are equal
     state_a = scm.get_random_state().get_state()
     state_b = scm_deserialized.get_random_state().get_state()
     state_c = scm_deserialized_json.get_random_state().get_state()
+
+    print("Third")
 
     for a, b, c in zip(state_a, state_b, state_c):
         if isinstance(a, np.ndarray):
@@ -342,12 +362,17 @@ def test_scm_deserialization(dag, num_nodes, seed):
         else:
             assert a == b == c, "Random states should be equal after serialization."
 
+    print("Fourth")
+
     # Generate samples
     samples_a = scm.generate_samples(num_samples=10)
     samples_b = scm_deserialized.generate_samples(num_samples=10)
     samples_c = scm_deserialized_json.generate_samples(num_samples=10)
     check_sample_equivalence(samples_a, samples_b)
     check_sample_equivalence(samples_a, samples_c)
+
+    print("Fifth")
+
 
 @pytest.mark.parametrize(
     "dag, num_nodes, num_samples, seed",
@@ -458,4 +483,8 @@ def test_bayesian_network_scm_deserialization(network_path):
     # Generate samples
     samples_a = scm_deserialized_a.generate_samples(num_samples=10)
     samples_b = scm_deserialized_b.generate_samples(num_samples=10)
-    check_sample_equivalence(samples_a, samples_b, msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.")
+    check_sample_equivalence(
+        samples_a,
+        samples_b,
+        msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.",
+    )

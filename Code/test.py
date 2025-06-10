@@ -20,6 +20,5 @@
 # print("Valores distintos en", col_X, ":", df[imatch_mask])
 
 
-a = []
-
-print(a[-1])
+print(1e22)
+print(0.001)
