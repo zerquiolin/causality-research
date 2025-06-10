@@ -124,7 +124,6 @@ class RandomAgent(BaseAgent):
             "Conditional Average Treatment Effect (CATE) Mission": self._cate_task,
             "Treatment Effect Mission": self._te_task,
         }
-        print(f"Task: {task_mapping.get(self._process, None)}")
         return task_mapping.get(self._process, None)()
 
     def _dag_inference_task(self):
