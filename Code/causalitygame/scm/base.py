@@ -170,7 +170,11 @@ class SCM:
         self._topologically_sorted_var_names = list(nx.topological_sort(self.dag.graph))
         self.random_state = random_state if random_state else np.random.RandomState(911)
         self.name = name
-        self.logger = logger if logger is not None else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
+        self.logger = (
+            logger
+            if logger is not None
+            else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
+        )
 
     @property
     def vars(self):
@@ -219,16 +223,18 @@ class SCM:
             np.random.RandomState: The random generator used for sampling.
         """
         return self.random_state
-    
+
     def prepare_new_random_state_structure(self, random_state=None):
-        
+
         # root
         random_state = random_state or self.random_state
 
         # ask each node for a structure of new random states
         random_structure = {}
         for node_name, node in self.nodes.items():
-            random_structure[node_name] = node.prepare_new_random_state_structure(random_state)
+            random_structure[node_name] = node.prepare_new_random_state_structure(
+                random_state
+            )
         return random_structure
 
     def generate_samples(
@@ -248,6 +254,7 @@ class SCM:
         Returns:
             List[Dict[str, float]]: A list of sample dictionaries.
         """
+        # print("Interventions:", interventions)
         random_states = random_state or {v: self.random_state for v in self.vars}
         sample = pd.DataFrame(index=range(num_samples))
 
@@ -257,9 +264,20 @@ class SCM:
             if node_name in interventions:
                 sample_for_col = [interventions[node_name]] * num_samples
             else:
-                sample_for_col = node.generate_values(parent_values=sample, random_state=random_states[node_name])
-            sample = pd.concat([sample, pd.DataFrame({node_name: sample_for_col})], axis=1)
-        assert type(sample) == pd.DataFrame, f"sample should be a dataframe but is {type(sample)}"
+                sample_for_col = node.generate_values(
+                    parent_values=sample,
+                    random_state=(
+                        random_states[node_name]
+                        if isinstance(random_states, dict)
+                        else random_states
+                    ),
+                )
+            sample = pd.concat(
+                [sample, pd.DataFrame({node_name: sample_for_col})], axis=1
+            )
+        assert (
+            type(sample) == pd.DataFrame
+        ), f"sample should be a dataframe but is {type(sample)}"
         return sample
 
     def to_dict(self) -> Dict:
@@ -290,7 +308,6 @@ class SCM:
         Returns:
             SCM: A new SCM instance.
         """
-
         if "class" in data and data["class"] not in [__class__.__name__]:
             class_name = data.pop("class")
             return get_class(class_name).from_dict(data)
@@ -310,12 +327,23 @@ class SCM:
         for node_as_dict in sorted(
             data["vars"], key=lambda n: topological_order.index(n["name"])
         ):
-
             # extract parents from edges if they are not explicitly given
             if not "parents" in node_as_dict:
                 node_as_dict["parents"] = [
                     e[0] for e in edges if e[1] == node_as_dict["name"]
                 ]
+
+            # Generate parent mappings if not provided
+            if (
+                not "parent_mappings" in node_as_dict
+                or not node_as_dict["parent_mappings"]
+            ):
+                node_as_dict["parent_mappings"] = {
+                    node.name: {cat: idx for idx, cat in enumerate(node.domain)}
+                    for node in nodes
+                    if node.name in node_as_dict["parents"]
+                    and isinstance(node.domain[0], str)
+                }
 
             # get node object
             nodes.append(BaseSCMNode.from_dict(node_as_dict))

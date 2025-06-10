@@ -2,7 +2,10 @@
 import numpy as np
 import pandas as pd
 
-from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
+from causalitygame.lib.utils.random_state_serialization import (
+    random_state_from_json,
+    random_state_to_json,
+)
 
 
 # Abstract Base Class
@@ -27,22 +30,30 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
             parent_mappings=None,
             domain=values,
             random_state=random_state,
-            noise_distribution=None
+            noise_distribution=None,
         )
         self.probability_distribution = probability_distribution
 
         # sanity check of given distribution
         if isinstance(probability_distribution, list):
-            assert all([isinstance(v, (float, np.float64)) for v in probability_distribution]), f"invalid entries in distribution for {name}: {probability_distribution}"
+            assert all(
+                [isinstance(v, (float, np.float64)) for v in probability_distribution]
+            ), f"invalid entries in distribution for {name}: {probability_distribution}"
             s = np.sum(probability_distribution)
-            assert np.isclose(s, 1), f"Invalid distribution for leaf node {name}, which sum up to {sum(probability_distribution)}: {probability_distribution}"
+            assert np.isclose(
+                s, 1
+            ), f"Invalid distribution for leaf node {name}, which sum up to {sum(probability_distribution)}: {probability_distribution}"
             if s != 1:
                 self.probability_distribution /= s
         else:
             for parent_combo, distribution in probability_distribution.items():
-                assert all([isinstance(v, (float, np.float64)) for v in distribution]), f"invalid entries in distribution for {name}: {distribution}"
+                assert all(
+                    [isinstance(v, (float, np.float64)) for v in distribution]
+                ), f"invalid entries in distribution for {name}: {distribution}"
                 s = np.sum(distribution)
-                assert np.isclose(s, 1), f"Invalid distribution for parent combination {parent_combo} node {name}, which sum up to {sum(distribution)}: {distribution}"
+                assert np.isclose(
+                    s, 1
+                ), f"Invalid distribution for parent combination {parent_combo} node {name}, which sum up to {sum(distribution)}: {distribution}"
                 if s != 1:
                     probability_distribution[parent_combo] /= s
 
@@ -77,16 +88,17 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
                 for _ in range(len(parent_values))
             ]
 
-        
         # get the distribution for each entry, based on the respective values of the parent variables
         dists = []
         for row in parent_values[self.parents].values:
             key = ",".join(row)
-            dists.append([
-                p
-                for sub in self.probability_distribution[key]
-                for p in (sub if isinstance(sub, list) else [sub])
-            ])
+            dists.append(
+                [
+                    p
+                    for sub in self.probability_distribution[key]
+                    for p in (sub if isinstance(sub, list) else [sub])
+                ]
+            )
         return dists
 
     def _to_dict(self) -> dict:
@@ -102,14 +114,21 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
 
     @classmethod
     def from_dict(cls, data: dict) -> "BayesianNetworkSCMNode":
-        
         # Reconstruct the random state.
         random_state = data["random_state"] if "random_state" in data else None
         return cls(
             name=data["name"],
             parents=data["parents"],
             values=data["values"],
-            probability_distribution=data["probability_distribution"] if data["parents"] else [v[0] for v in data["probability_distribution"]],
+            probability_distribution=(
+                data["probability_distribution"]
+                if data["parents"]
+                else (
+                    [v[0] for v in data["probability_distribution"]]
+                    if isinstance(data["probability_distribution"][0], list)
+                    else [v for v in data["probability_distribution"]]
+                )
+            ),
             accessibility=data.get("accessibility", ACCESSIBILITY_OBSERVABLE),
-            random_state=random_state
+            random_state=random_state,
         )

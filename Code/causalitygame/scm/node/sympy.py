@@ -10,16 +10,18 @@ from causalitygame.scm.node.base import (
     ACCESSIBILITY_OBSERVABLE,
     BaseNoiseDistribution,
     BaseNumericSCMNode,
-    BaseCategoricSCMNode
+    BaseCategoricSCMNode,
 )
 
 from causalitygame.scm.noise_distributions import (
     GaussianNoiseDistribution,
+    NoNoiseDistribution,
     UniformNoiseDistribution,
     DiracNoiseDistribution,
 )
 
 from collections import Counter
+
 
 class EquationBasedSCMNode:
 
@@ -28,19 +30,32 @@ class EquationBasedSCMNode:
         # check that equations and parents coincide and memorize required symbols per node
         def get_symbols_for_formula_while_checking_that_those_are_declared(formula):
             symbols = set([str(s) for s in formula.free_symbols])
-            assert not symbols or self.parents is not None, f"No parents are given (None) even though the formula has symbols: {symbols}"
+            assert (
+                not symbols or self.parents is not None
+            ), f"No parents are given (None) even though the formula has symbols: {symbols}"
             undeclared_symbols = symbols.difference(self.parents)
-            assert not undeclared_symbols, f"Formula {formula} has undeclared variables {undeclared_symbols} that occur in the formula but not in the parents, which are specified as {self.parents}."
+            assert (
+                not undeclared_symbols
+            ), f"Formula {formula} has undeclared variables {undeclared_symbols} that occur in the formula but not in the parents, which are specified as {self.parents}."
             return symbols
 
         if isinstance(self.evaluation, dict):
             self.symbols_needed_for_evaluation = {
-                eq_name: get_symbols_for_formula_while_checking_that_those_are_declared(eq)
+                eq_name: get_symbols_for_formula_while_checking_that_those_are_declared(
+                    eq
+                )
                 for eq_name, eq in self.evaluation.items()
                 if eq is not None
             }
         else:
-            self.symbols_needed_for_evaluation = get_symbols_for_formula_while_checking_that_those_are_declared(self.evaluation) if self.evaluation is not None else None
+            self.symbols_needed_for_evaluation = (
+                get_symbols_for_formula_while_checking_that_those_are_declared(
+                    self.evaluation
+                )
+                if self.evaluation is not None
+                else None
+            )
+
 
 class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
     def generate_values(
@@ -53,26 +68,34 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
 
         # Check if the node has parents
         if not self.parents:
-            return self.noise_distribution.generate(size=len(parent_values), random_state=rs)
-        
+            return self.noise_distribution.generate(
+                size=len(parent_values), random_state=rs
+            )
+
         # Check if the parent values are provided
         assert set(self.parents).issubset(
             set(parent_values.columns)
         ), "Parent values do not match the expected symbols"
 
+        # Map all the parent values to the parent mappings
+        if self.parent_mappings:
+            parent_values = parent_values.copy()
+            for parent, mapping in self.parent_mappings.items():
+                if parent in parent_values.columns:
+                    parent_values[parent] = parent_values[parent].map(mapping)
+
         # Evaluate the expression
         f = sp.lambdify(self.parents, self.evaluation, modules="numpy")
         evaluated = f(*tuple(parent_values[self.parents].values.T))
-        assert not np.any(np.iscomplex(evaluated)), f"Evaluation of {self.evaluation} lead to complex numbers {evaluated}"
 
-        # Clip to the minimum and maximum values
-        evaluated = np.minimum(np.maximum(evaluated, self.domain[0]), self.domain[-1])
+        assert not np.any(
+            np.iscomplex(evaluated)
+        ), f"Evaluation of {self.evaluation} lead to complex numbers {evaluated}"
 
         # Add noise to the evaluated value
         noise = self.noise_distribution.generate(size=len(evaluated), random_state=rs)
 
-        # Return the final value
-        return evaluated + noise
+        return np.minimum(np.maximum(evaluated + noise, self.domain[0]), self.domain[1])
 
     def _to_dict(self):
         """
@@ -83,7 +106,7 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
         """
         return {
             "equation": str(self.evaluation) if self.evaluation else None,
-            "noise_distribution": self.noise_distribution.to_dict()
+            "noise_distribution": self.noise_distribution.to_dict(),
         }
 
     @classmethod
@@ -103,10 +126,9 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
                 str(evaluation) == data["equation"]
             ), f"Evaluation structure {data['equation']} could not parsed properly. Recovered {str(evaluation)}"
 
-        # Deserialize the noise distribution
         if "noise_distribution" in data:
             noise_distribution = data["noise_distribution"]
-            if type(noise_distribution) == dict:
+            if isinstance(noise_distribution, dict):
                 if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
                     noise_distribution = GaussianNoiseDistribution.from_dict(
                         noise_distribution
@@ -117,6 +139,10 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
                     )
                 elif noise_distribution["class"] == DiracNoiseDistribution.__name__:
                     noise_distribution = DiracNoiseDistribution.from_dict(
+                        noise_distribution
+                    )
+                elif noise_distribution["class"] == NoNoiseDistribution.__name__:
+                    noise_distribution = NoNoiseDistribution.from_dict(
                         noise_distribution
                     )
                 else:
@@ -130,9 +156,7 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
                     f"Unknown noise distribution type: {type(noise_distribution)}"
                 )
         else:
-            noise_distribution = UniformNoiseDistribution(
-                low=data["domain"][0], high=data["domain"][1]
-            )
+            noise_distribution = UniformNoiseDistribution(low=0, high=1)
 
         # Create the node
         new_class = cls(
@@ -143,9 +167,9 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
             noise_distribution=noise_distribution,
             parents=data.get("parents", None),
             parent_mappings=data.get("parent_mappings", None),
-            random_state=data["random_state"]
+            random_state=data["random_state"],
         )
-        
+
         # Return the new class
         return new_class
 
@@ -183,11 +207,11 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             if not domain_distribution
             else domain_distribution
         )
-    
+
     def prepare_new_random_state_structure(self, random_state):
         return {
             "noise": np.random.RandomState(random_state.randint(0, 10**5)),
-            "choice": np.random.RandomState(random_state.randint(0, 10**5))
+            "choice": np.random.RandomState(random_state.randint(0, 10**5)),
         }
 
     def _noise_to_category_distribution(
@@ -220,9 +244,7 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
         return {cat: counts.get(cat, 0) / total for cat in self.domain}
 
     def generate_values(
-        self,
-        parent_values: pd.DataFrame,
-        random_state: Optional[dict] = None
+        self, parent_values: pd.DataFrame, random_state: Optional[dict] = None
     ):
 
         # Define random state
@@ -232,9 +254,14 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             rs_noise, rs_choice = (random_state["noise"], random_state["choice"])
         else:
             rs_noise, rs_choice = (random_state, random_state)
-        
+
         # now start sampling
-        self.logger.info("Drawing %s values for categorical node %s with parents %s", len(parent_values), self.name, self.parents)
+        self.logger.info(
+            "Drawing %s values for categorical node %s with parents %s",
+            len(parent_values),
+            self.name,
+            self.parents,
+        )
         self.logger.debug(f"Parent mapping of {self.name} is %s.", self.parent_mappings)
 
         # Check if the node has parents
@@ -245,22 +272,30 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             )
         else:
             missing_parents = set(self.parents).difference(set(parent_values.keys()))
-            assert not missing_parents, f"Cannot generate value for {self.name} as no values provided for some parents: {missing_parents}"
-        
+            assert (
+                not missing_parents
+            ), f"Cannot generate value for {self.name} as no values provided for some parents: {missing_parents}"
+
         # Check that all parent values are provided
         symbols = set()
         for eq_name, eq in self.evaluation.items():
-            missing_values = self.symbols_needed_for_evaluation[eq_name].difference(parent_values.keys())
-            assert not missing_values, f"Cannot evaluate formula {eq} of variable {self.name} because no values are provided for parent {missing_values}"
+            missing_values = self.symbols_needed_for_evaluation[eq_name].difference(
+                parent_values.keys()
+            )
+            assert (
+                not missing_values
+            ), f"Cannot evaluate formula {eq} of variable {self.name} because no values are provided for parent {missing_values}"
             symbols.update(self.symbols_needed_for_evaluation[eq_name])
         symbols = list(symbols)
 
         # Evaluate the expression
         possible_categories = list(self.evaluation.keys())
         evaluations = []
-        
+
         # determine the noise terms once (important to do this here simultaneously for all instances to not confuse the random state)
-        noises = self.noise_distribution.generate(size=(len(parent_values), len(possible_categories)), random_state=rs_noise)
+        noises = self.noise_distribution.generate(
+            size=(len(parent_values), len(possible_categories)), random_state=rs_noise
+        )
 
         for i, possible_category in enumerate(possible_categories):
 
@@ -269,23 +304,27 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             # Evaluate the expression
             f = sp.lambdify(symbols, eq, modules="numpy")
             evaluated = f(*tuple(parent_values[symbols].values.T))
-            
+
             # Calculate the CDF for the evaluated value and category to obtain values normalized between 0 and 1
             evaluations.append(self.cdfs[possible_category](evaluated + noises[:, i]))
-        
+
         evaluations = np.array(evaluations).T
         expected_shape = (len(parent_values), len(self.domain))
-        assert expected_shape == evaluations.shape, f"Shape of evaluations should be {expected_shape} but was {evaluations.shape}"
-        
+        assert (
+            expected_shape == evaluations.shape
+        ), f"Shape of evaluations should be {expected_shape} but was {evaluations.shape}"
+
         # Normalize the evaluations
-        evaluations = np.maximum(evaluations, 10**-20) # to avoid that all entries in a row are 0
+        evaluations = np.maximum(
+            evaluations, 10**-20
+        )  # to avoid that all entries in a row are 0
         evaluations /= evaluations.sum(axis=1)[:, np.newaxis]
 
         # Check if the evaluations are valid
         assert (
-            np.all(0 <= evaluations) and
-            np.all(evaluations <= 1) and
-            np.all(np.isclose(np.sum(evaluations, axis=1), 1.0))
+            np.all(0 <= evaluations)
+            and np.all(evaluations <= 1)
+            and np.all(np.isclose(np.sum(evaluations, axis=1), 1.0))
         ), f"Evaluations are not valid probabilities: {evaluations}"
 
         # Sample from the categorical distribution
@@ -310,7 +349,7 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
                 else None
             ),
             "domain_distribution": self.domain_noise_distribution,
-            "noise_distribution": self.noise_distribution.to_dict()
+            "noise_distribution": self.noise_distribution.to_dict(),
         }
 
     @classmethod
@@ -347,6 +386,8 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
         elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
             noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
+        elif noise_distribution["class"] == NoNoiseDistribution.__name__:
+            noise_distribution = NoNoiseDistribution.from_dict(noise_distribution)
         else:
             raise ValueError(
                 f"Unknown noise distribution class: {noise_distribution['class']}"
@@ -364,7 +405,7 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             parents=data.get("parents"),
             parent_mappings=data.get("parent_mappings"),
             domain_distribution=data.get("domain_distribution"),
-            random_state=data["random_state"]
+            random_state=data["random_state"],
         )
 
         # Return the new class
@@ -374,7 +415,9 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
 class SerializableCDF:
     def __init__(self, sorted_samples):
         self.sorted_samples = np.array(sorted_samples)
-        assert len(self.sorted_samples.shape) == 1, "SerializableCDF needs a one-dimensional vector of values."
+        assert (
+            len(self.sorted_samples.shape) == 1
+        ), "SerializableCDF needs a one-dimensional vector of values."
 
     def __call__(self, x):
         return np.searchsorted(self.sorted_samples, x, side="right") / len(

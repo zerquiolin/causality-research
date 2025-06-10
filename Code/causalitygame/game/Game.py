@@ -26,7 +26,39 @@ import matplotlib.pyplot as plt
 import joblib
 
 # Types
-from typing import Optional, List, Tuple, Union, Callable, Dict, Any
+from typing import Optional, List, Tuple, Union, Callable, Dict, Any, TypedDict
+
+
+class Hooks(TypedDict):
+    """
+    Hooks for the game.
+    """
+
+    on_game_start: Optional[Callable[[], None]] = None
+    on_agent_game_start: Optional[Callable[[str], None]] = None
+    on_round_start: Optional[Callable[[str, int, Dict, List, Dict], None]] = None
+    on_action_chosen: Optional[Callable[[str, Dict, str, any], None]] = None
+    on_action_evaluated: Optional[Callable[[str, Dict, str, any, Tuple], None]] = None
+    on_round_end: Optional[Callable[[str, int, Dict, str, any, Dict, Tuple], None]] = (
+        None
+    )
+    on_agent_game_end: Optional[
+        Callable[
+            [
+                str,
+            ],
+            None,
+        ]
+    ] = None
+    on_game_end: Optional[
+        Callable[
+            [],
+            None,
+        ]
+    ] = None
+
+
+from causalitygame.scm.dag import DAG
 
 
 class Game:
@@ -36,6 +68,7 @@ class Game:
         game_spec: str,
         behavior_metrics: Optional[List[Any]] = [],
         deliverable_metrics: Optional[List[Any]] = [],
+        hooks: Optional[Hooks] = {},
         plambda: float = 0.8,
         seed: int = 911,
     ):
@@ -49,6 +82,7 @@ class Game:
         self.game_spec = game_spec
         self.behavior_metrics = behavior_metrics
         self.deliverable_metrics = deliverable_metrics
+        self.hooks = hooks
         self.plambda = plambda
         self.seed = seed
 
@@ -64,7 +98,7 @@ class Game:
         game_instance = GameInstance.from_dict(game_instance)
         return game_instance
 
-    def _make_env(self, agent):
+    def _make_env(self, name, agent):
         # Create a game instance
         game_instance = self._make_game_instance()
 
@@ -72,6 +106,8 @@ class Game:
         env = Environment(
             game_instance=game_instance,
             agent=agent,
+            agent_name=name,
+            hooks=self.hooks,
             random_state=np.random.RandomState(self.seed),
         )
 
@@ -84,9 +120,15 @@ class Game:
           - 'eval'    (raw Evaluator results)
           - 'behavior_score', 'deliverable_score'
         """
+        if "on_game_start" in self.hooks and callable(self.hooks["on_game_start"]):
+            self.hooks["on_game_start"]()
         for name, agent in tqdm(self.agents):
+            if "on_agent_game_start" in self.hooks and callable(
+                self.hooks["on_agent_game_start"]
+            ):
+                self.hooks["on_agent_game_start"](name)
             # 1) Build a fresh environment
-            env = self._make_env(agent)
+            env = self._make_env(name, agent)
 
             # 1.1) Inform the agent about the game instance
             agent.inform(
@@ -117,6 +159,14 @@ class Game:
                 ),
             }
 
+            if "on_agent_game_end" in self.hooks and callable(
+                self.hooks["on_agent_game_end"]
+            ):
+                self.hooks["on_agent_game_end"](name)
+
+        if "on_game_end" in self.hooks and callable(self.hooks["on_game_end"]):
+            self.hooks["on_game_end"]()
+
         return self.results
 
     def plot(self):
@@ -134,6 +184,8 @@ class Game:
         fig.suptitle("Agent Comparison Scores", fontsize=14)
 
         for name, run in self.results.items():
+            # cd = DAG(run["history"].iloc[-1]["action_object"])
+            # cd.plot()
             behavior_scores, deliverable_scores = [], []
             for i in range(len(run["history"])):
                 current_behavior_score, current_deliverable_score = (
@@ -152,8 +204,8 @@ class Game:
             self._plot_scores(
                 name=name,
                 behavior_score=behavior_score,
-                # deliverable_score=deliverable_score,
-                deliverable_score=deliverable_scores[-1],
+                deliverable_score=deliverable_score,
+                # deliverable_score=deliverable_scores[-1],
                 title="Behavior vs. Deliverable Scores",
                 ax=axes[0],
             )
