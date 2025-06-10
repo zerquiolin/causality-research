@@ -79,6 +79,7 @@ mission = DAGInferenceMission(
 game_instance_random_state = np.random.RandomState(911)
 game_instance = GameInstance(100, scm, mission, game_instance_random_state)
 
+
 @pytest.mark.parametrize(
     "game_instance, agent, random_state_seed, interventions",
     [
@@ -105,20 +106,22 @@ def test_that_sample_sequences_are_invariant_to_treatment_organization(
     all_permutations = list(permutations(interventions))
 
     logger.info(f"Executing {sum([len(p) for p in all_permutations])} experiments")
-    
+
     prev_final_state = None
     for perm in all_permutations:
 
         # Create the Environment using the GameInstance and Agent
         all_in_env = Environment(
             game_instance=game_instance,
+            agent_name="dummy_agent",  # Use a dummy agent name
             agent=agent,
-            random_state=np.random.RandomState(random_state_seed)
+            random_state=np.random.RandomState(random_state_seed),
         )
         partitioned_env = Environment(
             game_instance=game_instance,
+            agent_name="dummy_agent",  # Use a dummy agent name
             agent=agent,
-            random_state=np.random.RandomState(random_state_seed)
+            random_state=np.random.RandomState(random_state_seed),
         )
 
         experiment = lambda t: [({var: val}, t)]
@@ -134,14 +137,26 @@ def test_that_sample_sequences_are_invariant_to_treatment_organization(
             h2 = partitioned_env.get_state()["datasets"]
 
             logger.debug(f"Compare histories after {len(h1)} interventions.")
-            assert ((var, val), ) in h1, f"no intervention data for {var}={val} in state of first environment"
-            assert ((var, val), ) in h2, f"no intervention data for {var}={val} in state of second environment"
-            assert sorted(h1.keys()) == sorted(h2.keys()), "Histories have different keys"
+            assert (
+                (var, val),
+            ) in h1, (
+                f"no intervention data for {var}={val} in state of first environment"
+            )
+            assert (
+                (var, val),
+            ) in h2, (
+                f"no intervention data for {var}={val} in state of second environment"
+            )
+            assert sorted(h1.keys()) == sorted(
+                h2.keys()
+            ), "Histories have different keys"
             for treatment in h1.keys():
                 for col in h1[treatment].columns:
-                    assert h1[treatment][col].equals(h2[treatment][col]), f"Different values for col {col} in experiment {treatment}:\n\th1: {list(h1[treatment][col])}\n\th2: {list(h2[treatment][col])}"
+                    assert h1[treatment][col].equals(
+                        h2[treatment][col]
+                    ), f"Different values for col {col} in experiment {treatment}:\n\th1: {list(h1[treatment][col])}\n\th2: {list(h2[treatment][col])}"
                 assert h1[treatment].equals(h2[treatment])
-        
+
         # check that the history is the same as for the previous permutation
         if prev_final_state is not None:
             cur_final_state_all_in = all_in_env.get_state()["datasets"]
