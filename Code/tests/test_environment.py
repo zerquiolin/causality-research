@@ -124,7 +124,9 @@ def test_that_sample_sequences_are_invariant_to_treatment_organization(
             random_state=np.random.RandomState(random_state_seed),
         )
 
-        experiment = lambda t: [({var: val}, t)]
+        def experiment(t):
+            return [({var: val}, t)]
+
         for var, val in perm:
 
             # Perform the intervention 1x2 in the first and 2x1 in the second environment

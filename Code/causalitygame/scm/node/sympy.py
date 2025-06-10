@@ -70,13 +70,15 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
         if not self.parents:
             # Draw random values uniformly from the domain
             values = rs.uniform(self.domain[0], self.domain[1], size=len(parent_values))
-            # Add noise to the random values
-            noise = self.noise_distribution.generate(
-                size=len(parent_values), random_state=rs
-            )
-            return np.minimum(
-                np.maximum(values + noise, self.domain[0]), self.domain[1]
-            )
+            return values
+            # TODO: This might not be the best way to handle this, as it does not consider the noise distribution.
+            # # Add noise to the random values
+            # noise = self.noise_distribution.generate(
+            #     size=len(parent_values), random_state=rs
+            # )
+            # return np.minimum(
+            #     np.maximum(values + noise, self.domain[0]), self.domain[1]
+            # )
 
         # Check if the parent values are provided
         assert set(self.parents).issubset(
