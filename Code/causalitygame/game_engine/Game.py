@@ -129,7 +129,10 @@ class Game:
 
             # 1.1) Inform the agent about the game instance
             agent.inform(
-                goal=f"{env.game_instance.mission.name}: {env.game_instance.mission.description}",
+                goal={
+                    "goal": env.game_instance.mission.name,
+                    "description": env.game_instance.mission.description,
+                },
                 behavior_metric=env.game_instance.mission.behavior_metric.name,
                 deliverable_metric=env.game_instance.mission.deliverable_metric.name,
             )

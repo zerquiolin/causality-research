@@ -1,40 +1,49 @@
+# Abstract
 from abc import ABC, abstractmethod
+
+# Types
+from typing import Any, Dict, List, Tuple
 
 
 class BaseAgent(ABC):
+    """Abstract base class defining the interface for all game-playing agents."""
+
     @abstractmethod
-    def inform(self, goal: str, behavior_metric: str, deliverable_metric: str):
-        """
-        Inform the agent about the goal, behavior metric, and deliverable.
-        """
-        raise NotImplementedError("This method should be overridden by subclasses.")
+    def inform(
+        self, goal: Dict[str, Any], behavior_metric: str, deliverable_metric: str
+    ) -> None:
+        """Initialize the agent with the game goal and metrics.
 
+        Args:
+            goal: A dictionary specifying the target goal parameters.
+            behavior_metric: The name of the metric to track agent behavior.
+            deliverable_metric: The name of the metric to evaluate outcomes.
+        """
+        ...
+
+    @abstractmethod
     def choose_action(
-        self, samples: dict, actions: dict, num_rounds: int
-    ) -> tuple[str, list]:
-        """
-        Choose an action based on the current state of the game.
+        self, samples: Dict[str, Any], actions: Dict[str, Any], num_rounds: int
+    ) -> Tuple[str, List[Any]]:
+        """Select the next action and associated treatments.
 
-        Parameters
-        ----------
-        samples : dict
-            The samples collected so far.
-        actions : dict
-            The available actions to choose from.
-        num_rounds : int
-            The current round number.
+        Args:
+            samples: Collected samples so far in the game.
+            actions: Mapping of available actions the agent can take.
+            num_rounds: Current round number (1-based).
 
-        Returns
-        -------
-        tuple
-            A tuple containing:
-            - action: The chosen action.
-            - treatments (list): A list of treatments to apply.
+        Returns:
+            A tuple where:
+            - first element is the chosen action key.
+            - second element is a list of treatment identifiers to apply.
         """
-        raise NotImplementedError("This method should be overridden by subclasses.")
+        ...
 
-    def submit_answer(self):
+    @abstractmethod
+    def submit_answer(self) -> Any:
+        """Generate the agent's final answer at game end.
+
+        Returns:
+            The answer in whatever form the game expects.
         """
-        Returns the answer to the game.
-        """
-        raise NotImplementedError("This method should be overridden by subclasses.")
+        ...

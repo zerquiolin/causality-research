@@ -5,8 +5,8 @@ import causalitygame as cg
 import matplotlib.pyplot as plt
 
 # Agents
-from causalitygame.agents.RandomAgent import RandomAgent
-from causalitygame.agents.ExhaustiveAgent import ExhaustiveAgent
+from causalitygame.agents.random import RandomAgent
+from causalitygame.agents.exhaustive import ExhaustiveAgent
 
 
 # Define the agents
@@ -17,7 +17,7 @@ agents = [
 # Add an exhaustive agent
 agents.append(("Exhaustive Agent", ExhaustiveAgent()))
 # Game Instance
-game_instance_path = "data/game_instances/te/hill_instance.json"
+game_instance_path = "causalitygame/data/game_instances/te/hill_instance.json"
 
 
 # Data for plotting
