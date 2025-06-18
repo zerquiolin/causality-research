@@ -5,16 +5,19 @@ import causalitygame as cg
 import matplotlib.pyplot as plt
 
 # Agents
-from causalitygame.agents.impl.RandomAgent import RandomAgent
-from causalitygame.agents.impl.ExhaustiveAgent import ExhaustiveAgent
+from causalitygame.agents.RandomAgent import RandomAgent
+from causalitygame.agents.ExhaustiveAgent import ExhaustiveAgent
 
 
 # Define the agents
-agents = [(f"Random Agent {i}", RandomAgent(seed=911 + i)) for i in range(1, 11)]
+agents = [
+    (f"Random Agent {i}", RandomAgent(seed=911 + i, samples_range=(1, 3)))
+    for i in range(1, 5)
+]
 # Add an exhaustive agent
 agents.append(("Exhaustive Agent", ExhaustiveAgent()))
 # Game Instance
-game_instance_path = "causalitygame/data/game_instances/te/hill_instance.json"
+game_instance_path = "data/game_instances/te/hill_instance.json"
 
 
 # Data for plotting
@@ -101,16 +104,16 @@ def on_game_end():
 game = cg.Game(
     agents=agents,
     game_spec=game_instance_path,
-    hooks={
-        "on_game_start": on_game_start,
-        "on_agent_game_start": on_agent_game_start,
-        "on_round_start": on_round_start,
-        "on_action_chosen": on_action_chosen,
-        "on_action_evaluated": on_action_evaluated,
-        "on_round_end": on_round_end,
-        "on_agent_game_end": on_agent_game_end,
-        "on_game_end": on_game_end,
-    },
+    # hooks={
+    #     "on_game_start": on_game_start,
+    #     "on_agent_game_start": on_agent_game_start,
+    #     "on_round_start": on_round_start,
+    #     "on_action_chosen": on_action_chosen,
+    #     "on_action_evaluated": on_action_evaluated,
+    #     "on_round_end": on_round_end,
+    #     "on_agent_game_end": on_agent_game_end,
+    #     "on_game_end": on_game_end,
+    # },
 )
 # Run the game
 runs = game.run()

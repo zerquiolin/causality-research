@@ -110,7 +110,16 @@ def PC(data: Dict, isNumerical: bool, alpha: float = 0.05):
         Oriented arrows found by v‑structure detection and the first
         Meek propagation rule (R1).
     """
-    obs_df = _records_to_df(data["empty"])
+    print("PC algorithm started")
+    print(f"Data: {data}")
+    print(f"Columns in data: {data.keys()}")
+    # if data.empty or "empty" not in data.columns:
+    # return nx.Graph(), set()
+    if data.empty:
+        return nx.Graph(), set()
+
+    # obs_df = _records_to_df(data["empty"])
+    obs_df = data.copy()
     variables = list(obs_df.columns)
 
     # 1 . start with a complete graph

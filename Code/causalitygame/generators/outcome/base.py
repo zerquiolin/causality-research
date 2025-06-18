@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from causalitygame.scm.base import get_class
-from causalitygame.lib.utils.random_state_serialization import random_state_to_json, random_state_from_json
+from causalitygame.lib.utils.random_state_serialization import (
+    random_state_to_json,
+    random_state_from_json,
+)
 import numpy as np
 
 import logging
@@ -8,11 +11,7 @@ import logging
 
 class OutcomeGenerator(ABC):
 
-    def __init__(
-            self,
-            random_state,
-            logger=None
-        ):
+    def __init__(self, random_state, logger=None):
         super().__init__()
 
         # save these variables
@@ -22,8 +21,12 @@ class OutcomeGenerator(ABC):
             self.random_state = np.random.RandomState(random_state)
         else:
             self.random_state = random_state
-        
-        self.logger = logger if logger is not None else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
+
+        self.logger = (
+            logger
+            if logger is not None
+            else logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
+        )
 
     @abstractmethod
     def fit(self, x, y):
@@ -36,7 +39,7 @@ class OutcomeGenerator(ABC):
     @abstractmethod
     def _to_dict(self):
         raise NotImplementedError
-    
+
     @staticmethod
     def _from_dict(cls):
         raise NotImplementedError
@@ -44,11 +47,11 @@ class OutcomeGenerator(ABC):
     def to_dict(self):
         d = {
             "random_state": random_state_to_json(self.random_state),
-            "class": f"{self.__module__}.{self.__class__.__name__}"
+            "class": f"{self.__module__}.{self.__class__.__name__}",
         }
         d.update(self._to_dict())
         return d
-    
+
     @classmethod
     def from_dict(cls, data):
         act_cls = data.pop("class")
@@ -57,14 +60,11 @@ class OutcomeGenerator(ABC):
 
 
 class DummyOutcomeGenerator(OutcomeGenerator):
-    
-    def __init__(
-            self,
-            constant=0
-        ):
+
+    def __init__(self, constant=0):
         super().__init__(random_state=None)
         self.constant = constant
-    
+
     def fit(self, x, y):
         pass
 
@@ -72,10 +72,8 @@ class DummyOutcomeGenerator(OutcomeGenerator):
         return np.ones(x.shape[0]) * self.constant
 
     def _to_dict(self):
-        return {
-            "constant": self.constant
-        }
-    
+        return {"constant": self.constant}
+
     @classmethod
     def _from_dict(cls, data):
         data.pop("random_state")
@@ -97,14 +95,14 @@ class ComplementaryOutcomeGenerator(OutcomeGenerator):
         # state vars
         self.x = None
         self.y = None
-    
+
     def fit(self, x, y):
         self.x = x
         if not isinstance(x, np.ndarray):
             raise ValueError(f"x must be a numpy array but is {type(x)}")
         self.y = y
         self.base_outcome_generator.fit(x, y)
-    
+
     def generate(self, x: np.ndarray, random_state=None):
         if not isinstance(x, np.ndarray):
             raise ValueError(f"x must be a numpy array but is {type(x)}")
@@ -117,16 +115,22 @@ class ComplementaryOutcomeGenerator(OutcomeGenerator):
         lookupable = np.any(matches, axis=1)
         num_lookups = np.count_nonzero(lookupable)
         num_generations = len(x) - num_lookups
-        
+
         # first look up all the values that can be looked up
-        self.logger.info(f"Looking up/sampling values from existing entries for {num_lookups} samples.")
-        lookup_values = np.array([random_state.choice(self.y[match]) for match in matches[lookupable]])
+        self.logger.info(
+            f"Looking up/sampling values from existing entries for {num_lookups} samples."
+        )
+        lookup_values = np.array(
+            [random_state.choice(self.y[match]) for match in matches[lookupable]]
+        )
         assert np.count_nonzero(lookupable) == len(lookup_values)
 
         # now generate values for all other samples
-        self.logger.info(f"Generating {num_generations} sample values as they are not present.")
+        self.logger.info(
+            f"Generating {num_generations} sample values as they are not present."
+        )
         generated_values = self.base_outcome_generator.generate(x[~lookupable])
-        assert (len(x) - len(lookup_values )) == len(generated_values)
+        assert (len(x) - len(lookup_values)) == len(generated_values)
         self.logger.info(f"Generated {len(generated_values)} sample values.")
 
         # merge the looked up and generated values position-true
@@ -139,9 +143,9 @@ class ComplementaryOutcomeGenerator(OutcomeGenerator):
         return {
             "x": self.x.tolist() if self.x is not None else None,
             "y": self.y.tolist() if self.x is not None else None,
-            "base_generator": self.base_outcome_generator.to_dict()
+            "base_generator": self.base_outcome_generator.to_dict(),
         }
-    
+
     @classmethod
     def _from_dict(cls, data):
         gen = ComplementaryOutcomeGenerator(

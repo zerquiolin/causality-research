@@ -7,19 +7,19 @@ import pandas as pd
 import networkx as nx
 
 # SCM
-from causalitygame.scm.node.base import (
+from causalitygame.scm.nodes.base import (
     ACCESSIBILITY_CONTROLLABLE,
     BaseNoiseDistribution,
 )
 from causalitygame.scm.base import SCM
-from causalitygame.scm.node.sympy import (
+from causalitygame.scm.nodes.sympy import (
     EquationBasedNumericalSCMNode,
     EquationBasedCategoricalSCMNode,
     SerializableCDF,
 )
 
 # DAG
-from causalitygame.scm.dag import DAG
+from causalitygame.scm.dags.DAG import DAG
 
 # Abstract
 from typing import Dict, Any, List, Tuple, Callable
@@ -137,13 +137,13 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
 
         # data frame with initialization samples (can be used to define the distributions)
         samples = pd.DataFrame(index=range(self.num_samples_for_cdf_generation))
-        
+
         #  Define a mapping of variable types to generator functions
         type_generators = {
             "numerical": self._generate_numerical_node,
             "categorical": self._generate_categorical_node,
         }
-        
+
         for node_name in topological_order:
             # Get the parents of the current node.
             parents = list(self.dag.graph.predecessors(node_name))
@@ -153,7 +153,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                 for p in parents
                 if self.variable_types[p] == "categorical"
             }
-            
+
             # Use the mapping to get the right generator
             node_type = self.variable_types[node_name]
             generator = type_generators.get(node_type)
@@ -171,7 +171,9 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
                 samples=samples,
             )
             nodes.append(node)
-            samples[node_name] = node.generate_values(parent_values=samples[parents], random_state=self.random_state)
+            samples[node_name] = node.generate_values(
+                parent_values=samples[parents], random_state=self.random_state
+            )
             self.logger.debug(f"added node {node_name}")
 
         self.logger.debug("Creating SCM object")
@@ -285,7 +287,7 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
             parent_values = samples[parents]
             f = sp.lambdify(parents, equation, modules="numpy")
             evaluated = f(*tuple(parent_values.values.T))
-            
+
             # create CDF based on all seen values for this variable
             sorted_samples = np.sort(evaluated)
             self.logger.debug("Creating CDF from sample data.")

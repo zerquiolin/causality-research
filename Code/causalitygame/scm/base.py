@@ -14,7 +14,7 @@ from causalitygame.lib.utils.random_state_serialization import (
 )
 
 # Nodes
-from causalitygame.scm.node.base import (
+from causalitygame.scm.nodes.base import (
     ACCESSIBILITY_CONTROLLABLE,
     ACCESSIBILITY_LATENT,
     ACCESSIBILITY_OBSERVABLE,
@@ -312,7 +312,7 @@ class SCM:
             class_name = data.pop("class")
             return get_class(class_name).from_dict(data)
 
-        from causalitygame.scm.dag import DAG  # TODO
+        from causalitygame.scm.dags.DAG import DAG  # TODO: Why is this import here?
 
         # Reconstruct the DAG from the dictionary
         nodes = [v["name"] for v in data["vars"]]

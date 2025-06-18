@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 
 # DAG
-from causalitygame.scm.dag import DAG
+from causalitygame.scm.dags.DAG import DAG
 
 # SCM
 from causalitygame.scm.base import SCM

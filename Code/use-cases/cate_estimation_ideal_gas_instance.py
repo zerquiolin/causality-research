@@ -2,8 +2,8 @@
 import causalitygame as cg
 
 # Agents
-from causalitygame.agents.impl.RandomAgent import RandomAgent
-from causalitygame.agents.impl.ExhaustiveAgent import ExhaustiveAgent
+from causalitygame.agents.RandomAgent import RandomAgent
+from causalitygame.agents.ExhaustiveAgent import ExhaustiveAgent
 
 
 # Define the agents

@@ -1,14 +1,14 @@
 from itertools import permutations
 import json
 import pytest
-from causalitygame.evaluators.impl.behavior import ExperimentsBehaviorMetric
-from causalitygame.evaluators.impl.deliverable import SHDDeliverableMetric
-from causalitygame.game.Environment import Environment
-from causalitygame.game.GameInstance import GameInstance
+from causalitygame.evaluators.behavior import ExperimentsBehaviorMetric
+from causalitygame.evaluators.deliverable import SHDDeliverableMetric
+from causalitygame.game_engine.Environment import Environment
+from causalitygame.game_engine.GameInstance import GameInstance
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.generators.dag_generator import DAGGenerator
-from causalitygame.mission.impl.DAGInferenceMission import DAGInferenceMission
-from causalitygame.scm.noise_distributions import (
+from causalitygame.missions.DAGInferenceMission import DAGInferenceMission
+from causalitygame.scm.noises import (
     GaussianNoiseDistribution,
     UniformNoiseDistribution,
 )

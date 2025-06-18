@@ -1,10 +1,10 @@
-from causalitygame.game.Game import Game
+from causalitygame.game_engine.Game import Game
 
 from causalitygame.scm.base import SCM
-from causalitygame.game.GameInstance import GameInstance
+from causalitygame.game_engine.GameInstance import GameInstance
 
-from causalitygame.scm.dag import DAG
+from causalitygame.scm.dags.DAG import DAG
 
-from causalitygame.mission.impl.DAGInferenceMission import DAGInferenceMission
-from causalitygame.evaluators.impl.behavior import ExperimentsBehaviorMetric
-from causalitygame.evaluators.impl.deliverable import EdgeAccuracyDeliverableMetric
+from causalitygame.missions.DAGInferenceMission import DAGInferenceMission
+from causalitygame.evaluators.behavior import ExperimentsBehaviorMetric
+from causalitygame.evaluators.deliverable import EdgeAccuracyDeliverableMetric

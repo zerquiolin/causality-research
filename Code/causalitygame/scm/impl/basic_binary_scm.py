@@ -3,7 +3,7 @@ import numpy as np
 import sympy as sp
 
 # Noise Distributions
-from causalitygame.scm.noise_distributions import (
+from causalitygame.scm.noises import (
     GaussianNoiseDistribution,
     UniformNoiseDistribution,
 )
@@ -52,7 +52,12 @@ def gen_binary_scm(random_state: int = 42, num_samples_for_cdf_generation=10**3)
 
     # Generate the SCM
     # scm_gen = SCMGenerator(dag, **scm_constraints, random_state=scm_random_state)
-    scm_gen = EquationBasedSCMGenerator(dag, **scm_constraints, random_state=rs, num_samples_for_cdf_generation=num_samples_for_cdf_generation)
+    scm_gen = EquationBasedSCMGenerator(
+        dag,
+        **scm_constraints,
+        random_state=rs,
+        num_samples_for_cdf_generation=num_samples_for_cdf_generation,
+    )
     scm = scm_gen.generate()
 
     return dag, scm

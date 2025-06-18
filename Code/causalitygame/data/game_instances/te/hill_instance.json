@@ -1,9 +1,9 @@
 {
-    "max_rounds": 10,
+    "max_rounds": 100,
     "scm": {
         "vars": [
             {
-                "class": "BayesianNetworkSCMNode",
+                "class": "causalitygame.scm.nodes.bn.BayesianNetworkSCMNode",
                 "name": "Z",
                 "accessibility": "controllable",
                 "domain": [
@@ -23,7 +23,7 @@
                 ]
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "X",
                 "accessibility": "observable",
                 "domain": [
@@ -46,7 +46,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "Y",
                 "accessibility": "observable",
                 "domain": [
