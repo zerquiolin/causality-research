@@ -1,5 +1,5 @@
-from causalitygame.evaluators.base import BaseMetric
-from .base import BaseMission
+from causalitygame.evaluators.abstract import BaseMetric
+from .abstract import BaseMission
 from causalitygame.evaluators.behavior import (
     ExperimentsBehaviorMetric,
     TreatmentsBehaviorMetric,

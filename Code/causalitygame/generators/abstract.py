@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from causalitygame.scm.dags.DAG import DAG
 
 # SCM
-from causalitygame.scm.base import SCM
+from causalitygame.scm.abstract import SCM
 
 
 class AbstractGenerator(ABC):

@@ -11,7 +11,7 @@ from causalitygame.generators.outcome.base import (
     ComplementaryOutcomeGenerator,
     OutcomeGenerator,
 )
-from causalitygame.scm.base import SCM
+from causalitygame.scm.abstract import SCM
 from causalitygame.scm.dags.DAG import DAG
 
 from causalitygame.scm.nodes.db import (
@@ -22,7 +22,7 @@ from causalitygame.scm.nodes.computed import (
     ComputedNumericSCMNode,
     ComputedCategoricSCMNode,
 )
-from causalitygame.scm.nodes.base import (
+from causalitygame.scm.nodes.abstract import (
     ACCESSIBILITY_CONTROLLABLE,
     ACCESSIBILITY_LATENT,
     ACCESSIBILITY_OBSERVABLE,

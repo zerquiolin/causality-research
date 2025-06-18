@@ -7,11 +7,11 @@ import pandas as pd
 import networkx as nx
 
 # SCM
-from causalitygame.scm.nodes.base import (
+from causalitygame.scm.nodes.abstract import (
     ACCESSIBILITY_CONTROLLABLE,
     BaseNoiseDistribution,
 )
-from causalitygame.scm.base import SCM
+from causalitygame.scm.abstract import SCM
 from causalitygame.scm.nodes.sympy import (
     EquationBasedNumericalSCMNode,
     EquationBasedCategoricalSCMNode,
@@ -23,7 +23,7 @@ from causalitygame.scm.dags.DAG import DAG
 
 # Abstract
 from typing import Dict, Any, List, Tuple, Callable
-from .base import AbstractSCMGenerator
+from .abstract import AbstractSCMGenerator
 
 # Utils
 import logging

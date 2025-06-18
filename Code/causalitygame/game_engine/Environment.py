@@ -6,14 +6,14 @@ import numpy as np
 
 # Data
 import pandas as pd
-from causalitygame.scm.nodes.base import (
+from causalitygame.scm.nodes.abstract import (
     ACCESSIBILITY_OBSERVABLE,
     ACCESSIBILITY_CONTROLLABLE,
 )
 
 # Models
 from causalitygame.game_engine.GameInstance import GameInstance
-from causalitygame.agents.base import BaseAgent
+from causalitygame.agents.abstract import BaseAgent
 
 # Typing
 from typing import Any, Callable, Dict, List, Tuple, Optional, TypedDict

@@ -1,6 +1,6 @@
 from pathlib import Path
 from causalitygame.scm import SCM
-from causalitygame.scm.nodes.base import BaseNumericSCMNode, BaseCategoricSCMNode
+from causalitygame.scm.nodes.abstract import BaseNumericSCMNode, BaseCategoricSCMNode
 
 import numpy as np
 import pandas as pd

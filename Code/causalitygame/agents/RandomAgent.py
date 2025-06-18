@@ -2,7 +2,7 @@ import numpy as np
 from typing import Dict, Optional, Tuple
 
 import pandas as pd
-from .base import BaseAgent
+from .abstract import BaseAgent
 from causalitygame.lib.scripts.pc import learn as learn_dag
 from causalitygame.lib.scripts.empiricalCATE import compute_empirical_cate_fuzzy
 from causalitygame.lib.scripts.xgboostTE import te_estimation

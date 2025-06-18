@@ -1,7 +1,7 @@
 import numpy as np
-from causalitygame.evaluators.base import BaseMetric
-from causalitygame.scm.base import SCM
-from .base import BaseMission
+from causalitygame.evaluators.abstract import BaseMetric
+from causalitygame.scm.abstract import SCM
+from .abstract import BaseMission
 from causalitygame.evaluators.behavior import (
     ExperimentsBehaviorMetric,
     TreatmentsBehaviorMetric,

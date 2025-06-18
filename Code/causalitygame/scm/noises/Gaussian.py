@@ -1,5 +1,5 @@
 # Abstract
-from .base import BaseNoiseDistribution
+from .abstract import BaseNoiseDistribution
 
 # Distributions
 from scipy.stats import norm

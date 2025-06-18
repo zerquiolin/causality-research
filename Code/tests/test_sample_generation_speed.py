@@ -1,6 +1,6 @@
 import pytest
 import json
-from causalitygame.scm.base import SCM
+from causalitygame.scm.abstract import SCM
 from pathlib import Path
 from time import time
 import pandas as pd

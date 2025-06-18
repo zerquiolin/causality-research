@@ -1,7 +1,7 @@
 import json
 import pytest
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
-from causalitygame.scm.base import SCM
+from causalitygame.scm.abstract import SCM
 from causalitygame.scm.dags.DAG import DAG
 from causalitygame.generators.dag_generator import DAGGenerator
 from causalitygame.lib.utils.random_state_serialization import (

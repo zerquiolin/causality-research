@@ -12,7 +12,7 @@ from causalitygame.lib.utils.random_state_serialization import (
 )
 
 # Abstract Base Class
-from causalitygame.scm.nodes.base import (
+from causalitygame.scm.nodes.abstract import (
     BaseCategoricSCMNode,
     BaseNumericSCMNode,
     ACCESSIBILITY_OBSERVABLE,

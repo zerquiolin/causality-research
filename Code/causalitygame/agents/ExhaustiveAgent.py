@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from .base import BaseAgent
+from .abstract import BaseAgent
 
 # Dag Learning Script
 from causalitygame.lib.scripts.pc import learn as learn_dag

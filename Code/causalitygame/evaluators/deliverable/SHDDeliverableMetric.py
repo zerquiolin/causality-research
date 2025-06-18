@@ -1,5 +1,5 @@
 import networkx as nx
-from ..base import DeliverableMetric
+from ..abstract import DeliverableMetric
 
 
 class SHDDeliverableMetric(DeliverableMetric):

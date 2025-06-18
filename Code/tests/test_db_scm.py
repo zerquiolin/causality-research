@@ -4,7 +4,7 @@ import json
 import itertools as it
 
 from causalitygame.generators.outcome.base import DummyOutcomeGenerator
-from causalitygame.scm.base import SCM
+from causalitygame.scm.abstract import SCM
 from causalitygame.scm.db import DatabaseSCM
 import pytest
 

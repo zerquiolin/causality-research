@@ -1,6 +1,6 @@
 from causalitygame.game_engine.Game import Game
 
-from causalitygame.scm.base import SCM
+from causalitygame.scm.abstract import SCM
 from causalitygame.game_engine.GameInstance import GameInstance
 
 from causalitygame.scm.dags.DAG import DAG

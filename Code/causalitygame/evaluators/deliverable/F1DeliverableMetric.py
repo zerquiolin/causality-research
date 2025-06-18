@@ -1,6 +1,6 @@
 import numpy as np
 import networkx as nx
-from ..base import DeliverableMetric
+from ..abstract import DeliverableMetric
 
 
 class F1DeliverableMetric(DeliverableMetric):

@@ -1,6 +1,6 @@
 # Environment
 import json
-from causalitygame.agents.base import BaseAgent
+from causalitygame.agents.abstract import BaseAgent
 from causalitygame.game_engine.Environment import Environment
 
 # Game Instance
@@ -10,7 +10,7 @@ from causalitygame.game_engine.GameInstance import GameInstance
 from causalitygame.evaluators.Evaluator import Evaluator
 
 # Metrics
-from causalitygame.evaluators.base import WeightedScores
+from causalitygame.evaluators.abstract import WeightedScores
 
 # Utils
 from tqdm import tqdm

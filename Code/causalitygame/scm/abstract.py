@@ -14,7 +14,7 @@ from causalitygame.lib.utils.random_state_serialization import (
 )
 
 # Nodes
-from causalitygame.scm.nodes.base import (
+from causalitygame.scm.nodes.abstract import (
     ACCESSIBILITY_CONTROLLABLE,
     ACCESSIBILITY_LATENT,
     ACCESSIBILITY_OBSERVABLE,

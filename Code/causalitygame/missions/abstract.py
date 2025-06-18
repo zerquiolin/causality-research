@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from causalitygame.evaluators.base import BehaviorMetric, DeliverableMetric
+from causalitygame.evaluators.abstract import BehaviorMetric, DeliverableMetric
 
 
 class BaseMission(ABC):

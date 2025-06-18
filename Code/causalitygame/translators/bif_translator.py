@@ -1,4 +1,4 @@
-from .base import BaseBayesianNetworkTranslator, BayesianNetworkGraph
+from .abstract import BaseBayesianNetworkTranslator, BayesianNetworkGraph
 from pgmpy.readwrite import BIFReader
 from itertools import product
 

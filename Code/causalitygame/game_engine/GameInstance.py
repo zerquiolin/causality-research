@@ -3,12 +3,12 @@ import json
 import numpy as np
 
 from causalitygame.generators.dag_generator import DAGGenerator
-from causalitygame.missions.base import BaseMission
+from causalitygame.missions.abstract import BaseMission
 from causalitygame.missions.CATEMission import CATEMission
 from causalitygame.missions.TreatmentEffectMission import TreatmentEffectMission
 from causalitygame.scm.dags.DAG import DAG
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
-from causalitygame.scm.base import SCM
+from causalitygame.scm.abstract import SCM
 
 from causalitygame.missions.DAGInferenceMission import DAGInferenceMission
 

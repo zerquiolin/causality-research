@@ -9,7 +9,7 @@ import networkx as nx
 from networkx.readwrite import json_graph
 
 # Internal imports
-from .base import BaseDAG
+from .abstract import BaseDAG
 
 
 class DAG(BaseDAG):

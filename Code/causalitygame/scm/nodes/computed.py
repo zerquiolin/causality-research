@@ -1,4 +1,4 @@
-from causalitygame.scm.nodes.base import BaseNumericSCMNode, BaseCategoricSCMNode
+from causalitygame.scm.nodes.abstract import BaseNumericSCMNode, BaseCategoricSCMNode
 from causalitygame.generators.outcome.base import OutcomeGenerator
 
 import numpy as np

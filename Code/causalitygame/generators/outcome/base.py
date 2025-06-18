@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from causalitygame.scm.base import get_class
+from causalitygame.scm.abstract import get_class
 from causalitygame.lib.utils.random_state_serialization import (
     random_state_to_json,
     random_state_from_json,

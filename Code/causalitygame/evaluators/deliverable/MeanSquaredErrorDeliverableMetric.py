@@ -1,4 +1,4 @@
-from ..base import DeliverableMetric
+from ..abstract import DeliverableMetric
 from typing import List, Tuple
 import numpy as np
 

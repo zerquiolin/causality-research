@@ -1,4 +1,4 @@
-from ..base import BehaviorMetric
+from ..abstract import BehaviorMetric
 from causalitygame.lib.utils.metrics import log_penalty
 
 

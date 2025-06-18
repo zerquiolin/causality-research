@@ -1,7 +1,7 @@
 import numpy as np
 
 # import networkx as nx
-from ..base import DeliverableMetric
+from ..abstract import DeliverableMetric
 
 # from typing import List, Any
 

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 
-from causalitygame.scm.nodes.base import (
+from causalitygame.scm.nodes.abstract import (
     ACCESSIBILITY_CONTROLLABLE,
     ACCESSIBILITY_LATENT,
     ACCESSIBILITY_OBSERVABLE,

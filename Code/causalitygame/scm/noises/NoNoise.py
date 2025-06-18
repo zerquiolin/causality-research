@@ -1,5 +1,5 @@
 # Abstract
-from .base import BaseNoiseDistribution
+from .abstract import BaseNoiseDistribution
 
 # Math
 import numpy as np
