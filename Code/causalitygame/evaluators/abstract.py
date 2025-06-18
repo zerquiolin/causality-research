@@ -1,45 +1,57 @@
+# Abstract
 from abc import ABC, abstractmethod
-from typing import List
+
+# Types
+from typing import Any
 
 
 class BaseMetric(ABC):
+    """
+    Abstract base class providing a common interface for all metrics.
+    """
+
     @abstractmethod
-    def evaluate(self) -> tuple[str, list]:
-        raise NotImplementedError(
-            "The evaluate method must be implemented in the derived class."
-        )
+    def evaluate(self, *args: Any, **kwargs: Any) -> float:
+        """
+        Evaluate the metric.
+
+        Returns:
+            float: The metric result.
+        """
 
 
 class BehaviorMetric(BaseMetric):
-    name: str
+    """
+    Base class for behavior-based metrics.
+    """
 
     @abstractmethod
-    def evaluate(self, history) -> float:
-        """Evaluate this behavior metric on the provided history."""
-        raise NotImplementedError(
-            "The evaluate method must be implemented in the derived class."
-        )
+    def evaluate(self, history: Any) -> float:
+        """
+        Evaluate this behavior metric on the provided history.
+
+        Args:
+            history: Historical data of actions or events.
+
+        Returns:
+            float: The behavior metric score.
+        """
 
 
 class DeliverableMetric(BaseMetric):
-    name: str
+    """
+    Base class for deliverable-oriented metrics.
+    """
 
     @abstractmethod
-    def evaluate(self, scm, data) -> float:
-        """Evaluate this deliverable metric on the provided history."""
-        raise NotImplementedError(
-            "The evaluate method must be implemented in the derived class."
-        )
+    def evaluate(self, scm: Any, data: Any) -> float:
+        """
+        Evaluate this deliverable metric.
 
+        Args:
+            scm: Source control management interface or data.
+            data: Additional deliverable-related data.
 
-# === Utility ===
-
-
-class WeightedScores:
-    def __init__(self, values: List[float], weights: List[float]):
-        assert len(values) == len(weights), "Values and weights must match length"
-        self.values = values
-        self.weights = weights
-
-    def compute(self) -> float:
-        return sum(v * w for v, w in zip(self.values, self.weights))
+        Returns:
+            float: The deliverable metric score.
+        """

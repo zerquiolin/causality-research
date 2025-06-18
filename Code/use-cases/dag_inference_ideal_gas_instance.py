@@ -7,7 +7,7 @@ from causalitygame.agents.exhaustive import ExhaustiveAgent
 
 
 # Define the agents
-agents = [(f"Random Agent {i}", RandomAgent(seed=911 + i)) for i in range(1, 11)]
+agents = [(f"Random Agent {i}", RandomAgent(seed=911 + i)) for i in range(1, 3)]
 # Add an exhaustive agent
 agents.append(("Exhaustive Agent", ExhaustiveAgent()))
 # Game Instance

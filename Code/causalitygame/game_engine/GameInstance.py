@@ -95,37 +95,3 @@ class GameInstance:
             data = json.load(f)
 
         return cls.from_dict(data)
-
-
-class GameInstanceCreator:
-    """
-    Creates a game instance by first generating a DAG using the DAGGenerator
-    and then generating an SCM using the SCMGenerator.
-    """
-
-    def __init__(
-        self,
-        dag_generator_params: dict,
-        scm_generator_params: dict,
-        random_state_seed=911,
-    ):
-        self.dag_generator_params = dag_generator_params
-        self.scm_generator_params = scm_generator_params
-        self.random_state_seed = random_state_seed
-
-    def create_instance(self) -> GameInstance:
-        # Random state for reproducibility.
-        random_state = np.random.RandomState(self.random_state_seed)
-
-        # DAG generation.
-        dag_gen = DAGGenerator(**self.dag_generator_params, random_state=random_state)
-        dag = dag_gen.generate()
-
-        # SCM generation.
-        scm_gen = EquationBasedSCMGenerator(
-            dag=dag, **self.scm_generator_params, random_state=random_state
-        )
-        scm = scm_gen.generate()
-
-        # Return the game instance.
-        return GameInstance(scm, random_state=random_state)

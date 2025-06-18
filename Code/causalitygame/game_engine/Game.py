@@ -9,9 +9,6 @@ from causalitygame.game_engine.GameInstance import GameInstance
 # Evaluator
 from causalitygame.evaluators.Evaluator import Evaluator
 
-# Metrics
-from causalitygame.evaluators.abstract import WeightedScores
-
 # Utils
 from tqdm import tqdm
 
