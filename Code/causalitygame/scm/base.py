@@ -254,8 +254,10 @@ class SCM:
         Returns:
             List[Dict[str, float]]: A list of sample dictionaries.
         """
-        # print("Interventions:", interventions)
+        # TODO: Check if this is valid
         random_states = random_state or {v: self.random_state for v in self.vars}
+        if not isinstance(random_states, Dict):
+            random_states = {v: random_states for v in self.vars}
         sample = pd.DataFrame(index=range(num_samples))
 
         for node_name, node in [
@@ -266,12 +268,10 @@ class SCM:
             else:
                 sample_for_col = node.generate_values(
                     parent_values=sample,
-                    random_state=(
-                        random_states[node_name]
-                        if isinstance(random_states, dict)
-                        else random_states
-                    ),
+                    random_state=random_states[node_name],
+                    # random_state=random_states,
                 )
+
             sample = pd.concat(
                 [sample, pd.DataFrame({node_name: sample_for_col})], axis=1
             )
@@ -341,7 +341,7 @@ class SCM:
                 node_as_dict["parent_mappings"] = {
                     node.name: {cat: idx for idx, cat in enumerate(node.domain)}
                     for node in nodes
-                    if node.name in node_as_dict["parents"]
+                    if node.name in (node_as_dict["parents"] or [])
                     and isinstance(node.domain[0], str)
                 }
 

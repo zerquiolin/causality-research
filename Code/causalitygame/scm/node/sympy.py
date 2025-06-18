@@ -68,9 +68,17 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
 
         # Check if the node has parents
         if not self.parents:
-            return self.noise_distribution.generate(
-                size=len(parent_values), random_state=rs
-            )
+            # Draw random values uniformly from the domain
+            values = rs.uniform(self.domain[0], self.domain[1], size=len(parent_values))
+            return values
+            # TODO: This might not be the best way to handle this, as it does not consider the noise distribution.
+            # # Add noise to the random values
+            # noise = self.noise_distribution.generate(
+            #     size=len(parent_values), random_state=rs
+            # )
+            # return np.minimum(
+            #     np.maximum(values + noise, self.domain[0]), self.domain[1]
+            # )
 
         # Check if the parent values are provided
         assert set(self.parents).issubset(
@@ -104,10 +112,15 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
         Returns:
             dict: Dictionary representation of the node.
         """
-        return {
+        representation = {
             "equation": str(self.evaluation) if self.evaluation else None,
             "noise_distribution": self.noise_distribution.to_dict(),
         }
+
+        if not self.parent_mappings:
+            representation["parent_mappings"] = None
+
+        return representation
 
     @classmethod
     def from_dict(cls, data: Dict):
@@ -337,7 +350,7 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
         Returns:
             dict: Dictionary representation of the node.
         """
-        return {
+        representation = {
             "equation": (
                 {cat: str(eq) for cat, eq in self.evaluation.items()}
                 if self.evaluation
@@ -348,9 +361,11 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
                 if self.cdfs
                 else None
             ),
+            "parent_mappings": self.parent_mappings,
             "domain_distribution": self.domain_noise_distribution,
             "noise_distribution": self.noise_distribution.to_dict(),
         }
+        return representation
 
     @classmethod
     def from_dict(cls, data: Dict):

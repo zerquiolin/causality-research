@@ -4,7 +4,10 @@ from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
 from causalitygame.scm.base import SCM
 from causalitygame.scm.dag import DAG
 from causalitygame.generators.dag_generator import DAGGenerator
-from causalitygame.lib.utils.random_state_serialization import random_state_from_json, random_state_to_json
+from causalitygame.lib.utils.random_state_serialization import (
+    random_state_from_json,
+    random_state_to_json,
+)
 from scipy.stats import norm, uniform
 import numpy as np
 from causalitygame.scm.noise_distributions import (
@@ -70,12 +73,18 @@ def assert_dicts_equal(d1, d2, path="", msg="", atol=None):
     for key in d2:
         assert key in d1, f"{msg}\nKey '{path + key}' missing in first dict"
 
+
 def check_sample_equivalence(samples_a, samples_b, msg=""):
-    assert (samples_a.shape == samples_b.shape), msg
+    assert samples_a.shape == samples_b.shape, msg
     assert all(samples_a.columns == samples_b.columns), msg
 
-    for sample_a, sample_b, in zip(samples_a.values, samples_b.values):
-        assert np.array_equal(sample_a, sample_b), f"{msg}\n\tSample mismatch between {sample_a} and {sample_b}"
+    for (
+        sample_a,
+        sample_b,
+    ) in zip(samples_a.values, samples_b.values):
+        assert np.array_equal(
+            sample_a, sample_b
+        ), f"{msg}\n\tSample mismatch between {sample_a} and {sample_b}"
 
 
 @pytest.mark.parametrize(
@@ -349,6 +358,7 @@ def test_scm_deserialization(dag, num_nodes, seed):
     check_sample_equivalence(samples_a, samples_b)
     check_sample_equivalence(samples_a, samples_c)
 
+
 @pytest.mark.parametrize(
     "dag, num_nodes, num_samples, seed",
     [
@@ -458,4 +468,8 @@ def test_bayesian_network_scm_deserialization(network_path):
     # Generate samples
     samples_a = scm_deserialized_a.generate_samples(num_samples=10)
     samples_b = scm_deserialized_b.generate_samples(num_samples=10)
-    check_sample_equivalence(samples_a, samples_b, msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.")
+    check_sample_equivalence(
+        samples_a,
+        samples_b,
+        msg=f"Sample of original SCM and SCM via to_dict and from_dict is not the same.",
+    )

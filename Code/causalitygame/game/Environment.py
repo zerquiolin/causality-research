@@ -261,13 +261,20 @@ class Environment:
                     seed,
                 )
                 rs_base = np.random.RandomState(seed)
-                self.random_states[hashable_treatment] = rs_base
                 # TODO: Check if this is still needed
-                # (
-                #     self.game_instance.scm.prepare_new_random_state_structure(rs_base)
-                # )
+                # self.random_states[hashable_treatment] = rs_base
+                self.random_states[hashable_treatment] = (
+                    self.game_instance.scm.prepare_new_random_state_structure(rs_base)
+                )
 
             self.logger.debug("Generating %s samples.", num_samples)
+            assert isinstance(
+                self.random_states[hashable_treatment],
+                dict,
+            ), (
+                "Random state for treatment must be a numpy RandomState instance, "
+                f"got {type(self.random_states[hashable_treatment])}"
+            )
             samples = self.game_instance.scm.generate_samples(
                 interventions=treatment,
                 num_samples=num_samples,
