@@ -42,7 +42,6 @@ def on_round_start(agent_name, round, state, actions, samples):
     print(f"Round {round} started with state: {state}")
     print(f"Available actions: {actions}")
     print(f"Samples: {samples}")
-    print(data)
     data[agent_name]["rounds"].append(round)
 
 

@@ -132,9 +132,16 @@ class RandomAgent(BaseAgent):
         # Reset the past data (to avoid conflicts with previous rounds)
         self.data = pd.DataFrame(columns=list(new_data.values())[0].columns)
 
-        for treatment, df in new_data.items():
+        # Filter out empty or all-NA DataFrames before concatenation
+        valid_dfs = [
+            df for df in new_data.values() if not df.empty and not df.isna().all().all()
+        ]
+        if valid_dfs:
             # Add the new data
-            self.data = pd.concat([self.data, df], ignore_index=True)
+            self.data = pd.concat(valid_dfs, ignore_index=True)
+        else:
+            # Reset to an empty DataFrame with the correct columns
+            self.data = pd.DataFrame(columns=list(new_data.values())[0].columns)
 
     def submit_answer(self) -> Callable:
         data = self.data

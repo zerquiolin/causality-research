@@ -254,7 +254,6 @@ class SCM:
         Returns:
             List[Dict[str, float]]: A list of sample dictionaries.
         """
-        # TODO: Check if this is valid
         random_states = random_state or {v: self.random_state for v in self.vars}
         if not isinstance(random_states, Dict):
             random_states = {v: random_states for v in self.vars}

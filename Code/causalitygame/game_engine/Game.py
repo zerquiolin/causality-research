@@ -1,130 +1,132 @@
-# Environment
-import json
-from causalitygame.agents.abstract import BaseAgent
-from causalitygame.game_engine.Environment import Environment
-
-# Game Instance
-from causalitygame.game_engine.GameInstance import GameInstance
-
-# Evaluator
-from causalitygame.evaluators.Evaluator import Evaluator
-
-# Utils
-from tqdm import tqdm
-
-# Math
+# Science
 import numpy as np
 import pandas as pd
 
-# Figures
+# Visualization
 import matplotlib.pyplot as plt
 
 # Utils
-import joblib
+import json
+from tqdm import tqdm
 
 # Types
-from typing import Optional, List, Tuple, Union, Callable, Dict, Any, TypedDict
+from causalitygame.agents.abstract import BaseAgent
+from causalitygame.evaluators.Evaluator import Evaluator
+from causalitygame.game_engine.Environment import Environment
+from causalitygame.game_engine.GameInstance import GameInstance
+from typing import Optional, List, Tuple, Dict, Any, Callable, TypedDict
 
 
-class Hooks(TypedDict):
+class Hooks(TypedDict, total=False):
     """
-    Hooks for the game.
+    Dictionary of optional lifecycle hooks for observability or instrumentation.
+
+    All keys are optional. Hooks can be used to trace agent actions or gather logs.
     """
 
-    on_game_start: Optional[Callable[[], None]] = None
-    on_agent_game_start: Optional[Callable[[str], None]] = None
-    on_round_start: Optional[Callable[[str, int, Dict, List, Dict], None]] = None
-    on_action_chosen: Optional[Callable[[str, Dict, str, any], None]] = None
-    on_action_evaluated: Optional[Callable[[str, Dict, str, any, Tuple], None]] = None
-    on_round_end: Optional[Callable[[str, int, Dict, str, any, Dict, Tuple], None]] = (
-        None
-    )
-    on_agent_game_end: Optional[
-        Callable[
-            [
-                str,
-            ],
-            None,
-        ]
-    ] = None
-    on_game_end: Optional[
-        Callable[
-            [],
-            None,
-        ]
-    ] = None
+    on_game_start: Optional[Callable[[], None]]
+    on_agent_game_start: Optional[Callable[[str], None]]
+    on_round_start: Optional[Callable[[str, int, Dict, List, Dict], None]]
+    on_action_chosen: Optional[Callable[[str, Dict, str, Any], None]]
+    on_action_evaluated: Optional[Callable[[str, Dict, str, Any, Tuple], None]]
+    on_round_end: Optional[Callable[[str, int, Dict, str, Any, Dict, Tuple], None]]
+    on_agent_game_end: Optional[Callable[[str], None]]
+    on_game_end: Optional[Callable[[], None]]
 
 
 class Game:
+    """
+    Core game loop runner for evaluating causal reasoning agents.
+
+    This class instantiates game environments, runs simulations with agents,
+    applies evaluation metrics, and supports visualization and debugging via hooks.
+
+    Attributes:
+        agents (List[Tuple[str, BaseAgent]]): List of (name, agent) tuples.
+        game_spec (str): Path to JSON file describing the game instance.
+        behavior_metrics (List): List of callable behavior metric evaluators.
+        deliverable_metrics (List): List of callable deliverable metric evaluators.
+        hooks (Hooks): Optional instrumentation hooks for different lifecycle stages.
+        plambda (float): Trade-off parameter between behavior and deliverable.
+        seed (int): Random seed for reproducibility.
+        results (Dict): Stores per-agent game results after run().
+    """
+
     def __init__(
         self,
         agents: List[Tuple[str, BaseAgent]],
         game_spec: str,
-        behavior_metrics: Optional[List[Any]] = [],
-        deliverable_metrics: Optional[List[Any]] = [],
-        hooks: Optional[Hooks] = {},
+        behavior_metrics: Optional[List[Any]] = None,
+        deliverable_metrics: Optional[List[Any]] = None,
+        hooks: Optional[Hooks] = None,
         plambda: float = 0.8,
         seed: int = 911,
     ):
-        """
-        agents: list of (name, agent_instance)
-        game_spec: route of the game instance
-        behavior_metrics / deliverable_metrics: metric objects for Evaluator
-        plambda: trade‐off parameter for Evaluator
-        """
         self.agents = agents
         self.game_spec = game_spec
-        self.behavior_metrics = behavior_metrics
-        self.deliverable_metrics = deliverable_metrics
-        self.hooks = hooks
+        self.behavior_metrics = behavior_metrics or []
+        self.deliverable_metrics = deliverable_metrics or []
+        self.hooks = hooks or {}
         self.plambda = plambda
         self.seed = seed
-
-        # will hold results keyed by agent name
         self.results: Dict[str, Dict[str, Any]] = {}
 
-    def _make_game_instance(self):
-        # Read the game instance from the JSON file
+        # Preload a game instance template (used in score visualization)
+        self._game_instance = self._make_game_instance()
+
+    def _make_game_instance(self) -> GameInstance:
+        """
+        Load the game instance object from the game spec JSON.
+
+        Returns:
+            GameInstance: Initialized game instance object.
+        """
         with open(self.game_spec, "r") as f:
-            game_instance_data = f.read()
-        game_instance = json.loads(game_instance_data)
-        # Create a game instance
-        game_instance = GameInstance.from_dict(game_instance)
-        return game_instance
+            return GameInstance.from_dict(json.load(f))
 
-    def _make_env(self, name, agent):
-        # Create a game instance
-        game_instance = self._make_game_instance()
+    def _make_env(self, name: str, agent: BaseAgent) -> Environment:
+        """
+        Create a new environment for the given agent and name.
 
-        # Create an environment
-        env = Environment(
-            game_instance=game_instance,
+        Args:
+            name (str): Name of the agent.
+            agent (BaseAgent): The agent instance.
+
+        Returns:
+            Environment: New game environment.
+        """
+        return Environment(
+            game_instance=self._make_game_instance(),
             agent=agent,
             agent_name=name,
             hooks=self.hooks,
             random_state=np.random.RandomState(self.seed),
         )
 
-        return env
-
     def run(self) -> Dict[str, Dict[str, Any]]:
         """
-        Runs each agent through the environment, evaluates, and stores:
-          - 'history' (pandas DataFrame of state‐action history)
-          - 'eval'    (raw Evaluator results)
-          - 'behavior_score', 'deliverable_score'
-        """
-        if "on_game_start" in self.hooks and callable(self.hooks["on_game_start"]):
-            self.hooks["on_game_start"]()
-        for name, agent in tqdm(self.agents):
-            if "on_agent_game_start" in self.hooks and callable(
-                self.hooks["on_agent_game_start"]
-            ):
-                self.hooks["on_agent_game_start"](name)
-            # 1) Build a fresh environment
-            env = self._make_env(name, agent)
+        Run the simulation for all agents, evaluate their output, and record results.
 
-            # 1.1) Inform the agent about the game instance
+        Returns:
+            Dict[str, Dict[str, Any]]: Agent results including scores and histories.
+
+        Raises:
+            RuntimeError: If agents list is empty.
+        """
+        if not self.agents:
+            raise RuntimeError("No agents provided to run.")
+
+        # Hook: Game start
+        if hook := self.hooks.get("on_game_start"):
+            hook()
+
+        for name, agent in tqdm(self.agents, desc="Running agents"):
+            # Hook: Agent game start
+            if hook := self.hooks.get("on_agent_game_start"):
+                hook(name)
+
+            # Setup environment and inform agent of game goal
+            env = self._make_env(name, agent)
             agent.inform(
                 goal={
                     "goal": env.game_instance.mission.name,
@@ -134,116 +136,122 @@ class Game:
                 deliverable_metric=env.game_instance.mission.deliverable_metric.name,
             )
 
-            # 2) Play the game
-            final_state, final_history = env.run_game()
+            # Play the game and collect history
+            _, history = env.run_game()
 
-            # 3) Evaluate
+            # Evaluate history using provided metrics
             evaluator = Evaluator(
                 scm=env.game_instance.scm,
                 behavior_metrics=self.behavior_metrics,
                 deliverable_metrics=self.deliverable_metrics,
                 plambda=self.plambda,
             )
-            raw_results = evaluator.evaluate(history=final_history)
+            raw_scores = evaluator.evaluate(history=history)
 
-            # 4) Store
+            # Store evaluation and metadata
             self.results[name] = {
                 "agent": agent,
-                "history": final_history,
-                "scores": raw_results,
+                "history": history,
+                "scores": raw_scores,
                 "mission": env.game_instance.mission.evaluate(
-                    env.game_instance.scm, final_history
+                    env.game_instance.scm, history
                 ),
             }
 
-            if "on_agent_game_end" in self.hooks and callable(
-                self.hooks["on_agent_game_end"]
-            ):
-                self.hooks["on_agent_game_end"](name)
+            # Hook: Round end
+            if hook := self.hooks.get("on_agent_game_end"):
+                hook(name)
 
-        if "on_game_end" in self.hooks and callable(self.hooks["on_game_end"]):
-            self.hooks["on_game_end"]()
+        # Hook: Game end
+        if hook := self.hooks.get("on_game_end"):
+            hook()
 
         return self.results
 
+    def _compute_score_trajectories(
+        self, history: pd.DataFrame
+    ) -> Tuple[List[float], List[float]]:
+        """
+        Compute per-round behavior and deliverable scores.
+
+        Args:
+            history (pd.DataFrame): Agent's game history.
+
+        Returns:
+            Tuple[List[float], List[float]]: Lists of behavior and deliverable scores over time.
+        """
+        behavior_scores, deliverable_scores = [], []
+        for i in range(len(history)):
+            b, d = self._game_instance.mission.evaluate(
+                self._game_instance.scm, history.iloc[: i + 1]
+            )
+            behavior_scores.append(b)
+            deliverable_scores.append(d)
+        return behavior_scores, deliverable_scores
+
+    def _plot_scores(self, name: str, b_score: float, d_score: float, ax):
+        """
+        Scatter plot of final behavior vs. deliverable scores.
+
+        Args:
+            name (str): Agent name.
+            b_score (float): Final behavior score.
+            d_score (float): Final deliverable score.
+            ax (Axes): Matplotlib axes object.
+        """
+        ax.scatter(b_score, d_score, s=100, edgecolor="black", label=name)
+        if d_score >= 10**4:
+            ax.set_yscale("log")
+
+    def _plot_time_series(self, name: str, scores: List[float], ylabel: str, ax):
+        """
+        Plot a time series of scores across rounds.
+
+        Args:
+            name (str): Agent name.
+            scores (List[float]): Score trajectory.
+            ylabel (str): Y-axis label.
+            ax (Axes): Matplotlib axes object.
+        """
+        ax.plot(range(len(scores)), scores, label=name, alpha=0.7)
+        ax.scatter(len(scores) - 1, scores[-1], s=100, edgecolor="black")
+        ax.set_ylabel(ylabel)
+
     def plot(self):
         """
-        Scatter each agent's behavior vs. deliverable score on one figure.
+        Plot all agents' behavior vs deliverable, and their score trajectories.
+
+        Raises:
+            RuntimeError: If no results are available.
         """
         if not self.results:
-            raise RuntimeError("No results to plot: run() first.")
-        # Get the game instance from the game spec
-        game_instance = self._make_game_instance()
+            raise RuntimeError("No results to plot: run() must be called first.")
 
-        # Plot the scores
         fig, axes = plt.subplots(1, 3, figsize=(18, 4))
-        # Add a main title slightly lower (so legend can go above it)
         fig.suptitle("Agent Comparison Scores", fontsize=14)
 
         for name, run in self.results.items():
-            # cd = DAG(run["history"].iloc[-1]["action_object"])
-            # cd.plot()
-            behavior_scores, deliverable_scores = [], []
-            for i in range(len(run["history"])):
-                current_behavior_score, current_deliverable_score = (
-                    game_instance.mission.evaluate(
-                        game_instance.scm, run["history"].iloc[: i + 1]
-                    )
-                )
-                behavior_scores.append(current_behavior_score)
-                deliverable_scores.append(current_deliverable_score)
+            behavior_scores, deliverable_scores = self._compute_score_trajectories(
+                run["history"]
+            )
+            final_behavior, final_deliverable = run["mission"]
 
-            # Get the mission scores
-            behavior_score, deliverable_score = run["mission"]
+            self._plot_scores(name, final_behavior, final_deliverable, axes[0])
+            self._plot_time_series(name, behavior_scores, "Behavior Score", axes[1])
+            self._plot_time_series(
+                name, deliverable_scores, "Deliverable Score", axes[2]
+            )
 
-            # Plot behavior vs. deliverable scores
-            # TODO: Fix the behavior score plot
-            self._plot_scores(
-                name=name,
-                behavior_score=behavior_score,
-                deliverable_score=deliverable_score,
-                # deliverable_score=deliverable_scores[-1],
-                title="Behavior vs. Deliverable Scores",
-                ax=axes[0],
-            )
-            if deliverable_scores[-1] >= 10**4:
-                axes[0].set_yscale("log")
-            # Plot behavior score over time result
-            self._plot_behavior_score(
-                name=name,
-                scores=behavior_scores,
-                ax=axes[1],
-            )
-            # TODO: Fix the behavior score plot
-            axes[1].scatter(
-                # len(run["history"]) - 1, behavior_score, s=100, edgecolor="black"
-                len(run["history"]) - 1,
-                behavior_scores[-1],
-                s=100,
-                edgecolor="black",
-            )
-            # Plot deliverable score result
-            # TODO: Fix the deliverable score plot
-            self.plot_deliverable_score(
-                name=name,
-                scores=deliverable_scores,
-                ax=axes[2],
-            )
-            axes[2].scatter(
-                # len(run["history"]) - 1, deliverable_score, s=100, edgecolor="black"
-                len(run["history"]) - 1,
-                deliverable_scores[-1],
-                s=100,
-                edgecolor="black",
-            )
-            if deliverable_scores[-1] >= 10**4:
-                axes[2].set_yscale("log")
+        # Set common axis labels and formatting
+        for ax, xlabel in zip(
+            axes, ["Behavior Score", "Number of Rounds", "Number of Rounds"]
+        ):
+            ax.set_xlabel(xlabel)
+            ax.grid(True, linestyle="--", alpha=0.7)
 
-        # Collect legend entries from one axis only (e.g., the first)
+        # Deduplicated legend
         handles, labels = axes[0].get_legend_handles_labels()
-        unique = dict(zip(labels, handles))  # remove duplicates
-
-        # Add a single legend above the whole figure
+        unique = dict(zip(labels, handles))
         fig.legend(
             handles=unique.values(),
             labels=unique.keys(),
@@ -253,83 +261,5 @@ class Game:
             fontsize="small",
         )
 
-        plt.subplots_adjust(top=0.83)  # Adjust the top to make room for the legend
-
-        # Behavior vs. Deliverable Scores
-        axes[0].grid(True, linestyle="--", alpha=0.7)
-        axes[0].set_xlabel("Behavior Score", fontsize=12)
-        axes[0].set_ylabel("Deliverable Score", fontsize=12)
-        # Behavior Score over Time
-        axes[1].grid(True, linestyle="--", alpha=0.7)
-        axes[1].set_xlabel("Number of Rounds", fontsize=12)
-        axes[1].set_ylabel("Behavior Score", fontsize=12)
-        # Deliverable Score
-        axes[2].grid(True, linestyle="--", alpha=0.7)
-        axes[2].set_xlabel("Number of Rounds", fontsize=12)
-        axes[2].set_ylabel("Deliverable Score", fontsize=12)
-
-        # Show the plot
+        plt.subplots_adjust(top=0.83)
         plt.show()
-
-    def _plot_scores(self, name, behavior_score, deliverable_score, title, ax):
-        """
-        Plot the scores of the agents.
-        """
-        ax.scatter(
-            behavior_score,
-            deliverable_score,
-            s=100,
-            edgecolor="black",
-            label=name,
-        )
-
-    def _plot_behavior_score(self, name, scores, ax):
-        # Plot the behavior score
-        ax.plot(
-            range(len(scores)),
-            scores,
-            label=name,
-            alpha=0.7,
-        )
-
-    def plot_deliverable_score(self, name, scores, ax):
-        # Plot the behavior score
-        ax.plot(
-            range(len(scores)),
-            scores,
-            label=name,
-            alpha=0.7,
-        )
-
-    def plot_dags(self):
-        """
-        Plot the DAGs of the game instance.
-        """
-        if not self.results:
-            raise RuntimeError("No results to plot: run() first.")
-
-        # Get the DAG from the game instance
-        game_instance = joblib.load(self.game_spec)
-        dag = game_instance.scm.dag
-
-        # Plot the DAG
-        plt.figure(figsize=(8, 6))
-        dag.plot()
-        plt.title("DAG of the Game Instance", fontsize=14)
-        plt.tight_layout()
-        plt.show()
-
-        # Find the appropriate number of rows and columns for subplots
-        num_agents = len(self.agents)
-        num_cols = 2
-        num_rows = (num_agents + num_cols - 1) // num_cols
-        # Create a figure with subplots
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(12, 6 * num_rows))
-        axes = axes.flatten()
-        # Plot each agent's DAG
-        for i, (name, res) in enumerate(self.results.items()):
-            # Get the DAG from the agent's game instance
-            dag = res["agent"].game_instance.scm.dag
-            # Plot the DAG
-            dag.plot(ax=axes[i])
-            axes[i].set_title(f"DAG of {name}", fontsize=14)

@@ -1,19 +1,29 @@
-import os
-import json
+# Science
 import numpy as np
 
-from causalitygame.generators.dag_generator import DAGGenerator
-from causalitygame.missions.abstract import BaseMission
-from causalitygame.missions.CATEMission import CATEMission
-from causalitygame.missions.TreatmentEffectMission import TreatmentEffectMission
-from causalitygame.scm.dags.DAG import DAG
-from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
-from causalitygame.scm.abstract import SCM
+# Utils
+import os
+import json
+from causalitygame.lib.utils.imports import find_importable_classes
+from causalitygame.lib.utils.random_state_serialization import (
+    random_state_from_json,
+    random_state_to_json,
+)
 
-from causalitygame.missions.DAGInferenceMission import DAGInferenceMission
+# Types
+from typing import Dict, Type
+from causalitygame.scm.abstract import SCM
+from causalitygame.missions.abstract import BaseMission
+
+# Constants
+from causalitygame.lib.constants.routes import MISSIONS_FOLDER_PATH
 
 
 class GameInstance:
+    """
+    Represents a saved instance of a causality game, encapsulating the SCM, mission, and random state.
+    """
+
     def __init__(
         self,
         max_rounds: int,
@@ -26,72 +36,55 @@ class GameInstance:
         self.mission = mission
         self.random_state = random_state
 
-    def to_dict(self):
-        # Use the 'edges' kwarg to address the FutureWarning.
-        scm_data = self.scm.to_dict()
-        # Convert the state to a JSON-friendly format
-        state_dict = {
-            "state": self.random_state.get_state()[0],  # 'MT19937'
-            "keys": self.random_state.get_state()[
-                1
-            ].tolist(),  # Convert NumPy array to list
-            "pos": self.random_state.get_state()[2],
-            "has_gauss": self.random_state.get_state()[3],
-            "cached_gaussian": self.random_state.get_state()[4],
-        }
+    def to_dict(self) -> dict:
         return {
             "max_rounds": self.max_rounds,
-            "scm": scm_data,
+            "scm": self.scm.to_dict(),
             "mission": self.mission.to_dict(),
-            "random_state": state_dict,
+            "random_state": random_state_to_json(self.random_state),
         }
 
     @classmethod
-    def from_dict(cls, data):
-        mission_mapping = {
-            m.__name__: m
-            for m in [DAGInferenceMission, CATEMission, TreatmentEffectMission]
-        }
-        mission = mission_mapping[data["mission"]["class"]].from_dict(data["mission"])
-        assert isinstance(
-            mission, BaseMission
-        ), "Invalid mission type. Expected a subclass of BaseMission."
-
-        max_rounds = data["max_rounds"]
-        scm = SCM.from_dict(data["scm"])
-        random_state_config = (
-            str(data["random_state"]["state"]),  # Ensure it's a string ('MT19937')
-            np.array(
-                data["random_state"]["keys"], dtype=np.uint32
-            ),  # Ensure NumPy array
-            int(data["random_state"]["pos"]),  # Ensure integer
-            int(data["random_state"]["has_gauss"]),  # Ensure integer (0 or 1)
-            float(data["random_state"]["cached_gaussian"]),  # Ensure float
+    def from_dict(cls, data: dict) -> "GameInstance":
+        # Identify specific mission classes
+        mission_classes: Dict[str, Type[BaseMission]] = find_importable_classes(
+            MISSIONS_FOLDER_PATH, base_class=BaseMission
         )
-        random_state = np.random.RandomState(911)
-        random_state.set_state(random_state_config)
-        return cls(max_rounds, scm, mission, random_state)
+        # Check if the mission class is known
+        mission_cls = mission_classes.get(data["mission"]["class"])
+        if mission_cls is None:
+            raise ValueError(f"Unknown mission class: {data['mission']['class']}")
+        # Instantiate the mission from the data
+        mission = mission_cls.from_dict(data["mission"])
+        # Generate the SCM
+        scm = SCM.from_dict(data["scm"])
+        # Generate the random state
+        random_state = random_state_from_json(data["random_state"])
+        return cls(data["max_rounds"], scm, mission, random_state)
 
-    def save(self, filename):
-        """Ensure the directory exists and save the game instance as a JSON file."""
-        # Extract the directory from the file path
+    def save(self, filename: str) -> None:
+        """
+        Serialize the game instance to disk as a JSON file.
+        """
+        # Get the directory from the filename
         directory = os.path.dirname(filename)
-
-        # Ensure the directory exists
-        if directory and not os.path.exists(directory):
+        # Check if the directory exists, if not, create it
+        if directory:
             os.makedirs(directory, exist_ok=True)
-
         # Write the JSON file
         with open(filename, "w") as f:
             json.dump(self.to_dict(), f, indent=4)
 
     @classmethod
-    def load(cls, filename):
-        """Load a game instance from a JSON file."""
-        # Ensure the directory exists
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-
+    def load(cls, filename: str) -> "GameInstance":
+        """
+        Load a game instance from a JSON file.
+        """
+        # Check if the file exists
+        if not os.path.exists(filename):
+            raise FileNotFoundError(f"GameInstance file not found: {filename}")
+        # Read the JSON file
         with open(filename, "r") as f:
             data = json.load(f)
-
+        # Deserialize the game instance from the data
         return cls.from_dict(data)
