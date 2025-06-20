@@ -1,18 +1,22 @@
-from causalitygame.evaluators.abstract import BaseMetric
+# Abstract
 from .abstract import BaseMission
-from causalitygame.evaluators.behavior import (
-    ExperimentsBehaviorMetric,
-    TreatmentsBehaviorMetric,
-    RoundsBehaviorMetric,
+
+# Utils
+from causalitygame.lib.utils.imports import find_importable_classes
+
+# Types
+from causalitygame.evaluators.abstract import (
+    BehaviorMetric,
+    DeliverableMetric,
 )
 
-from causalitygame.evaluators.deliverable import (
-    SHDDeliverableMetric,
-    F1DeliverableMetric,
-    EdgeAccuracyDeliverableMetric,
-    AbsoluteErrorDeliverableMetric,
-    SquaredErrorDeliverableMetric,
-    MeanSquaredErrorDeliverableMetric,
+# Constants
+from causalitygame.lib.constants.routes import METRICS_FOLDER_PATH
+
+# Identify specific metric classes
+metric_classes = find_importable_classes(METRICS_FOLDER_PATH, base_class=BehaviorMetric)
+metric_classes.update(
+    find_importable_classes(METRICS_FOLDER_PATH, base_class=DeliverableMetric)
 )
 
 
@@ -43,30 +47,19 @@ class DAGInferenceMission(BaseMission):
 
     @classmethod
     def from_dict(cls, dict):
-        mapping = {
-            c.__name__: c
-            for c in [
-                ExperimentsBehaviorMetric,
-                TreatmentsBehaviorMetric,
-                RoundsBehaviorMetric,
-                SHDDeliverableMetric,
-                F1DeliverableMetric,
-                EdgeAccuracyDeliverableMetric,
-                AbsoluteErrorDeliverableMetric,
-                SquaredErrorDeliverableMetric,
-                MeanSquaredErrorDeliverableMetric,
-            ]
-        }
-        behavior_metric = mapping[dict["behavior_metric"]]()
-        deliverable_metric = mapping[dict["deliverable_metric"]]()
-
-        # Ensure the behavior and deliverable metrics are initialized correctly
-        assert isinstance(behavior_metric, BaseMetric), "Invalid behavior metric type"
-
-        assert isinstance(
-            deliverable_metric,
-            BaseMetric,
-        ), "Invalid deliverable metric type"
+        global metric_classes
+        # Check if the behavior metric class is known
+        behavior_cls = metric_classes.get(dict["behavior_metric"])
+        if behavior_cls is None:
+            raise ValueError(f"Unknown mission class: {dict['behavior_metric']}")
+        # Instantiate the mission from the data
+        behavior_metric = behavior_cls()
+        # Check if the deliverable metric class is known
+        deliverable_cls = metric_classes.get(dict["deliverable_metric"])
+        if deliverable_cls is None:
+            raise ValueError(f"Unknown mission class: {dict['deliverable_metric']}")
+        # Instantiate the mission from the data
+        deliverable_metric = deliverable_cls()
 
         return cls(
             behavior_metric=behavior_metric,

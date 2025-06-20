@@ -143,13 +143,13 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
 
         if "noise_distribution" in data:
             # Check if the mission class is known
-            mission_cls = noise_classes.get(data["noise_distribution"]["class"])
-            if mission_cls is None:
+            noise_cls = noise_classes.get(data["noise_distribution"]["class"])
+            if noise_cls is None:
                 raise ValueError(
                     f"Unknown noise class: {data['noise_distribution']["class"]}"
                 )
             # Generate the noise distribution from the data
-            noise_distribution = mission_cls.from_dict(data["noise_distribution"])
+            noise_distribution = noise_cls.from_dict(data["noise_distribution"])
         else:
             noise_distribution = UniformNoiseDistribution(low=0, high=1)
 
@@ -381,13 +381,13 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
         # Deserialize the noise distribution
         if "noise_distribution" in data:
             # Check if the mission class is known
-            mission_cls = noise_classes.get(data["noise_distribution"]["class"])
-            if mission_cls is None:
+            noise_cls = noise_classes.get(data["noise_distribution"]["class"])
+            if noise_cls is None:
                 raise ValueError(
                     f"Unknown noise class: {data['noise_distribution']["class"]}"
                 )
             # Generate the noise distribution from the data
-            noise_distribution = mission_cls.from_dict(data["noise_distribution"])
+            noise_distribution = noise_cls.from_dict(data["noise_distribution"])
         else:
             noise_distribution = UniformNoiseDistribution(low=0, high=1)
 
