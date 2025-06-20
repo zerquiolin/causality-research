@@ -1,44 +1,48 @@
-# Math
+# Abstract
+from .abstract import AbstractSCMGenerator
+
+# Science
 import numpy as np
-import sympy as sp
 import pandas as pd
 
-# Graph
+# Equations
+import sympy as sp
+
+# Netorks
 import networkx as nx
 
-# SCM
-from causalitygame.scm.nodes.abstract import (
-    ACCESSIBILITY_CONTROLLABLE,
-    BaseNoiseDistribution,
-)
+# Utils
+import logging
+
+# Types
+from typing import Dict, Any, List, Callable
 from causalitygame.scm.abstract import SCM
+from causalitygame.lib.constants.nodes import ACCESSIBILITY_CONTROLLABLE
+from causalitygame.scm.nodes.abstract import BaseNoiseDistribution
+
+# Classes
 from causalitygame.scm.nodes.sympy import (
     EquationBasedNumericalSCMNode,
     EquationBasedCategoricalSCMNode,
     SerializableCDF,
 )
-
-# DAG
 from causalitygame.scm.dags.DAG import DAG
-
-# Abstract
-from typing import Dict, Any, List, Tuple, Callable
-from .abstract import AbstractSCMGenerator
-
-# Utils
-import logging
 
 
 class EquationBasedSCMGenerator(AbstractSCMGenerator):
+    """
+    Symbolic SCM Generator using user-specified DAG and constraints.
+
+    Builds symbolic expressions for each node in a DAG using sympy and wraps them into SCM-compatible nodes.
+    """
+
     def __init__(
         self,
         dag: DAG,
         variable_types: Dict[str, str],
         variable_domains: Dict[str, Any],
         user_constraints: Dict[str, Any],
-        allowed_operations: List[
-            Any
-        ],  # Currently unused; consider removal or integration.
+        allowed_operations: List[Any],  # TODO: Currently unused.
         allowed_functions: List[Callable[[sp.Expr], sp.Expr]],
         noise_distributions: List[BaseNoiseDistribution],
         random_state: np.random.RandomState = np.random.RandomState(911),
@@ -46,17 +50,19 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         logger: logging.Logger = None,
     ):
         """
-        Initializes the SCMGenerator with the DAG and configuration for generating node equations.
+        Initialize the symbolic SCM generator.
 
         Args:
-            dag (DAG): The DAG structure.
-            variable_types (Dict[str, str]): Mapping of node names to "numerical" or "categorical".
-            variable_domains (Dict[str, Any]): Mapping of node names to domains (tuple for numerical, list for categorical).
-            user_constraints (Dict[str, Any]): Additional constraints (e.g., max_terms, non-linearity).
-            allowed_operations (List[Any]): Unused operations (reserved for future use).
-            allowed_functions (List[Callable[[sp.Expr], sp.Expr]]): Functions allowed in equation generation.
-            noise_distributions (Dict[str, Any]): Mapping of noise distribution names to distribution objects.
-            random_state (np.random.RandomState): Random generator for reproducibility.
+            dag (DAG): Directed acyclic graph representing variable dependencies.
+            variable_types (Dict[str, str]): Mapping from variable names to "numerical" or "categorical".
+            variable_domains (Dict[str, Any]): Domains for each variable (tuple or list).
+            user_constraints (Dict[str, Any]): Configs like non-linearity, exponents, etc.
+            allowed_operations (List[Any]): Reserved for future symbolic transformations (currently unused).
+            allowed_functions (List[Callable]): Functions used in symbolic term generation.
+            noise_distributions (List[BaseNoiseDistribution]): Set of noise models to sample from.
+            random_state (np.random.RandomState): RNG for reproducibility.
+            num_samples_for_cdf_generation (int): Sample size for empirical CDF estimation (categorical only).
+            logger (logging.Logger): Optional logger instance.
         """
         self.dag = dag
         self.variable_types = variable_types
@@ -67,163 +73,137 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         self.noise_distributions = noise_distributions
         self.num_samples_for_cdf_generation = num_samples_for_cdf_generation
         self.random_state = random_state
-        self.logger = logging if logger is None else logger
-
-    def _generate_equation(self, input_vars: List[sp.Expr]) -> sp.Expr:
-        """
-        Generates a symbolic function using the input variables and allowed functions.
-
-        Args:
-            input_vars (List[sp.Expr]): List of symbolic parent variables.
-
-        Returns:
-            sp.Expr: A symbolic expression representing the function.
-        """
-        function = sp.Integer(0)
-        allow_non_linear = self.user_constraints.get("allow_non_linearity", True)
-        allow_variable_exponents = self.user_constraints.get(
-            "allow_variable_exponents", False
-        )
-
-        for var in input_vars:
-            coeff = np.round(
-                self.random_state.uniform(-5, 5), 8
-            )  # higher precisions can cause problems in the serialization since not supported by str
-            term = coeff * var
-
-            if allow_non_linear:
-                func = self.random_state.choice(self.allowed_functions)
-                # Avoid issues with negative values in log, sqrt, exp by applying abs.
-                if func in [sp.log, sp.sqrt]:
-                    func_expr = func(1 + sp.Abs(var))
-                elif func == sp.exp:
-                    exp = (
-                        self.random_state.uniform(0.5, 5)
-                        if not allow_variable_exponents
-                        or self.random_state.random() < 0.7
-                        else 1 + sp.Abs(var)
-                    )
-                    func_expr = func(exp)
-                else:
-                    func_expr = func(var)
-
-                term = coeff * func_expr
-
-            function += term
-
-        return function
+        self.logger = logger or logging
 
     def generate(self) -> SCM:
         """
-        Generates an SCM object by creating SCMNodes for each node in the DAG.
-
-        For each node, builds parent mappings (for categorical parents).
-        For numerical nodes, generates a single equation.
-        For categorical nodes, generates an equation per possible category and computes CDFs.
+        Construct a full SCM from the DAG using symbolic equation generation.
 
         Returns:
-            SCM: An instance of the SCM with generated nodes.
+            SCM: A complete SCM instance with symbolic equations and empirical CDFs.
         """
-
         self.logger.info("Generating new SCM.")
-
-        # get topological sorting
-        self.logger.debug("Generating topologically sorting of nodes")
         topological_order = list(nx.topological_sort(self.dag.graph))
-        self.logger.debug(f"Done, ordering is {topological_order}")
-        nodes: List[EquationBasedNumericalSCMNode | EquationBasedCategoricalSCMNode] = (
-            []
-        )
+        self.logger.debug(f"Topological order: {topological_order}")
 
-        # data frame with initialization samples (can be used to define the distributions)
+        # Sample holder to simulate parent values for equation-based nodes
         samples = pd.DataFrame(index=range(self.num_samples_for_cdf_generation))
-
-        #  Define a mapping of variable types to generator functions
-        type_generators = {
-            "numerical": self._generate_numerical_node,
-            "categorical": self._generate_categorical_node,
-        }
+        nodes = []
 
         for node_name in topological_order:
-            # Get the parents of the current node.
+            node_type = self.variable_types[node_name]
             parents = list(self.dag.graph.predecessors(node_name))
-            # Build parent mappings: for each parent that is categorical, map its domain via label encoding.
+
+            # Encode categorical parents into numeric domain values
             parent_mappings = {
                 p: {cat: idx for idx, cat in enumerate(self.variable_domains[p])}
                 for p in parents
                 if self.variable_types[p] == "categorical"
             }
 
-            # Use the mapping to get the right generator
-            node_type = self.variable_types[node_name]
-            generator = type_generators.get(node_type)
-            # Check for existence of the generator
-            assert generator, f"Unsupported variable type: {node_type}"
+            # Dispatch to correct generator based on variable type
+            generator = {
+                "numerical": self._generate_numerical_node,
+                "categorical": self._generate_categorical_node,
+            }.get(node_type)
 
-            # Generate the node
-            self.logger.debug(
-                f"Generating node {node_name} of type {node_type} with parents {parents}"
-            )
-            node = generator(
-                node_name=node_name,
-                parents=parents,
-                parent_mappings=parent_mappings,
-                samples=samples,
-            )
+            if not generator:
+                raise ValueError(f"Unsupported node type: {node_type}")
+
+            self.logger.debug(f"Generating node: {node_name}, type: {node_type}")
+            node = generator(node_name, parents, parent_mappings, samples)
             nodes.append(node)
-            samples[node_name] = node.generate_values(
-                parent_values=samples[parents], random_state=self.random_state
-            )
-            self.logger.debug(f"added node {node_name}")
 
-        self.logger.debug("Creating SCM object")
-        scm = SCM(self.dag, nodes, self.random_state)
-        self.logger.info(f"SCM with {len(nodes)} variables generated.")
-        return scm
+            # Simulate values for this node based on current partial SCM
+            samples[node_name] = node.generate_values(
+                parent_values=samples[parents],
+                random_state=self.random_state,
+            )
+
+        return SCM(self.dag, nodes, self.random_state)
+
+    def _generate_equation(self, input_vars: List[sp.Symbol]) -> sp.Expr:
+        """
+        Build a symbolic expression from input variables using allowed functions and coefficients.
+
+        Args:
+            input_vars (List[sp.Symbol]): List of symbolic parent variables.
+
+        Returns:
+            sp.Expr: A symbolic expression combining all input variables.
+        """
+        expr = sp.S.Zero
+        nonlinear = self.user_constraints.get("allow_non_linearity", True)
+        variable_exp = self.user_constraints.get("allow_variable_exponents", False)
+
+        for var in input_vars:
+            coeff = round(self.random_state.uniform(-5, 5), 8)
+
+            if nonlinear:
+                func = self.random_state.choice(self.allowed_functions)
+
+                # Handle log/sqrt via absolute value to avoid domain errors
+                if func in [sp.log, sp.sqrt]:
+                    term = coeff * func(1 + sp.Abs(var))
+                elif func == sp.exp:
+                    exponent = (
+                        self.random_state.uniform(0.5, 5)
+                        if not variable_exp or self.random_state.random() < 0.7
+                        else 1 + sp.Abs(var)
+                    )
+                    term = coeff * func(exponent)
+                else:
+                    term = coeff * func(var)
+            else:
+                term = coeff * var
+
+            expr += term
+
+        return expr
 
     def _generate_numerical_node(
         self,
         node_name: str,
         parents: List[str],
-        parent_mappings: Dict[str, int],
+        parent_mappings: Dict[str, Any],
         samples: pd.DataFrame,
-    ) -> Tuple[EquationBasedNumericalSCMNode, Dict[str, Any]]:
+    ) -> EquationBasedNumericalSCMNode:
         """
-        Generates a numerical SCM node.
+        Construct a numerical SCM node using a symbolic expression and noise.
 
         Args:
-            node_name (str): The name of the node.
-            parents (List[str]): List of parent node names.
-            parent_mappings (Dict[str, int]): Mapping of parent names to their mappings.
+            node_name (str): Name of the variable.
+            parents (List[str]): Names of parent nodes.
+            parent_mappings (Dict[str, Any]): Mapping of categorical parent values.
+            samples (pd.DataFrame): Sample table for parent value simulation.
 
         Returns:
-            Tuple[EquationBasedNumericalSCMNode, Dict[str, Any]]: The generated node and its parameters.
+            EquationBasedNumericalSCMNode: Generated SCM node for numeric variable.
         """
-        # Select a random noise distribution from the available options.
-        noise_distribution = self.random_state.choice(self.noise_distributions)
-        # Check for parent nodes and generate the equation accordingly
+        noise = self.random_state.choice(self.noise_distributions)
+
         if not parents:  # Root node
             return EquationBasedNumericalSCMNode(
                 name=node_name,
                 accessibility=ACCESSIBILITY_CONTROLLABLE,
                 evaluation=None,
                 domain=self.variable_domains[node_name],
-                noise_distribution=noise_distribution,
+                noise_distribution=noise,
                 parents=None,
                 parent_mappings=None,
                 random_state=self.random_state,
             )
-        # Format parent names as symbols for the equation
-        input_vars = [sp.Symbol(p) for p in parents]
-        # Generate the equation for the node
-        equation = self._generate_equation(input_vars)
-        # Create the node
+
+        # Construct symbolic expression from parent variables
+        input_symbols = [sp.Symbol(p) for p in parents]
+        equation = self._generate_equation(input_symbols)
+
         return EquationBasedNumericalSCMNode(
             name=node_name,
             accessibility=ACCESSIBILITY_CONTROLLABLE,
             evaluation=equation,
             domain=self.variable_domains[node_name],
-            noise_distribution=noise_distribution,
+            noise_distribution=noise,
             parents=parents,
             parent_mappings=parent_mappings,
             random_state=self.random_state,
@@ -233,77 +213,58 @@ class EquationBasedSCMGenerator(AbstractSCMGenerator):
         self,
         node_name: str,
         parents: List[str],
-        parent_mappings: Dict[str, int],
+        parent_mappings: Dict[str, Any],
         samples: pd.DataFrame,
-    ) -> Tuple[EquationBasedCategoricalSCMNode, Dict[str, Any]]:
+    ) -> EquationBasedCategoricalSCMNode:
         """
-        Generates a categorical SCM node.
+        Construct a categorical SCM node using symbolic expressions per category and empirical CDFs.
 
         Args:
-            node_name (str): The name of the node.
-            parents (List[str]): List of parent node names.
-            parent_mappings (Dict[str, int]): Mapping of parent names to their mappings.
+            node_name (str): Name of the variable.
+            parents (List[str]): Names of parent nodes.
+            parent_mappings (Dict[str, Any]): Mapping of categorical parent values.
+            samples (pd.DataFrame): Sample table for parent value simulation.
 
         Returns:
-            Tuple[EquationBasedCategoricalSCMNode, Dict[str, Any]]: The generated node and its parameters.
+            EquationBasedCategoricalSCMNode: Generated SCM node for categorical variable.
         """
-        # Select a random noise distribution from the available options.
-        noise_distribution = self.random_state.choice(self.noise_distributions)
+        noise = self.random_state.choice(self.noise_distributions)
 
-        # Check if the variable has parents
-        if not parents:
+        if not parents:  # Root node
             return EquationBasedCategoricalSCMNode(
                 name=node_name,
                 evaluation=None,
                 domain=self.variable_domains[node_name],
-                noise_distribution=noise_distribution,
+                noise_distribution=noise,
                 cdfs=None,
                 parents=None,
                 parent_mappings=None,
                 random_state=self.random_state,
             )
 
-        # Define an equation for each possible variable in the domain
         equations = {}
+        cdfs = {}
+        input_symbols = [sp.Symbol(p) for p in parents]
+        parent_data = samples[parents]
 
-        # Define the CDFs for each possible variable in the domain
-        cdf_mappings = {}
-
-        # Format parent names as symbols for the equation
-        input_vars = [sp.Symbol(p) for p in parents]
-
-        # Iterate over each possible variable in the domain
         for category in self.variable_domains[node_name]:
-            # Generate the equation for the node
-            equation = self._generate_equation(input_vars)
+            # Create a symbolic expression for this class
+            equation = self._generate_equation(input_symbols)
             equations[category] = equation
 
-            # Generate CDF: sample at least 1000 datapoints.
-            self.logger.debug(
-                f"Generating {self.num_samples_for_cdf_generation} samples for the case {node_name}={category}"
-            )
+            # Evaluate this symbolic function over sample data to build a CDF
+            func = sp.lambdify(parents, equation, modules="numpy")
+            values = func(*parent_data.values.T)
+            cdfs[category] = SerializableCDF(np.sort(values))
 
-            # Substitute parent values into the equation.
-            parent_values = samples[parents]
-            f = sp.lambdify(parents, equation, modules="numpy")
-            evaluated = f(*tuple(parent_values.values.T))
-
-            # create CDF based on all seen values for this variable
-            sorted_samples = np.sort(evaluated)
-            self.logger.debug("Creating CDF from sample data.")
-            cdf_mappings[category] = SerializableCDF(sorted_samples)
-
-        # Create the node
-        node = EquationBasedCategoricalSCMNode(
+        return EquationBasedCategoricalSCMNode(
             name=node_name,
             accessibility=ACCESSIBILITY_CONTROLLABLE,
             evaluation=equations,
             domain=self.variable_domains[node_name],
-            noise_distribution=noise_distribution,
-            cdfs=cdf_mappings,
+            noise_distribution=noise,
+            cdfs=cdfs,
             parents=parents,
             parent_mappings=parent_mappings,
             random_state=self.random_state,
         )
-
-        return node
