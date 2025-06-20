@@ -15,10 +15,12 @@ from causalitygame.lib.utils.random_state_serialization import (
 
 # Nodes
 from causalitygame.scm.nodes.abstract import (
+    BaseSCMNode,
+)
+from causalitygame.lib.constants.nodes import (
     ACCESSIBILITY_CONTROLLABLE,
     ACCESSIBILITY_LATENT,
     ACCESSIBILITY_OBSERVABLE,
-    BaseSCMNode,
 )
 
 # Typing

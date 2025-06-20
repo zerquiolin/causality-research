@@ -15,8 +15,8 @@ from causalitygame.lib.utils.random_state_serialization import (
 from causalitygame.scm.nodes.abstract import (
     BaseCategoricSCMNode,
     BaseNumericSCMNode,
-    ACCESSIBILITY_OBSERVABLE,
 )
+from causalitygame.lib.constants.nodes import ACCESSIBILITY_OBSERVABLE
 
 
 class DatabaseDefinedSCMNode:

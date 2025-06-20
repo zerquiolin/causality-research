@@ -11,8 +11,8 @@ from causalitygame.lib.utils.random_state_serialization import (
 # Abstract Base Class
 from causalitygame.scm.nodes.abstract import (
     BaseCategoricSCMNode,
-    ACCESSIBILITY_OBSERVABLE,
 )
+from causalitygame.lib.constants.nodes import ACCESSIBILITY_OBSERVABLE
 
 
 class BayesianNetworkSCMNode(BaseCategoricSCMNode):

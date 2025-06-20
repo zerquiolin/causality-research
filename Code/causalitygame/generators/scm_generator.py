@@ -18,7 +18,9 @@ import logging
 from typing import Dict, Any, List, Callable
 from causalitygame.scm.abstract import SCM
 from causalitygame.lib.constants.nodes import ACCESSIBILITY_CONTROLLABLE
-from causalitygame.scm.nodes.abstract import BaseNoiseDistribution
+from causalitygame.scm.noises.abstract import (
+    BaseNoiseDistribution,
+)
 
 # Classes
 from causalitygame.scm.nodes.sympy import (

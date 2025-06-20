@@ -22,9 +22,8 @@ from causalitygame.scm.nodes.computed import (
     ComputedNumericSCMNode,
     ComputedCategoricSCMNode,
 )
-from causalitygame.scm.nodes.abstract import (
+from causalitygame.lib.constants.nodes import (
     ACCESSIBILITY_CONTROLLABLE,
-    ACCESSIBILITY_LATENT,
     ACCESSIBILITY_OBSERVABLE,
 )
 

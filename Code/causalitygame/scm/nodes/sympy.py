@@ -1,26 +1,35 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple
+# Equations
 import sympy as sp
+
+# Science
 import numpy as np
 import pandas as pd
 
+# Utils
+from collections import Counter
+from causalitygame.lib.utils.imports import find_importable_classes
 
+# Types
+from typing import Callable, Dict, List, Optional, Type
 from causalitygame.scm.nodes.abstract import (
-    ACCESSIBILITY_CONTROLLABLE,
-    ACCESSIBILITY_LATENT,
-    ACCESSIBILITY_OBSERVABLE,
-    BaseNoiseDistribution,
     BaseNumericSCMNode,
     BaseCategoricSCMNode,
 )
+from causalitygame.scm.nodes.abstract import BaseNoiseDistribution
 
+# Constants
+from causalitygame.lib.constants.nodes import ACCESSIBILITY_OBSERVABLE
+from causalitygame.lib.constants.routes import NOISES_FOLDER_PATH
+
+# Classes
 from causalitygame.scm.noises import (
-    GaussianNoiseDistribution,
-    NoNoiseDistribution,
     UniformNoiseDistribution,
-    DiracNoiseDistribution,
 )
 
-from collections import Counter
+# Identify specific noise classes
+noise_classes: Dict[str, Type[BaseNoiseDistribution]] = find_importable_classes(
+    NOISES_FOLDER_PATH, base_class=BaseNoiseDistribution
+)
 
 
 class EquationBasedSCMNode:
@@ -125,6 +134,7 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
         Returns:
             EquationBasedNumericalSCMNode: An instance of the node.
         """
+        global noise_classes
         evaluation = sp.sympify(data["equation"]) if "equation" in data else None
         if evaluation is not None:
             assert (
@@ -132,34 +142,14 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
             ), f"Evaluation structure {data['equation']} could not parsed properly. Recovered {str(evaluation)}"
 
         if "noise_distribution" in data:
-            noise_distribution = data["noise_distribution"]
-            if isinstance(noise_distribution, dict):
-                if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
-                    noise_distribution = GaussianNoiseDistribution.from_dict(
-                        noise_distribution
-                    )
-                elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
-                    noise_distribution = UniformNoiseDistribution.from_dict(
-                        noise_distribution
-                    )
-                elif noise_distribution["class"] == DiracNoiseDistribution.__name__:
-                    noise_distribution = DiracNoiseDistribution.from_dict(
-                        noise_distribution
-                    )
-                elif noise_distribution["class"] == NoNoiseDistribution.__name__:
-                    noise_distribution = NoNoiseDistribution.from_dict(
-                        noise_distribution
-                    )
-                else:
-                    raise ValueError(
-                        f"Unknown noise distribution class: {noise_distribution['class']}"
-                    )
-            elif type(noise_distribution) in [float, int, np.float64, np.int64]:
-                noise_distribution = DiracNoiseDistribution(val=noise_distribution)
-            else:
+            # Check if the mission class is known
+            mission_cls = noise_classes.get(data["noise_distribution"]["class"])
+            if mission_cls is None:
                 raise ValueError(
-                    f"Unknown noise distribution type: {type(noise_distribution)}"
+                    f"Unknown noise class: {data['noise_distribution']["class"]}"
                 )
+            # Generate the noise distribution from the data
+            noise_distribution = mission_cls.from_dict(data["noise_distribution"])
         else:
             noise_distribution = UniformNoiseDistribution(low=0, high=1)
 
@@ -370,10 +360,11 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
         Returns:
             EquationBasedCategoricalSCMNode: An instance of the node.
         """
+        global noise_classes
         # For categorical nodes, reconstruct the equation dictionary.
         evaluation = (
             {k: sp.sympify(v) for k, v in data["equation"].items()}
-            if "equation" in data and data["equation"] != None
+            if "equation" in data and data["equation"] is not None
             else None
         )
 
@@ -388,18 +379,17 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
         )
 
         # Deserialize the noise distribution
-        noise_distribution = data["noise_distribution"]
-        if noise_distribution["class"] == GaussianNoiseDistribution.__name__:
-            noise_distribution = GaussianNoiseDistribution.from_dict(noise_distribution)
-        elif noise_distribution["class"] == UniformNoiseDistribution.__name__:
-            noise_distribution = UniformNoiseDistribution.from_dict(noise_distribution)
-        elif noise_distribution["class"] == NoNoiseDistribution.__name__:
-            noise_distribution = NoNoiseDistribution.from_dict(noise_distribution)
+        if "noise_distribution" in data:
+            # Check if the mission class is known
+            mission_cls = noise_classes.get(data["noise_distribution"]["class"])
+            if mission_cls is None:
+                raise ValueError(
+                    f"Unknown noise class: {data['noise_distribution']["class"]}"
+                )
+            # Generate the noise distribution from the data
+            noise_distribution = mission_cls.from_dict(data["noise_distribution"])
         else:
-            raise ValueError(
-                f"Unknown noise distribution class: {noise_distribution['class']}"
-            )
-        # Reconstruct the random state.
+            noise_distribution = UniformNoiseDistribution(low=0, high=1)
 
         # Create the node
         new_class = cls(

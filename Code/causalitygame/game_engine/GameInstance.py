@@ -18,6 +18,11 @@ from causalitygame.missions.abstract import BaseMission
 # Constants
 from causalitygame.lib.constants.routes import MISSIONS_FOLDER_PATH
 
+# Identify specific mission classes
+mission_classes: Dict[str, Type[BaseMission]] = find_importable_classes(
+    MISSIONS_FOLDER_PATH, base_class=BaseMission
+)
+
 
 class GameInstance:
     """
@@ -46,10 +51,7 @@ class GameInstance:
 
     @classmethod
     def from_dict(cls, data: dict) -> "GameInstance":
-        # Identify specific mission classes
-        mission_classes: Dict[str, Type[BaseMission]] = find_importable_classes(
-            MISSIONS_FOLDER_PATH, base_class=BaseMission
-        )
+        global mission_classes
         # Check if the mission class is known
         mission_cls = mission_classes.get(data["mission"]["class"])
         if mission_cls is None:
