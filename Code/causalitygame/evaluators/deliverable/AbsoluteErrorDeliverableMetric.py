@@ -1,4 +1,5 @@
 # Abstract
+import numbers
 from ..abstract import DeliverableMetric
 
 # Types
@@ -44,7 +45,7 @@ class AbsoluteErrorDeliverableMetric(DeliverableMetric):
 
         # Validate element types
         for name, value in (("actual", actual), ("predicted", predicted)):
-            if not isinstance(value, (int, float)):
+            if not isinstance(value, numbers.Number):
                 raise TypeError(
                     f"`{name}` must be int or float, got {type(value).__name__}"
                 )

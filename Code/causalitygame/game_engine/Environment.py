@@ -279,7 +279,7 @@ class Environment:
         Returns:
             Tuple[Dict[str, Any], pd.DataFrame]: Final state and complete action history.
         """
-        while self.current_round < self.game_instance.max_rounds:
+        while self.current_round <= self.game_instance.max_rounds:
             state = self.get_state()
             # Filter measurable nodes
             measurable_nodes = [

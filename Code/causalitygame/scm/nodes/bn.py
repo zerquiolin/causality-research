@@ -60,7 +60,9 @@ class BayesianNetworkSCMNode(BaseCategoricSCMNode):
                 if s != 1:
                     probability_distribution[parent_combo] /= s
 
-    def generate_values(self, parent_values: pd.DataFrame, random_state) -> str:
+    def generate_values(
+        self, parent_values: pd.DataFrame, random_state, cancel_noise=False
+    ) -> str:
         """
         Given a dictionary of parent values, returns a sampled value from the node's distribution.
 

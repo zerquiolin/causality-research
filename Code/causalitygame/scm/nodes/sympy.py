@@ -70,6 +70,7 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
     def generate_values(
         self,
         parent_values: pd.DataFrame,
+        cancel_noise: bool = False,
         random_state: Optional[np.random.RandomState] = None,
     ):
         # Define random state
@@ -101,10 +102,16 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
             np.iscomplex(evaluated)
         ), f"Evaluation of {self.evaluation} lead to complex numbers {evaluated}"
 
+        # TODO: Somehow check the domain
+        # Fix evaluated values to be within the domain
+        # evaluated = np.minimum(np.maximum(evaluated, self.domain[0]), self.domain[1])
+
+        if cancel_noise:
+            return evaluated
+
         # Add noise to the evaluated value
         noise = self.noise_distribution.generate(size=len(evaluated), random_state=rs)
-
-        return np.minimum(np.maximum(evaluated + noise, self.domain[0]), self.domain[1])
+        return evaluated + noise
 
     def _to_dict(self):
         """
@@ -239,7 +246,10 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
         return {cat: counts.get(cat, 0) / total for cat in self.domain}
 
     def generate_values(
-        self, parent_values: pd.DataFrame, random_state: Optional[dict] = None
+        self,
+        parent_values: pd.DataFrame,
+        random_state: Optional[dict] = None,
+        cancel_noise: bool = False,
     ):
 
         # Define random state
@@ -301,6 +311,8 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             evaluated = f(*tuple(parent_values[symbols].values.T))
 
             # Calculate the CDF for the evaluated value and category to obtain values normalized between 0 and 1
+            if cancel_noise:
+                evaluations.append(self.cdfs[possible_category](evaluated))
             evaluations.append(self.cdfs[possible_category](evaluated + noises[:, i]))
 
         evaluations = np.array(evaluations).T
@@ -389,7 +401,7 @@ class EquationBasedCategoricalSCMNode(BaseCategoricSCMNode, EquationBasedSCMNode
             # Generate the noise distribution from the data
             noise_distribution = noise_cls.from_dict(data["noise_distribution"])
         else:
-            noise_distribution = UniformNoiseDistribution(low=0, high=1)
+            noise_distribution = UniformNoiseDistribution(low=-1, high=1)
 
         # Create the node
         new_class = cls(

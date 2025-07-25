@@ -199,9 +199,30 @@ class Game:
             d_score (float): Final deliverable score.
             ax (Axes): Matplotlib axes object.
         """
-        ax.scatter(b_score, d_score, s=100, edgecolor="black", label=name)
-        if d_score >= 10**4:
-            ax.set_yscale("log")
+        # Plot point with a specific facecolor (e.g., for auto-colors by label)
+        point = ax.scatter(b_score, d_score, s=100, label=name)
+
+        # Use the facecolor of the point for the label text
+        ax.text(
+            b_score,
+            d_score,
+            f"({b_score:.2f}, {d_score:.2f})",
+            color=point.get_facecolor()[0],  # get the RGBA tuple
+            fontsize=10,
+            ha="left",
+            va="center",
+        )
+        # ax.scatter(b_score, d_score, s=100, edgecolor="black", label=name)
+        # # Plot final score as number with the same color as the point
+        # ax.text(
+        #     b_score,
+        #     d_score,
+        #     f"({b_score:.2f}, {d_score:.2f})",
+        #     color=ax.collections[-1].get_edgecolor()[0],
+        #     fontsize=10,
+        #     ha="left",
+        #     va="center",
+        # )
 
     def _plot_time_series(self, name: str, scores: List[float], ylabel: str, ax):
         """
@@ -215,7 +236,24 @@ class Game:
         """
         ax.plot(range(len(scores)), scores, label=name, alpha=0.7)
         ax.scatter(len(scores) - 1, scores[-1], s=100, edgecolor="black")
+        # Plot final score as number with the same color as the line
+        ax.text(
+            len(scores) - 1,
+            scores[-1],
+            f"{scores[-1]:.2f}",
+            color=ax.lines[-1].get_color(),
+            fontsize=10,
+            ha="left",
+            va="center",
+        )
         ax.set_ylabel(ylabel)
+        if max(scores) >= 10**3 or min(scores) <= 10**-3:
+            ax.set_yscale("log")
+
+        if len(scores) >= 10**3:
+            ax.set_xticks(np.arange(0, len(scores), step=1000))
+            ax.set_yscale("log")
+            ax.set_xscale("log")
 
     def plot(self):
         """

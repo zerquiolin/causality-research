@@ -1,8 +1,13 @@
 # Abstract
+from causalitygame.lib.constants.nodes import (
+    ACCESSIBILITY_CONTROLLABLE,
+    ACCESSIBILITY_OBSERVABLE,
+)
 from .abstract import BaseMission
 
 # Science
 import numpy as np
+import pandas as pd
 
 # Utils
 from causalitygame.lib.utils.imports import find_importable_classes
@@ -36,52 +41,51 @@ class TreatmentEffectMission(BaseMission):
         rs = np.random.RandomState(911)
         # Get the agents' function
         empirical_te_function = history.iloc[-1]["current_result"]
-        # Evaluate the behavior and deliverable metrics
-        te_measurable_nodes = [
-            node
+        # Select the predictive node
+        possible_outcomes = [
+            var for var in scm.leaf_vars if type(scm.nodes[var].domain[0]) is not str
+        ]
+        assert len(possible_outcomes) > 0, "No measurable nodes found for TE"
+        te_node = rs.choice(possible_outcomes)
+        # Select the treatment node
+        possible_treatments = [
+            node.name
             for node in scm.nodes.values()
-            if node.name in scm.observable_vars
-            and node.parents
-            and all(parent in scm.observable_vars for parent in node.parents)
+            if node.accessibility == ACCESSIBILITY_CONTROLLABLE
         ]
-
-        assert len(te_measurable_nodes) > 0, "No measurable nodes found for CATE"
-
-        node = te_measurable_nodes[-1]
-
-        Y = node.name
-        Z = {
-            node.parents[0]: current_node.domain
-            for current_node in scm.nodes.values()
-            if current_node.name == node.parents[0]
-        }
-        X = {
-            current_node.name: (
-                rs.choice(current_node.domain)
-                if type(current_node.domain[0]) == str
-                else rs.uniform(current_node.domain[0], current_node.domain[1], size=1)
-            )
-            for current_node in scm.nodes.values()
-            if current_node.name != Y and current_node.name != node.parents[0]
-        }
-
-        Z_name, Z_values = list(Z.items())[0]
-
-        Y0, Y1 = [
-            scm.generate_samples(
-                interventions={
-                    Z_name: value,
-                    **X,
-                },
-                num_samples=1,
-                random_state=rs,
-            )[Y][0]
-            for value in Z_values
-        ]
-
-        te = Y1 - Y0
-        # Comput the empirical treatment effect
-        empirical_te = empirical_te_function(Y, Z, X)
+        assert len(possible_treatments) > 0, "No controllable nodes found for TE"
+        treatment_node = rs.choice(possible_treatments)
+        # Generate samples for each treatment value
+        treatment_samples = pd.concat(
+            [
+                scm.generate_samples(
+                    interventions={treatment_node: value},
+                    num_samples=1,
+                    cancel_noise=True,
+                    random_state=rs,
+                )
+                for value in scm.nodes[treatment_node].domain
+            ]
+        )
+        # Extract the outcome variable Y
+        Y = treatment_samples[te_node].values
+        te = Y[1] - Y[0]
+        # Compute the empirical treatment effect
+        empirical_te = empirical_te_function(
+            Y=te_node,
+            Z=treatment_node,
+            X=[
+                var
+                for var in scm.vars
+                if var != te_node
+                and var != treatment_node
+                and (
+                    scm.nodes[var].accessibility == ACCESSIBILITY_CONTROLLABLE
+                    or scm.nodes[var].accessibility == ACCESSIBILITY_OBSERVABLE
+                )
+            ],
+            samples=treatment_samples.drop(columns=[te_node]),
+        )
         behavior_score = self.behavior_metric.evaluate(history)
         deliverable_score = self.deliverable_metric.evaluate(scm, (te, empirical_te))
 

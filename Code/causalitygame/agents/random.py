@@ -7,6 +7,7 @@ import pandas as pd
 
 # Constants
 from causalitygame.lib.constants.environment import (
+    OBSERVABLE_COLUMN,
     OBSERVE_ACTION,
     EXPERIMENT_ACTION,
     STOP_WITH_ANSWER_ACTION,
@@ -77,11 +78,11 @@ class RandomAgent(BaseAgent):
         self._update_data(samples)
 
         # Chance of stopping early
-        if (
-            STOP_WITH_ANSWER_ACTION in actions
-            and self.random_state.random() < self.stop_probability
-        ):
-            return STOP_WITH_ANSWER_ACTION, None
+        # if (
+        #     STOP_WITH_ANSWER_ACTION in actions
+        #     and self.random_state.random() < self.stop_probability
+        # ):
+        #     return STOP_WITH_ANSWER_ACTION, None
 
         # Generate different treatments within the variable's domain
         num_experiments = self.random_state.randint(
@@ -134,7 +135,12 @@ class RandomAgent(BaseAgent):
 
         # Filter out empty or all-NA DataFrames before concatenation
         valid_dfs = [
-            df for df in new_data.values() if not df.empty and not df.isna().all().all()
+            df
+            for treatment, df in new_data.items()
+            if not df.empty
+            and not df.isna().all().all()
+            and treatment
+            != OBSERVABLE_COLUMN  # TODO: Check if this is worth keeping (exists for te)
         ]
         if valid_dfs:
             # Add the new data
@@ -144,7 +150,8 @@ class RandomAgent(BaseAgent):
             self.data = pd.DataFrame(columns=list(new_data.values())[0].columns)
 
     def submit_answer(self) -> Callable:
-        data = self.data
+        data = self.data.copy()
+        # print(f"Submitting answer with data:\n{len(data)}")
         if self._goal == "DAG Inference Mission":
             return TaskFactory.create_dag_task(data, is_numeric=self._is_numeric)
         elif self._goal == "Conditional Average Treatment Effect (CATE) Mission":

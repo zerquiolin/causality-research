@@ -42,7 +42,9 @@
                 "random_state": null,
                 "equation": "200*Z + 200",
                 "noise_distribution": {
-                    "class": "NoNoiseDistribution"
+                    "class": "GaussianNoiseDistribution",
+                    "mean": 0,
+                    "std": 1
                 }
             },
             {

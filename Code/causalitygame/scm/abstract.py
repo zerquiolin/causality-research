@@ -217,6 +217,16 @@ class SCM:
             and not self.nodes[n].parents
         ]
 
+    @property
+    def leaf_vars(self):
+        """
+        Returns a list of leaf variables in the SCM, which are nodes with no outgoing edges.
+
+        Returns:
+            List[str]: A list of leaf variable names.
+        """
+        return [n for n in self.vars if self.dag.graph.out_degree(n) == 0]
+
     def get_random_state(self) -> np.random.RandomState:
         """
         Returns the SCM's random number generator.
@@ -243,6 +253,7 @@ class SCM:
         self,
         interventions: Dict[str, float] = {},
         num_samples: int = 1,
+        cancel_noise: bool = False,
         random_state: Optional[Dict[str, np.random.RandomState]] = None,
     ) -> List[Dict[str, float]]:
         """
@@ -270,14 +281,14 @@ class SCM:
                 sample_for_col = node.generate_values(
                     parent_values=sample,
                     random_state=random_states[node_name],
-                    # random_state=random_states,
+                    cancel_noise=cancel_noise,
                 )
 
             sample = pd.concat(
                 [sample, pd.DataFrame({node_name: sample_for_col})], axis=1
             )
         assert (
-            type(sample) == pd.DataFrame
+            type(sample) is pd.DataFrame
         ), f"sample should be a dataframe but is {type(sample)}"
         return sample
 

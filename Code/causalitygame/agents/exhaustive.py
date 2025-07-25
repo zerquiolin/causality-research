@@ -7,6 +7,7 @@ import pandas as pd
 
 # Constants
 from causalitygame.lib.constants.environment import (
+    OBSERVABLE_COLUMN,
     OBSERVE_ACTION,
     EXPERIMENT_ACTION,
     STOP_WITH_ANSWER_ACTION,
@@ -50,9 +51,7 @@ class ExhaustiveAgent(BaseAgent):
         # Iterate over all possible actions
         for node in actions.keys():
             # Skip the stop_with_answer action
-            if (
-                node == STOP_WITH_ANSWER_ACTION or node == "Y" or node == "X"
-            ):  # TODO: remove Y and X
+            if node == STOP_WITH_ANSWER_ACTION:
                 continue
 
             # Generate observation data
@@ -89,7 +88,12 @@ class ExhaustiveAgent(BaseAgent):
 
         # Filter out empty or all-NA DataFrames before concatenation
         valid_dfs = [
-            df for df in new_data.values() if not df.empty and not df.isna().all().all()
+            df
+            for treatment, df in new_data.items()
+            if not df.empty
+            and not df.isna().all().all()
+            and treatment
+            != OBSERVABLE_COLUMN  # TODO: Check if this is worth keeping (exists for te)
         ]
         if valid_dfs:
             # Add the new data
@@ -99,7 +103,7 @@ class ExhaustiveAgent(BaseAgent):
             self.data = pd.DataFrame(columns=list(new_data.values())[0].columns)
 
     def submit_answer(self) -> Callable:
-        data = self.data
+        data = self.data.copy()
         if self._goal == "DAG Inference Mission":
             return TaskFactory.create_dag_task(data, is_numeric=self._is_numeric)
         elif self._goal == "Conditional Average Treatment Effect (CATE) Mission":

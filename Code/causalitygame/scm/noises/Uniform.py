@@ -6,7 +6,7 @@ from scipy.stats import uniform
 
 
 class UniformNoiseDistribution(BaseNoiseDistribution):
-    def __init__(self, low: float = 0.0, high: float = 1.0):
+    def __init__(self, low: float = -1.0, high: float = 1.0):
         """
         Initializes the Uniform noise distribution with a given range.
 
