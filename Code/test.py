@@ -1,17 +1,27 @@
-from causalitygame.evaluators.abstract import (
-    BehaviorMetric,
-    DeliverableMetric,
-)
-from causalitygame.missions.abstract import BaseMission
+import pandas as pd
 
-print(f"Subclasses of BaseMission: {BaseMission.__subclasses__()}")
 
-# print(f"Subclasses of BehaviorMetric: {BehaviorMetric.__subclasses__()}")
-# print(f"Subclasses of DeliverableMetric: {DeliverableMetric.__subclasses__()}")
+# Read the CSV file
+# df = pd.read_csv("data/tests/Exhaustive Agent-(('Z', '0'),).csv")
+df = pd.read_csv("data/tests/Random Agent 2-(('Z', np.str_('0')),).csv")
+# df = pd.read_csv("data/tests/Exhaustive Agent-observable.csv")
 
-# names = [
-#     cls.__name__
-#     for cls in BehaviorMetric.__subclasses__() + DeliverableMetric.__subclasses__()
-# ]
+print("DataFrame shape:", df.shape)
 
-# print(f"All subclasses of BehaviorMetric and DeliverableMetric: {names}")
+print("DataFrame columns:", df.columns.tolist())
+
+print("First few rows of the DataFrame:")
+print(df.head())
+
+# Check if X == Y
+print("Checking if X == Y:")
+print((df["Y"] == df["Y"]).all())
+
+# Get values that are not equal
+unequal_values = df[df["X"] != df["Y"]]
+print("Values where X != Y:")
+print(unequal_values)
+
+# Check mean of X
+mean_x = df["X"].mean()
+print(f"Mean of X: {mean_x}")

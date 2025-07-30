@@ -142,6 +142,7 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
             EquationBasedNumericalSCMNode: An instance of the node.
         """
         global noise_classes
+
         evaluation = sp.sympify(data["equation"]) if "equation" in data else None
         if evaluation is not None:
             assert (

@@ -168,7 +168,7 @@ class Game:
 
         return self.results
 
-    def _compute_score_trajectories(
+    def compute_score_trajectories(
         self, history: pd.DataFrame
     ) -> Tuple[List[float], List[float]]:
         """
@@ -269,7 +269,7 @@ class Game:
         fig.suptitle("Agent Comparison Scores", fontsize=14)
 
         for name, run in self.results.items():
-            behavior_scores, deliverable_scores = self._compute_score_trajectories(
+            behavior_scores, deliverable_scores = self.compute_score_trajectories(
                 run["history"]
             )
             final_behavior, final_deliverable = run["mission"]

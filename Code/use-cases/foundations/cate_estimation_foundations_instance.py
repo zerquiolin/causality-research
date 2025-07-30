@@ -19,7 +19,7 @@ agents = [
 # Add an exhaustive agent
 agents.append(("Exhaustive Agent", ExhaustiveAgent(num_obs=1)))
 # Game Instance
-game_instance_path = "causalitygame/data/game_instances/te/hill_instance.json"
+game_instance_path = "causalitygame/data/game_instances/cate/foundations_instance.json"
 
 
 # Data for plotting
@@ -39,7 +39,6 @@ def on_agent_game_start(agent_name):
         "rounds": [],
         "samples": [],
         "registered_samples": [],
-        "result_scores": [],
     }
 
 
@@ -142,13 +141,20 @@ game = cg.Game(
 )
 # Run the game
 runs = game.run()
-
 # For each run
 fig, ax = plt.subplots(figsize=(10, 6))
 for name, run in runs.items():
     behavior, result = game.compute_score_trajectories(run["history"])
     # Rolling Mean
-    rolling_mean = pd.Series(result).rolling(window=100).mean()
+    # rolling_mean = pd.Series(result).rolling(window=100).mean()
+    window_size = 20
+    rolling_mean = (
+        # pd.Series(result).rolling(window=window_size).mean().dropna()[::window_size]
+        pd.Series(result)
+        .rolling(window=window_size)
+        .mean()
+        .dropna()
+    )
     ax.plot(
         rolling_mean,
         label=f"{name} - Rolling Mean",
@@ -162,7 +168,6 @@ ax.set_xlabel("Rounds")
 ax.set_ylabel("Scores")
 ax.legend()
 ax.set_title("Scores Trajectory")
-
 
 # Print the results
 game.plot()

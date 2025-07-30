@@ -106,9 +106,11 @@ class ExhaustiveAgent(BaseAgent):
         data = self.data.copy()
         if self._goal == "DAG Inference Mission":
             return TaskFactory.create_dag_task(data, is_numeric=self._is_numeric)
-        elif self._goal == "Conditional Average Treatment Effect (CATE) Mission":
-            return TaskFactory.create_cate_task(data)
         elif self._goal == "Treatment Effect Mission":
             return TaskFactory.create_te_task(data)
+        elif self._goal == "Average Treatment Effect Mission":
+            return TaskFactory.create_ate_task(data)
+        elif self._goal == "Conditional Average Treatment Effect Mission":
+            return TaskFactory.create_cate_task(data)
         else:
             raise ValueError(f"Unknown process type: {self._goal!r}")
