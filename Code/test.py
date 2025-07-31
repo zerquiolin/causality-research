@@ -1,24 +1,27 @@
-# import pandas as pd
-
-# # Cambia la ruta si es necesario
-# df = pd.read_csv("past_data.csv")
-
-# # 1.a) Asegúrate de que las columnas existan
-# print("Columnas disponibles:", list(df.columns))
-
-# # 1.b) Revisa cuántas filas cumplen Y == X
-# # Por ejemplo, si X es la columna "X_value" y Y es la columna "target":
-# col_X = "X"  # ajústalo al nombre de tu columna
-# col_Y = "Y"  # ajústalo al nombre real de tu target
-# match_mask = df[col_X] == df[col_Y]
-# imatch_mask = df[col_X] != df[col_Y]
-# print(f"Filas con {col_X} == {col_Y} :", match_mask.sum(), "de", len(df))
-
-# # 1.c) Si hubo NaNs o strings, el == fallará; revisa nulos y dtypes:
-# print("Valores nulos:\n", df[[col_X, col_Y]].isnull().sum())
-# print("Tipos de datos:\n", df[[col_X, col_Y]].dtypes)
-# print("Valores distintos en", col_X, ":", df[imatch_mask])
+import pandas as pd
 
 
-print(1e22)
-print(0.001)
+# Read the CSV file
+# df = pd.read_csv("data/tests/Exhaustive Agent-(('Z', '0'),).csv")
+df = pd.read_csv("data/tests/Random Agent 2-(('Z', np.str_('0')),).csv")
+# df = pd.read_csv("data/tests/Exhaustive Agent-observable.csv")
+
+print("DataFrame shape:", df.shape)
+
+print("DataFrame columns:", df.columns.tolist())
+
+print("First few rows of the DataFrame:")
+print(df.head())
+
+# Check if X == Y
+print("Checking if X == Y:")
+print((df["Y"] == df["Y"]).all())
+
+# Get values that are not equal
+unequal_values = df[df["X"] != df["Y"]]
+print("Values where X != Y:")
+print(unequal_values)
+
+# Check mean of X
+mean_x = df["X"].mean()
+print(f"Mean of X: {mean_x}")

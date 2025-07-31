@@ -3,7 +3,7 @@
     "scm": {
         "vars": [
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "n",
                 "accessibility": "controllable",
                 "domain": [
@@ -21,7 +21,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "R",
                 "accessibility": "observable",
                 "domain": [
@@ -39,7 +39,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "T",
                 "accessibility": "observable",
                 "domain": [
@@ -57,7 +57,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "V",
                 "accessibility": "observable",
                 "domain": [
@@ -75,7 +75,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "P",
                 "accessibility": "observable",
                 "domain": [

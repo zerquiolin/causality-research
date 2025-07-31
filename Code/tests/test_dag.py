@@ -9,7 +9,7 @@ import networkx as nx
 from networkx.algorithms import isomorphism
 
 # DAG
-from causalitygame.scm.dag import DAG
+from causalitygame.scm.dags.DAG import DAG
 
 # Generator
 from causalitygame.generators.dag_generator import DAGGenerator

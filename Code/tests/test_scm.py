@@ -1,8 +1,8 @@
 import json
 import pytest
 from causalitygame.generators.scm_generator import EquationBasedSCMGenerator
-from causalitygame.scm.base import SCM
-from causalitygame.scm.dag import DAG
+from causalitygame.scm.abstract import SCM
+from causalitygame.scm.dags.DAG import DAG
 from causalitygame.generators.dag_generator import DAGGenerator
 from causalitygame.lib.utils.random_state_serialization import (
     random_state_from_json,
@@ -10,12 +10,14 @@ from causalitygame.lib.utils.random_state_serialization import (
 )
 from scipy.stats import norm, uniform
 import numpy as np
-from causalitygame.scm.noise_distributions import (
+from causalitygame.scm.noises import (
     GaussianNoiseDistribution,
     UniformNoiseDistribution,
 )
 
 import logging
+
+DATA_FOLDER_PATH = "causalitygame/data"
 
 
 # define stream handler
@@ -417,8 +419,8 @@ def test_scm_samples_reproducibility(dag, num_nodes, num_samples, seed):
 @pytest.mark.parametrize(
     "network_path",
     [
-        ("causalitygame/data/scm/literature_cases/small/cancer.json"),
-        ("causalitygame/data/scm/literature_cases/small/earthquake.json"),
+        (f"{DATA_FOLDER_PATH}/scms/literature_cases/small/cancer.json"),
+        (f"{DATA_FOLDER_PATH}/scms/literature_cases/small/earthquake.json"),
     ],
 )
 def test_bayesian_network_scm_deserialization(network_path):

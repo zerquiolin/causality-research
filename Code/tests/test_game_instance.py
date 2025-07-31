@@ -1,8 +1,8 @@
 import numpy as np
-from causalitygame.evaluators.impl.behavior import ExperimentsBehaviorMetric
-from causalitygame.evaluators.impl.deliverable import SHDDeliverableMetric
-from causalitygame.game.GameInstance import GameInstance
-from causalitygame.mission.impl.DAGInferenceMission import DAGInferenceMission
+from causalitygame.evaluators.behavior import ExperimentsBehaviorMetric
+from causalitygame.evaluators.deliverable import SHDDeliverableMetric
+from causalitygame.game_engine.GameInstance import GameInstance
+from causalitygame.missions.DAGInferenceMission import DAGInferenceMission
 from causalitygame.repository._base import get_scm_overview
 from causalitygame.scm import SCM
 import logging

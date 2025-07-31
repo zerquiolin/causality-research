@@ -3,7 +3,7 @@
     "scm": {
         "vars": [
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "Vrms",
                 "accessibility": "controllable",
                 "domain": [
@@ -21,7 +21,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "Irms",
                 "accessibility": "controllable",
                 "domain": [
@@ -39,7 +39,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "psi",
                 "accessibility": "controllable",
                 "domain": [
@@ -57,7 +57,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "P",
                 "accessibility": "observable",
                 "domain": [

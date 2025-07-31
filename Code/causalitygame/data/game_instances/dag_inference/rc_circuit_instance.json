@@ -3,7 +3,7 @@
     "scm": {
         "vars": [
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "V",
                 "accessibility": "controllable",
                 "domain": [
@@ -21,7 +21,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "R",
                 "accessibility": "controllable",
                 "domain": [
@@ -39,7 +39,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "C",
                 "accessibility": "controllable",
                 "domain": [
@@ -57,7 +57,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "q",
                 "accessibility": "controllable",
                 "domain": [
@@ -75,7 +75,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "Vc",
                 "accessibility": "observable",
                 "domain": [
@@ -96,7 +96,7 @@
                 }
             },
             {
-                "class": "causalitygame.scm.node.sympy.EquationBasedNumericalSCMNode",
+                "class": "causalitygame.scm.nodes.sympy.EquationBasedNumericalSCMNode",
                 "name": "I",
                 "accessibility": "observable",
                 "domain": [

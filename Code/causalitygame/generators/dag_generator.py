@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-"""dag_generator.py — Re‑implementation of a reproducible, well‑validated DAG generator
-with variable labels Xi instead of integer IDs.
-"""
 
-from causalitygame.scm.dag import DAG
+from causalitygame.scm.dags.DAG import DAG
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Set, Tuple, Any
 
 import numpy as np
 import networkx as nx
-from networkx.readwrite import json_graph
 
 # -----------------------------------------------------------------------------
 # Constants — tweakable knobs extracted from “magic numbers”
