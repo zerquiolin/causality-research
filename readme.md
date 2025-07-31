@@ -1,4 +1,4 @@
-# 🧠 Causality Game: Benchmarking Causal Inference Agents
+# Causality Game: Benchmarking Causal Inference Agents
 
 Causality Game is a benchmarking framework designed to evaluate and compare the performance, strategies, and capabilities of causal inference agents. It provides a standardized simulation environment where agents interact with structural causal models (SCMs) through an environment, gather data, and attempt to solve various causal inference tasks.
 
