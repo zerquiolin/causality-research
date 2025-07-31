@@ -247,13 +247,12 @@ class Game:
             va="center",
         )
         ax.set_ylabel(ylabel)
-        if max(scores) >= 10**3 or min(scores) <= 10**-3:
-            ax.set_yscale("log")
+        # if max(scores) >= 10**3 or min(scores) <= 10**-3:
+        #     ax.set_yscale("log")
 
-        if len(scores) >= 10**3:
-            ax.set_xticks(np.arange(0, len(scores), step=1000))
-            ax.set_yscale("log")
-            ax.set_xscale("log")
+        # if len(scores) >= 10**3:
+        #     ax.set_xticks(np.arange(0, len(scores), step=1000))
+        #     ax.set_xscale("log")
 
     def plot(self):
         """

@@ -7,6 +7,9 @@ import pandas as pd
 # Scripts
 from causalitygame.lib.utils.metrics import log_penalty
 
+# Types
+from causalitygame.scm.abstract import SCM
+
 # Constants
 from causalitygame.lib.constants.environment import (
     ACTION_COLUMN,
@@ -31,6 +34,9 @@ class TreatmentsBehaviorMetric(BehaviorMetric):
             alpha (float): Penalty scaling factor for log_penalty.
         """
         self.alpha = alpha
+
+    def mount(self, scm: SCM) -> None:  # unused
+        pass
 
     def evaluate(self, history: pd.DataFrame) -> float:
         """

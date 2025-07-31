@@ -9,6 +9,7 @@ from causalitygame.evaluators.abstract import (
     BehaviorMetric,
     DeliverableMetric,
 )
+from causalitygame.scm.abstract import SCM
 
 # Constants
 from causalitygame.lib.constants.routes import METRICS_FOLDER_PATH
@@ -32,6 +33,15 @@ class DAGInferenceMission(BaseMission):
 
     def __init__(self, behavior_metric, deliverable_metric):
         super().__init__(behavior_metric, deliverable_metric)
+
+    def mount(self, scm: SCM):
+        """
+        Currently unused method for mounting the mission to the SCM.
+
+        Args:
+            scm (SCM): Structural Causal Model to mount the mission to.
+        """
+        pass
 
     def evaluate(self, scm, history):
         behavior_score = self.behavior_metric.evaluate(history)

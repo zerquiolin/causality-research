@@ -60,6 +60,8 @@ class GameInstance:
         mission = mission_cls.from_dict(data["mission"])
         # Generate the SCM
         scm = SCM.from_dict(data["scm"])
+        # Mount the mission with the SCM
+        mission.mount(scm)
         # Generate the random state
         random_state = random_state_from_json(data["random_state"])
         return cls(data["max_rounds"], scm, mission, random_state)

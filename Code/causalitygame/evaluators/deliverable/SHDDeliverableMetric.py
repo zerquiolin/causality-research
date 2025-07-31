@@ -42,7 +42,10 @@ class SHDDeliverableMetric(DeliverableMetric):
 
     name: str = "Structural Hamming Distance Deliverable Metric"
 
-    def evaluate(self, scm: SCM, history: pd.DataFrame) -> float:
+    def mount(self, scm: SCM) -> None:  # unused
+        pass
+
+    def evaluate(self, scm: SCM, data: pd.DataFrame) -> float:
         """
         Evaluate SHD between the SCM's true DAG and the predicted graph
         from the last history entry.
@@ -59,15 +62,15 @@ class SHDDeliverableMetric(DeliverableMetric):
             ValueError: If history is empty or lacks "current_result".
             TypeError:  If retrieved graphs are not nx.DiGraph instances.
         """
-        if history.empty:
+        if data.empty:
             raise ValueError("Cannot evaluate SHD: `history` is empty.")
 
-        if CURRENT_RESULT_COLUMN not in history.columns:
+        if CURRENT_RESULT_COLUMN not in data.columns:
             raise ValueError(
                 f"Cannot evaluate SHD: '{CURRENT_RESULT_COLUMN}' column missing."
             )
 
-        G_pred = history.iloc[-1][CURRENT_RESULT_COLUMN]
+        G_pred = data.iloc[-1][CURRENT_RESULT_COLUMN]
         G_true = scm.dag
 
         if not isinstance(G_true, nx.DiGraph) or not isinstance(G_pred, nx.DiGraph):

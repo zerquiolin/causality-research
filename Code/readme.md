@@ -148,7 +148,7 @@ Constructor parameters:
  • game_spec: path to a saved game instance (.pkl)
  • behavior_metrics: list of instantiated behavior metric objects
  • deliverable_metrics: list of instantiated deliverable metric objects
- • max_rounds, plambda, seed: optional configuration
+ • seed: optional configuration
 
 ## 🧪 Example: Running the Benchmark
 
@@ -211,10 +211,9 @@ game = Game(
     game_spec="instances/game_instance.pkl",  # path to your saved GameInstance
     behavior_metrics=behavior_metrics,
     deliverable_metrics=deliverable_metrics,
-    max_rounds=100,
-    plambda=0.8,
     seed=911,
 )
+
 
 results = game.run()
 print(results)

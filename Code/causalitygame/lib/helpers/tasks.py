@@ -46,7 +46,9 @@ class TaskFactory:
         # Clousure
         dataset = data.copy()
 
-        def compute_cate(Y: str, Z: str, X: List[str], samples: pd.DataFrame):
-            return cate_estimation(Y=Y, Z=Z, X=X, samples=samples, data=dataset)
+        def compute_cate(Y: str, Z: str, X: List[str], covariate_values: pd.DataFrame):
+            return cate_estimation(
+                Y=Y, Z=Z, X=X, covariate_values=covariate_values, data=dataset
+            )
 
         return compute_cate

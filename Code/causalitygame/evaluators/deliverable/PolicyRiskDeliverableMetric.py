@@ -1,6 +1,12 @@
-import numpy as np
+# Abstract
 from ..abstract import DeliverableMetric
+
+# Science
+import numpy as np
+
+# Types
 from typing import List, Any
+from causalitygame.scm.abstract import SCM
 
 
 class PolicyRiskDeliverableMetric(DeliverableMetric):
@@ -10,6 +16,9 @@ class PolicyRiskDeliverableMetric(DeliverableMetric):
         self.policy_fn = policy_fn
         self.contexts = contexts
         self.outcomes = outcomes
+
+    def mount(self, scm: SCM) -> None:  # unused
+        pass
 
     def evaluate(self, history) -> float:
         regrets = []

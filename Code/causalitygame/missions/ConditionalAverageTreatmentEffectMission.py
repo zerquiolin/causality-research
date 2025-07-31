@@ -36,11 +36,19 @@ class ConditionalAverageTreatmentEffectMission(BaseMission):
     name = "Conditional Average Treatment Effect Mission"
     description = "This mission evaluates the ability to infer the treatment effects in a causal graph given a intervention Z, covariates X, and outcome Y."
 
-    def evaluate(self, scm: SCM, history):
+    def mount(self, scm: SCM):
+        """
+        Mount the mission to the given SCM.
+
+        Args:
+            scm (SCM): Structural Causal Model to mount the mission to.
+        """
+        # Mount Behavior Metric
+        self.behavior_metric.mount(scm)
+        # Mount Deliverable Metric
+        self.deliverable_metric.mount(scm)
         # Define a random state for reproducibility
         rs = np.random.RandomState(911)
-        # Get the agents' function
-        empirical_te_function = history.iloc[-1]["current_result"]
         # Select the predictive node
         possible_outcomes = [
             var for var in scm.leaf_vars if type(scm.nodes[var].domain[0]) is not str
@@ -61,44 +69,66 @@ class ConditionalAverageTreatmentEffectMission(BaseMission):
             cancel_noise=True,
             random_state=rs,
         )
+        # Drop columns that are either the treatment node or the outcome node
+        cov_sample = cov_sample.drop(columns=[te_node, treatment_node])
         # Convert the result to a Dict
         cov_sample = cov_sample.to_dict(orient="records")[rs.choice(range(100))]
-        print(f"Covariates: {cov_sample}")
         # Generate samples for each treatment value
-        treatment_samples = pd.concat(
-            [
-                scm.generate_samples(
-                    interventions={treatment_node: value, "X": 1.5},
-                    num_samples=1,
-                    cancel_noise=True,
-                    random_state=rs,
-                )
-                for value in scm.nodes[treatment_node].domain
-            ]
-        )
+        treatment_samples = [
+            scm.generate_samples(
+                # interventions={treatment_node: value, "X": 1.5},
+                interventions={treatment_node: value, **cov_sample},
+                num_samples=1000,
+                cancel_noise=True,
+                random_state=rs,
+            )
+            for value in scm.nodes[treatment_node].domain
+        ]
+
         # Extract the outcome variable Y
-        Y = treatment_samples[te_node].values
-        true_cate = Y[1] - Y[0]
-        print(f"Treatment Effect: {true_cate} for {te_node} given {treatment_node}")
+        T0, T1 = treatment_samples
+        Y0, Y1 = T0[te_node].values, T1[te_node].values
+        true_cate = Y1 - Y0
+        # Save the treatment node
+        self.treatment_node = treatment_node
+        # Save the treatment effect node
+        self.te_node = te_node
+        # Save the treatment samples
+        self.treatment_samples = treatment_samples
+        # Save the true CATE
+        self.true_cate = true_cate[0]
+        # Update the is_mounted flag
+        self.is_mounted = True
+
+    def evaluate(self, scm: SCM, history):
+        # Check if the mission is mounted
+        if not self.is_mounted:
+            raise ValueError("Mission is not mounted")
+
+        # Get the agents' function
+        empirical_te_function = history.iloc[-1]["current_result"]
         # Compute the empirical treatment effect
         estimated_cate = empirical_te_function(
-            Y=te_node,
-            Z=treatment_node,
+            Y=self.te_node,
+            Z=self.treatment_node,
             X=[
                 var
                 for var in scm.vars
-                if var != te_node
-                and var != treatment_node
+                if var != self.te_node
+                and var != self.treatment_node
                 and (
                     scm.nodes[var].accessibility == ACCESSIBILITY_CONTROLLABLE
                     or scm.nodes[var].accessibility == ACCESSIBILITY_OBSERVABLE
                 )
             ],
-            samples=treatment_samples.drop(columns=[te_node]),
+            covariate_values=(
+                self.treatment_samples[0].drop(columns=[self.te_node]),
+                self.treatment_samples[1].drop(columns=[self.te_node]),
+            ),
         )
         behavior_score = self.behavior_metric.evaluate(history)
         deliverable_score = self.deliverable_metric.evaluate(
-            scm, (true_cate, estimated_cate)
+            scm, (self.true_cate, estimated_cate)
         )
 
         return behavior_score, deliverable_score

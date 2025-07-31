@@ -102,10 +102,6 @@ class EquationBasedNumericalSCMNode(BaseNumericSCMNode, EquationBasedSCMNode):
             np.iscomplex(evaluated)
         ), f"Evaluation of {self.evaluation} lead to complex numbers {evaluated}"
 
-        # TODO: Somehow check the domain
-        # Fix evaluated values to be within the domain
-        # evaluated = np.minimum(np.maximum(evaluated, self.domain[0]), self.domain[1])
-
         if cancel_noise:
             return evaluated
 

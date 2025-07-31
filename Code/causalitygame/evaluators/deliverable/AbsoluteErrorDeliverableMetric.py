@@ -1,9 +1,10 @@
 # Abstract
-import numbers
 from ..abstract import DeliverableMetric
 
 # Types
+import numbers
 from typing import Any, Tuple, Union
+from causalitygame.scm.abstract import SCM
 
 Numeric = Union[int, float]
 
@@ -15,6 +16,9 @@ class AbsoluteErrorDeliverableMetric(DeliverableMetric):
     """
 
     name: str = "Absolute Error Deliverable Metric"
+
+    def mount(self, scm: SCM) -> None:  # unused
+        pass
 
     def evaluate(self, scm: Any, data: Tuple[Numeric, Numeric]) -> float:
         """

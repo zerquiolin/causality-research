@@ -37,6 +37,10 @@ class AverageTreatmentEffectMission(BaseMission):
     description = "This mission evaluates the ability to infer the treatment effects in a causal graph given a intervention Z, covariates X, and outcome Y."
 
     def evaluate(self, scm: SCM, history):
+        # Check if the mission is mounted
+        if not self.is_mounted:
+            raise ValueError("Mission is not mounted")
+
         # Define a random state for reproducibility
         rs = np.random.RandomState(911)
         # Get the agents' function

@@ -25,7 +25,10 @@ class F1DeliverableMetric(DeliverableMetric):
 
     name: str = "F1 Deliverable Metric"
 
-    def evaluate(self, scm: SCM, history: pd.DataFrame) -> float:
+    def mount(self, scm: SCM) -> None:  # unused
+        pass
+
+    def evaluate(self, scm: SCM, data: pd.DataFrame) -> float:
         """
         Evaluate the F1 score for a predicted graph against the true graph in the SCM.
 
@@ -43,18 +46,18 @@ class F1DeliverableMetric(DeliverableMetric):
             KeyError: If `history` lacks the 'current_result' column.
         """
         # Validate inputs
-        if not isinstance(history, pd.DataFrame):
-            raise TypeError(f"history must be a pandas DataFrame, got {type(history)}")
-        if history.empty:
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError(f"history must be a pandas DataFrame, got {type(data)}")
+        if data.empty:
             raise ValueError("history DataFrame is empty; cannot evaluate metric.")
-        if CURRENT_RESULT_COLUMN not in history.columns:
+        if CURRENT_RESULT_COLUMN not in data.columns:
             raise KeyError(
                 f"history must contain a '{CURRENT_RESULT_COLUMN}' column with predicted graphs."
             )
 
         # Extract true and predicted graphs
         true_graph: nx.DiGraph = scm.dag.graph
-        pred_graph: nx.DiGraph = history.iloc[-1][CURRENT_RESULT_COLUMN]
+        pred_graph: nx.DiGraph = data.iloc[-1][CURRENT_RESULT_COLUMN]
 
         # Union of nodes
         nodes = sorted(set(true_graph.nodes()).union(pred_graph.nodes()))

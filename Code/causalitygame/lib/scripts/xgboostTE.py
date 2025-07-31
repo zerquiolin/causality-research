@@ -47,7 +47,7 @@ def te_estimation(
 
 
 def cate_estimation(
-    Y: str, Z: str, X: List[str], samples: pd.DataFrame, data: pd.DataFrame
+    Y: str, Z: str, X: List[str], covariate_values: pd.DataFrame, data: pd.DataFrame
 ):
     """
     Estimate the treatment effect given Y, Z, and X.
@@ -66,13 +66,21 @@ def cate_estimation(
     features = [Z] + X
     target = Y
 
+    # Define the treated and non-treated dataframes
+    X_non_treated, X_treated = covariate_values
+
     # Define the training and prediction dataframes
     X_train = data[features]
     y_train = data[target]
-    X_pred = samples[features]
+    X_non_treated_pred = X_non_treated[features]
+    X_treated_pred = X_treated[features]
 
     # Check both training and prediction dataframes have the same columns order
-    assert list(X_train.columns) == list(X_pred.columns), "Column order mismatch!"
+    assert (
+        list(X_train.columns)
+        == list(X_treated_pred.columns)
+        == list(X_non_treated_pred.columns)
+    ), "Column order mismatch!"
 
     # Generate model
     model = RandomForestRegressor(n_estimators=100, random_state=911)
@@ -81,9 +89,19 @@ def cate_estimation(
     model.fit(X_train, y_train)
 
     # Predict on the last two appended rows
-    Y0, Y1 = model.predict(X_pred)
+    Y_non_treated = model.predict(X_non_treated_pred)
+    Y_treated = model.predict(X_treated_pred)
 
-    return Y1 - Y0
+    # Calculate the difference for each pair of treated and non-treated
+    if len(Y_non_treated) != len(Y_treated):
+        raise ValueError(
+            "Treated and non-treated predictions must have the same length."
+        )
+
+    differences = Y_treated - Y_non_treated
+
+    # Return the average treatment effect
+    return differences.mean() if len(differences) > 0 else 0.0
 
 
 # def ate_estimation(Y: str, Z: str, samples: pd.DataFrame, data: pd.DataFrame):

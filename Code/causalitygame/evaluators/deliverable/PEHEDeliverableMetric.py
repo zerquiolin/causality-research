@@ -1,9 +1,11 @@
-import numpy as np
-
-# import networkx as nx
+# Abstract
 from ..abstract import DeliverableMetric
 
-# from typing import List, Any
+# Science
+import numpy as np
+
+# Types
+from causalitygame.scm.abstract import SCM
 
 
 class PEHEDeliverableMetric(DeliverableMetric):
@@ -12,6 +14,9 @@ class PEHEDeliverableMetric(DeliverableMetric):
     def __init__(self, true_effects: np.ndarray, predicted_effects: np.ndarray):
         self.true_effects = true_effects
         self.predicted_effects = predicted_effects
+
+    def mount(self, scm: SCM) -> None:  # unused
+        pass
 
     def evaluate(self, history) -> float:
         errors = (self.true_effects - self.predicted_effects) ** 2

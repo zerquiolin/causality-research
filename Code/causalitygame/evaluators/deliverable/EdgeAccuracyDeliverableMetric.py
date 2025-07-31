@@ -22,7 +22,10 @@ class EdgeAccuracyDeliverableMetric(DeliverableMetric):
 
     name: str = "Edge Precision Metric"
 
-    def evaluate(self, scm: SCM, history: pd.DataFrame) -> float:
+    def mount(self, scm: SCM) -> None:  # unused
+        pass
+
+    def evaluate(self, scm: SCM, data: pd.DataFrame) -> float:
         """
         Evaluate and return the precision of the final predicted graph.
 
@@ -43,13 +46,13 @@ class EdgeAccuracyDeliverableMetric(DeliverableMetric):
             TypeError: If the true or predicted graph is not a DiGraph.
         """
         # Validate history
-        if history.empty:
+        if data.empty:
             raise ValueError("Cannot evaluate metric on empty history.")
-        if CURRENT_RESULT_COLUMN not in history.columns:
+        if CURRENT_RESULT_COLUMN not in data.columns:
             raise KeyError("Expected 'current_result' column in history DataFrame.")
 
         # Extract graphs
-        G_pred = history.iloc[-1][CURRENT_RESULT_COLUMN]
+        G_pred = data.iloc[-1][CURRENT_RESULT_COLUMN]
         if not isinstance(G_pred, nx.DiGraph):
             raise TypeError(
                 f"Predicted result must be a networkx.DiGraph, got {type(G_pred)}."

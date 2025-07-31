@@ -6,6 +6,7 @@ import numpy as np
 
 # Types
 from typing import Sequence, Optional
+from causalitygame.scm.abstract import SCM
 
 
 class MeanSquaredErrorDeliverableMetric(DeliverableMetric):
@@ -20,12 +21,15 @@ class MeanSquaredErrorDeliverableMetric(DeliverableMetric):
 
     name: str = "Mean Squared Error Deliverable Metric"
 
-    def evaluate(self, scm: Optional[object], data: Sequence[Sequence[float]]) -> float:
+    def mount(self, scm: SCM) -> None:  # unused
+        pass
+
+    def evaluate(self, scm: Optional[SCM], data: Sequence[Sequence[float]]) -> float:
         """
         Evaluate the metric.
 
         Args:
-            scm: A scenario/context object (unused for MSE).
+            scm: Structureal Causal Model (unused in this metric, but required by interface).
             data: A two-element sequence: (predictions, targets). Each must be a sequence of floats,
                   and both sequences must have the same length.
 

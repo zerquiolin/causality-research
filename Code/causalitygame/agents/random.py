@@ -151,7 +151,6 @@ class RandomAgent(BaseAgent):
 
     def submit_answer(self) -> Callable:
         data = self.data.copy()
-        # print(f"Submitting answer with data:\n{len(data)}")
         if self._goal == "DAG Inference Mission":
             return TaskFactory.create_dag_task(data, is_numeric=self._is_numeric)
         elif self._goal == "Treatment Effect Mission":

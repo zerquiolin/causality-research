@@ -1,5 +1,9 @@
+# Abstract
 from abc import ABC, abstractmethod
 from causalitygame.evaluators.abstract import BehaviorMetric, DeliverableMetric
+
+# Types
+from causalitygame.scm.abstract import SCM
 
 
 class BaseMission(ABC):
@@ -9,14 +13,32 @@ class BaseMission(ABC):
     and generating deliverables based on the mission's objectives.
     """
 
+    # Description
     name: str
     description: str
+
+    # Attributes
+    is_mounted: bool = False
 
     def __init__(
         self, behavior_metric: BehaviorMetric, deliverable_metric: DeliverableMetric
     ):
         self.behavior_metric = behavior_metric
         self.deliverable_metric = deliverable_metric
+
+    def mount(self, scm: SCM) -> None:
+        """
+        Prepare the mission to be mounted to a given SCM.
+
+        Args:
+            scm (SCM): Structural Causal Model to mount the mission to.
+        """
+        # Mount Behavior Metric
+        self.behavior_metric.mount(scm)
+        # Mount Deliverable Metric
+        self.deliverable_metric.mount(scm)
+        # Update the mounted state
+        self.is_mounted = True
 
     @abstractmethod
     def evaluate(self, scm, history):

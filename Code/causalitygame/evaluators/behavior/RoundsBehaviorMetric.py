@@ -7,6 +7,9 @@ import pandas as pd
 # Scripts
 from causalitygame.lib.utils.metrics import log_penalty
 
+# Types
+from causalitygame.scm.abstract import SCM
+
 # Constants
 from causalitygame.lib.constants.environment import (
     ACTION_COLUMN,
@@ -37,6 +40,9 @@ class RoundsBehaviorMetric(BehaviorMetric):
         if not 0.0 < alpha < 1.0:
             raise ValueError(f"alpha must be between 0 and 1, got {alpha}")
         self.alpha = alpha
+
+    def mount(self, scm: SCM) -> None:  # unused
+        pass
 
     def evaluate(self, history: pd.DataFrame) -> float:
         """
